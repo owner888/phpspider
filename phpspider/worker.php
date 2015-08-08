@@ -1,4 +1,7 @@
 <?php
+//设置时区
+date_default_timezone_set('Asia/Shanghai');
+ini_set('display_errors', 1);
 /**
  * Worker多进程操作类
  *
