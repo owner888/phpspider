@@ -1,0 +1,15 @@
+Rolling Curl changelog
+======================
+
+September 13, 2010
+------------------
+- Bug #12, #14: Fixed default options overriding (LionsAd)
+- Bug #10: Added use of curl_multi_select to avoid burning CPU (LionsAd)
+- Enh #6, #9: Added $request as parameter to callback function (LionsAd)
+- Chg: Request renamed to RollingCurlRequest (LionsAd)
+- Added RollingCurlGroup class that allows processing groups of requests (LionsAd)
+- More cleanup at unsetting a class (LionsAd)
+- Timeout parameter for curl_multi_select is now configurable (LionsAd)
+- single_curl now returns true (LionsAd)
+- Readme corrections (Alexander Makarov)
+- Code cleanup (Alexander Makarov)

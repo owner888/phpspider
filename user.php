@@ -16,7 +16,7 @@ function set_cookie()
 {
     //$cookie_jar = dirname(__FILE__)."/zhihu.cookie";
     //cls_curl::set_cookie_file($cookie_jar);
-    $cookie = '';   // 自己去知乎上面取
+    $cookie = '_za=36643642-e546-4d60-a771-8af8dcfbd001; q_c1=a57a2b9f10964f909b8d8969febf3ab2|1437705596000|1437705596000; _xsrf=f0304fba4e44e1d008ec308d59bab029; cap_id="YWY1YmRmODlmZGVmNDc3MWJlZGFkZDg3M2E0M2Q5YjM=|1437705596|963518c454bb6f10d96775021c098c84e1e46f5a"; z_c0="QUFCQVgtRWZBQUFYQUFBQVlRSlZUVjR6NEZVUTgtRkdjTVc5UDMwZXRJZFdWZ2JaOWctNVhnPT0=|1438164574|aed6ef3707f246a7b64da4f1e8c089395d77ff2b"; __utma=51854390.1105113342.1437990174.1438160686.1438164116.10; __utmc=51854390; __utmz=51854390.1438134939.8.5.utmcsr=zhihu.com|utmccn=(referral)|utmcmd=referral|utmcct=/people/yangzetao; __utmv=51854390.100-1|2=registration_date=20131030=1^3=entry_date=20131030=1';
     cls_curl::set_cookie($cookie);
 }
 
@@ -28,13 +28,13 @@ function set_cookie()
  * @author seatle <seatle@foxmail.com> 
  * @created time :2015-07-28 09:46
  */
-function get_user_info($username)
+function get_user_about($content)
 {
     $data = array();
-    $url = "http://www.zhihu.com/people/{$username}/about";
-    set_cookie();
-    cls_curl::set_gzip(true);
-    $content = cls_curl::get($url);
+    //$url = "http://www.zhihu.com/people/{$username}/about";
+    //set_cookie();
+    //cls_curl::set_gzip(true);
+    //$content = cls_curl::get($url);
 
     if (empty($content)) 
     {
@@ -131,7 +131,11 @@ function get_user_info($username)
     $data['favs'] = empty($out[1]) ? 0 : intval($out[1]);
     preg_match('#<strong>(.*?)</strong> 分享#', $content, $out);
     $data['shares'] = empty($out[1]) ? 0 : intval($out[1]);
+    return $data;
+}
 
+function get_user_info()
+{
     // 从用户主页获取用户最后一条动态信息
     $url = "http://www.zhihu.com/people/{$username}";
     $content = cls_curl::get($url);
@@ -139,8 +143,6 @@ function get_user_info($username)
     $data['last_message_time'] = empty($out[1]) ? 0 : intval($out[1]);
     preg_match('#<div class="zm-profile-section-main zm-profile-section-activity-main zm-profile-activity-page-item-main">(.*?)</div>#s', $content, $out);
     $data['last_message'] = empty($out[1]) ? 0 : trim(str_replace("\n", " ", strip_tags($out[1])));
-
-    return $data;
 }
 
 /**

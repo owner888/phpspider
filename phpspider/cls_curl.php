@@ -159,6 +159,8 @@ class cls_curl
             curl_setopt( self::$ch, CURLOPT_HEADER, false );
             curl_setopt( self::$ch, CURLOPT_USERAGENT, self::$useragent );
             curl_setopt( self::$ch, CURLOPT_TIMEOUT, self::$timeout + 5);
+            // 在多线程处理场景下使用超时选项时，会忽略signals对应的处理函数，但是无耐的是还有小概率的crash情况发生
+            curl_setopt( self::$ch, CURLOPT_NOSIGNAL, true);
         }
         return self::$ch;
     }
@@ -268,6 +270,123 @@ class cls_curl
         return $data;
     }
 
+}
 
+function classic_curl($urls, $delay) 
+{
+    $queue = curl_multi_init();
+    $map = array();
+ 
+    foreach ($urls as $url) 
+    {
+        // create cURL resources
+        $ch = curl_init();
+ 
+        // 设置 URL 和 其他参数
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 1);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_NOSIGNAL, true);
+ 
+        // 把当前 curl resources 加入到 curl_multi_init 队列
+        curl_multi_add_handle($queue, $ch);
+        $map[$url] = $ch;
+    }
+ 
+    $active = null;
+ 
+    // execute the handles
+    do {
+        $mrc = curl_multi_exec($queue, $active);
+    } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+    while ($active > 0 && $mrc == CURLM_OK) {
+        while (curl_multi_exec($queue, $active) === CURLM_CALL_MULTI_PERFORM);
+        // 这里 curl_multi_select 一直返回 -1，所以这里就死循环了，CPU就100%了
+        if (curl_multi_select($queue, 0.5) != -1) 
+        {
+            do {
+                $mrc = curl_multi_exec($queue, $active);
+            } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+        }
+    }
+ 
+    $responses = array();
+    foreach ($map as $url=>$ch) {
+        //$responses[$url] = callback(curl_multi_getcontent($ch), $delay);
+        $responses[$url] = callback(curl_multi_getcontent($ch), $delay, $url);
+        curl_multi_remove_handle($queue, $ch);
+        curl_close($ch);
+    }
+ 
+    curl_multi_close($queue);
+    return $responses;
+}
+
+function rolling_curl($urls, $delay) 
+{
+    $queue = curl_multi_init();
+    $map = array();
+
+    foreach ($urls as $url) {
+        $ch = curl_init();
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_NOSIGNAL, true);
+        $cookie = '_za=36643642-e546-4d60-a771-8af8dcfbd001; q_c1=a57a2b9f10964f909b8d8969febf3ab2|1437705596000|1437705596000; _xsrf=f0304fba4e44e1d008ec308d59bab029; cap_id="YWY1YmRmODlmZGVmNDc3MWJlZGFkZDg3M2E0M2Q5YjM=|1437705596|963518c454bb6f10d96775021c098c84e1e46f5a"; z_c0="QUFCQVgtRWZBQUFYQUFBQVlRSlZUVjR6NEZVUTgtRkdjTVc5UDMwZXRJZFdWZ2JaOWctNVhnPT0=|1438164574|aed6ef3707f246a7b64da4f1e8c089395d77ff2b"; __utma=51854390.1105113342.1437990174.1438160686.1438164116.10; __utmc=51854390; __utmz=51854390.1438134939.8.5.utmcsr=zhihu.com|utmccn=(referral)|utmcmd=referral|utmcct=/people/yangzetao; __utmv=51854390.100-1|2=registration_date=20131030=1^3=entry_date=20131030=1';
+        curl_setopt($ch, CURLOPT_COOKIE, $cookie);
+        $useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36';
+        curl_setopt( $ch, CURLOPT_USERAGENT, $useragent );
+        curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
+
+        curl_multi_add_handle($queue, $ch);
+        $map[(string) $ch] = $url;
+    }
+
+    $responses = array();
+    do {
+        while (($code = curl_multi_exec($queue, $active)) == CURLM_CALL_MULTI_PERFORM) ;
+
+        if ($code != CURLM_OK) { break; }
+
+        // a request was just completed -- find out which one
+        while ($done = curl_multi_info_read($queue)) {
+
+            // get the info and content returned on the request
+            $info = curl_getinfo($done['handle']);
+            $error = curl_error($done['handle']);
+            $results = callback(curl_multi_getcontent($done['handle']), $delay, $map[(string) $done['handle']]);
+            $responses[$map[(string) $done['handle']]] = compact('info', 'error', 'results');
+
+            // remove the curl handle that just completed
+            curl_multi_remove_handle($queue, $done['handle']);
+            curl_close($done['handle']);
+        }
+
+        // Block for data in / output; error handling is done by curl_multi_exec
+        if ($active > 0) {
+            curl_multi_select($queue, 0.5);
+        }
+
+    } while ($active);
+
+    curl_multi_close($queue);
+    return $responses;
+}
+
+function callback($data, $delay, $url) {
+    //echo $data;
+    //echo date("Y-m-d H:i:s", time()) . " --- " . $url . "\n";
+    if (!empty($data)) 
+    {
+        file_put_contents("./html2/".md5($url).".html", $data);
+    }
+    // usleep模拟现实中比较负责的数据处理逻辑(如提取, 分词, 写入文件或数据库等)
+    //usleep(1);
+    //return compact('data', 'matches');
 }
 

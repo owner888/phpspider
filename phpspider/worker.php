@@ -15,6 +15,8 @@
 class worker
 {
     public $count = 0;
+    public $worker_id = 0;
+    public $worker_pid = 0;
     public $user = '';
     public $title = '';
     public $is_once = false;
@@ -97,7 +99,7 @@ class worker
 
         for ($i = 0; $i < $this->count; $i++) 
         {
-            $this->fork_one_worker();
+            $this->fork_one_worker($i);
         }
         $this->monitor_workers();
 
@@ -114,7 +116,7 @@ class worker
      * @param Worker $worker
      * @throws Exception
      */
-    public function fork_one_worker()
+    public function fork_one_worker($worker_id)
     {
         //$sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         $pid = pcntl_fork();
@@ -127,12 +129,12 @@ class worker
         // 子进程
         elseif(0 === $pid)
         {
+            $this->worker_id = $worker_id;
+            $this->worker_pid = posix_getpid();
             $this->set_process_title($this->title);
             $this->set_process_user($this->user);
             self::$_worker_pids = array();
             //$this->uninstall_signal();
-            $pid = posix_getpid();
-            //echo "worker[".$pid."] running\n";
             if ($this->on_worker_start) 
             {
                 call_user_func($this->on_worker_start, $this);
