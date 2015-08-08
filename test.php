@@ -1,6 +1,6 @@
 <?php
 
-include "config.php";
+include "phpspider/config.php";
 include "phpspider/worker.php";
 include "phpspider/rolling_curl.php";
 include "phpspider/db.php";
