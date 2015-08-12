@@ -252,10 +252,9 @@ class cls_curl
         {
             curl_setopt( self::$ch, CURLOPT_ENCODING, 'gzip' );
         }
-        if ($proxy)
+        if (self::$proxy)
         {
-            curl_setopt( self::$ch, CURLOPT_PROXY, $url );
-            curl_setopt( self::$ch, CURLOPT_USERAGENT, $url );
+            curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxy );
         }
         $data = curl_exec ( self::$ch );
         if ($data === false)

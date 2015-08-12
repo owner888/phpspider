@@ -44,8 +44,10 @@ class rolling_curl
     protected $options = array(
         CURLOPT_SSL_VERIFYPEER => 0,
         CURLOPT_RETURNTRANSFER => 1,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_TIMEOUT => 10,
+        // 注意：TIMEOUT = CONNECTTIMEOUT + 数据获取时间，所以 TIMEOUT 一定要大于 CONNECTTIMEOUT，否则 CONNECTTIMEOUT 设置了就没意义 
+        // "Connection timed out after 30001 milliseconds"
+        CURLOPT_CONNECTTIMEOUT => 30,
+        CURLOPT_TIMEOUT => 60,
         CURLOPT_RETURNTRANSFER => 1,
         CURLOPT_HEADER => 0,
         // 在多线程处理场景下使用超时选项时，会忽略signals对应的处理函数，但是无耐的是还有小概率的crash情况发生
