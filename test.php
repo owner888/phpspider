@@ -5,16 +5,37 @@ include "phpspider/worker.php";
 include "phpspider/rolling_curl.php";
 include "phpspider/db.php";
 include "phpspider/cache.php";
+include "phpspider/cls_query.php";
 include "user.php";
+include "phpspider/cls_curl.php";
 
-$cookie = '_za=36643642-e546-4d60-a771-8af8dcfbd001; q_c1=a57a2b9f10964f909b8d8969febf3ab2|1437705596000|1437705596000; _xsrf=f0304fba4e44e1d008ec308d59bab029; cap_id="YWY1YmRmODlmZGVmNDc3MWJlZGFkZDg3M2E0M2Q5YjM=|1437705596|963518c454bb6f10d96775021c098c84e1e46f5a"; z_c0="QUFCQVgtRWZBQUFYQUFBQVlRSlZUVjR6NEZVUTgtRkdjTVc5UDMwZXRJZFdWZ2JaOWctNVhnPT0=|1438164574|aed6ef3707f246a7b64da4f1e8c089395d77ff2b"; __utma=51854390.1105113342.1437990174.1438160686.1438164116.10; __utmc=51854390; __utmz=51854390.1438134939.8.5.utmcsr=zhihu.com|utmccn=(referral)|utmcmd=referral|utmcct=/people/yangzetao; __utmv=51854390.100-1|2=registration_date=20131030=1^3=entry_date=20131030=1';
+$cookie = trim(file_get_contents("cookie.txt"));
 
 $curl = new rolling_curl();
 $curl->set_cookie($cookie);
 $curl->set_gzip(true);
 $curl->callback = function($response, $info, $request, $error) {
-    $data = get_user_about($response);
-    file_put_contents("./html/".md5($request['url']).".json", json_encode($data));
+
+    preg_match("@http://www.zhihu.com/people/(.*?)/about@i", $request['url'], $out);
+    $username = $out[1];
+    if (empty($response)) 
+    {
+        file_put_contents("./timeout/".$username."_info.json", json_encode($info)."\n", FILE_APPEND);
+        file_put_contents("./timeout/".$username."_error.json", json_encode($error)."\n", FILE_APPEND);
+    }
+    else 
+    {
+        $data = get_user_about($response);
+        if (empty($data)) 
+        {
+            file_put_contents("./timeout_data.txt", $request['url']."\n", FILE_APPEND);
+        }
+        else 
+        {
+            file_put_contents("./html/".$username.".json", json_encode($data));
+        }
+    }
+
 };
 for ($i = 0; $i < 1; $i++) 
 {
@@ -24,7 +45,6 @@ for ($i = 0; $i < 1; $i++)
     $curl->get($url);
 }
 $data = $curl->execute();
-
 exit;
 
 $w = new worker();
@@ -32,18 +52,39 @@ $w->count = 10;
 $w->is_once = true;
 $w->log_show = false;
 
-$count = 10;        // 每个进程循环多少次
+$count = 100;        // 每个进程循环多少次
 $w->on_worker_start = function($worker) use ($count) {
 
     //echo $worker->worker_pid . " --- " . $worker->worker_id."\n";
-    $cookie = '_za=36643642-e546-4d60-a771-8af8dcfbd001; q_c1=a57a2b9f10964f909b8d8969febf3ab2|1437705596000|1437705596000; _xsrf=f0304fba4e44e1d008ec308d59bab029; cap_id="YWY1YmRmODlmZGVmNDc3MWJlZGFkZDg3M2E0M2Q5YjM=|1437705596|963518c454bb6f10d96775021c098c84e1e46f5a"; z_c0="QUFCQVgtRWZBQUFYQUFBQVlRSlZUVjR6NEZVUTgtRkdjTVc5UDMwZXRJZFdWZ2JaOWctNVhnPT0=|1438164574|aed6ef3707f246a7b64da4f1e8c089395d77ff2b"; __utma=51854390.1105113342.1437990174.1438160686.1438164116.10; __utmc=51854390; __utmz=51854390.1438134939.8.5.utmcsr=zhihu.com|utmccn=(referral)|utmcmd=referral|utmcct=/people/yangzetao; __utmv=51854390.100-1|2=registration_date=20131030=1^3=entry_date=20131030=1';
+    $cookie = trim(file_get_contents("cookie.txt"));
 
     $curl = new rolling_curl();
     $curl->set_cookie($cookie);
     $curl->set_gzip(true);
     $curl->callback = function($response, $info, $request, $error) {
-        $data = get_user_about($response);
-        file_put_contents("./html/".md5($request['url']).".json", json_encode($data));
+
+        preg_match("@http://www.zhihu.com/people/(.*?)/about@i", $request['url'], $out);
+        $username = $out[1];
+        if (empty($response)) 
+        {
+            var_dump($info);
+            file_put_contents("./timeout/".$username."_info.json", json_encode($info)."\n", FILE_APPEND);
+            file_put_contents("./timeout/".$username."_error.json", json_encode($error)."\n", FILE_APPEND);
+        }
+        else 
+        {
+            $data = get_user_about($response);
+            if (empty($data)) 
+            {
+                file_put_contents("./timeout_data.txt", $request['url']."\n", FILE_APPEND);
+            }
+            else 
+            {
+                preg_match("@http://www.zhihu.com/people/(.*?)/about@i", $request['url'], $out);
+                file_put_contents("./html/".$out[1].".json", json_encode($data));
+            }
+        }
+
     };
 
     for ($i = 0; $i < $count; $i++) 

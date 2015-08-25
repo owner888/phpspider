@@ -19,8 +19,9 @@ class rolling_curl
      *
      * 同时运行任务数
      * 例如：有8个请求，则会被分成两批，第一批5个请求，第二批3个请求
+     * 注意：采集知乎的时候，5个是比较稳定的，7个以上就开始会超时了，多进程就没有这样的问题，因为多进程很少几率会发生并发
      */
-    private $window_size = 5;
+    public $window_size = 5;
 
     /**
      * @var float
@@ -320,7 +321,7 @@ class rolling_curl
         }
         else 
         {
-            // start the rolling curl. window_size is the max number of simultaneous connections
+            // 开始 rolling curl，window_size 是最大同时连接数
             return $this->rolling_curl($window_size);
         }
     }
@@ -342,7 +343,7 @@ class rolling_curl
         //$output = substr($output, 10);
         //$output = gzinflate($output);
 
-        // it's not neccesary to set a callback for one-off requests
+        // 其实一个请求的时候没是么必要回调，直接返回数据就好了，不过这里算是多一个功能吧，和多请求保持一样的操作
         if ($this->callback)
         {
             if (is_callable($this->callback))
@@ -381,7 +382,7 @@ class rolling_curl
             $options = $this->get_options($this->requests[$i]);
             curl_setopt_array($ch, $options);
             curl_multi_add_handle($master, $ch);
-            // Add to our request Maps
+            // 添加到请求数组
             $key = (string) $ch;
             $this->requestMap[$key] = $i;
         }
@@ -389,6 +390,7 @@ class rolling_curl
         do {
             while (($execrun = curl_multi_exec($master, $running)) == CURLM_CALL_MULTI_PERFORM) ;
 
+            // 如果
             if ($execrun != CURLM_OK) { break; }
 
             // 一旦有一个请求完成，找出来，因为curl底层是select，所以最大受限于1024
@@ -417,7 +419,7 @@ class rolling_curl
                     curl_setopt_array($ch, $options);
                     curl_multi_add_handle($master, $ch);
 
-                    // Add to our request Maps
+                    // 添加到请求数组
                     $key = (string) $ch;
                     $this->requestMap[$key] = $i;
                     $i++;
@@ -426,20 +428,17 @@ class rolling_curl
                 curl_multi_remove_handle($master, $done['handle']);
             }
 
-            // Block for data in / output; error handling is done by curl_multi_exec
+            // 当没有数据的时候进行堵塞，把 CPU 使用权交出来，避免上面 do 死循环空跑数据导致 CPU 100%
             if ($running)
+            {
                 curl_multi_select($master, $this->timeout);
+            }
 
         } while ($running);
+        // 关闭任务
         curl_multi_close($master);
-        // 把请求清空，否则没有重新 new rolling_curl(); 直接再次导入一批url的时候，就会把前面已经执行过的url又执行一轮
-        // for ($i = 0; $i < 2; $i++) 
-        // {
-        //     $url = "http://www.zhihu.com/people/{$username}/about";
-        //     $curl->get($url);
-        // }
-        // $data = $curl->execute();
 
+        // 把请求清空，否则没有重新 new rolling_curl(); 直接再次导入一批url的时候，就会把前面已经执行过的url又执行一轮
         unset($this->requests);
         return true;
     }
