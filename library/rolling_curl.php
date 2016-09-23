@@ -94,9 +94,13 @@ class rolling_curl
      * set proxy
      *
      */
-    public function set_proxy($proxy)
+    public function set_proxy($proxy, $proxy_auth = '')
     {
         $this->options[CURLOPT_PROXY] = $proxy;
+        if ($proxy_auth) 
+        {
+            $this->options[CURLOPT_PROXYUSERPWD] = $proxy_auth;
+        }
     }
 
     /**
@@ -150,6 +154,19 @@ class rolling_curl
     public function set_cookiefile($cookiefile)
     {
         $this->options[CURLOPT_COOKIEFILE] = $cookiefile;
+    }
+
+    /**
+     * 获取内容的时候是不是连header也一起获取
+     * 
+     * @param mixed $http_raw
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
+     */
+    public static function set_http_raw($http_raw = false)
+    {
+        $this->options[CURLOPT_HEADER] = $http_raw;
     }
 
     /**

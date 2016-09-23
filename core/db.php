@@ -40,6 +40,7 @@ class db
             {
                 self::$conn_fail++;
                 $errmsg = 'Mysql Connect failed['.self::$conn_fail.']: ' . mysqli_connect_error();
+                echo util::colorize(date("H:i:s") . " {$errmsg}\n\n", 'fail');
                 log::add($errmsg, "Error");
                 // 连接失败5次，中断进程
                 if (self::$conn_fail >= 5) 

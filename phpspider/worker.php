@@ -2,6 +2,12 @@
 //设置时区
 date_default_timezone_set('Asia/Shanghai');
 ini_set('display_errors', 1);
+// 关闭最大执行时间限制, 在CLI模式下, 这个语句其实不必要
+//set_time_limit(0);
+// 确保这个函数只能运行在SHELL中
+if (substr(php_sapi_name(), 0, 3) !== 'cli') {
+    die("This Programe can only be run in CLI mode");
+}
 /**
  * Worker多进程操作类
  *
@@ -22,21 +28,23 @@ class worker
     public $worker_pid = 0;
     public $user = '';
     public $title = '';
-    public $is_once = false;
+    public $run_again = false;
     public $log_show = true;
     public $log_file = '';
+    public $on_master_start = false;
+    public $on_master_stop = false;
     public $on_worker_start = false;
     public $on_worker_stop = false;
     protected static $_master_pid = 0;
-    protected static $_worker_pids = array();
+    protected static $_worker_ids = array();
 
     public function __construct()
     {
         // 注册进程退出回调，用来检查是否有错误
         register_shutdown_function(array($this, 'check_errors'));
         self::$_master_pid = posix_getpid();
-        // 产生时钟云，添加后父进程才可以收到信号
-        declare(ticks = 1);
+        // 产生时钟云，程序每执行一行代码就去检查一下信号队列，性能太差了
+        //declare(ticks = 1);
         $this->install_signal();
     }
 
@@ -46,30 +54,27 @@ class worker
      */
     protected function install_signal()
     {
-        // stop
-        pcntl_signal(SIGINT,  array($this, 'signal_handler'), false);
-        // reload
-        pcntl_signal(SIGUSR1, array($this, 'signal_handler'), false);
-        // status
-        pcntl_signal(SIGUSR2, array($this, 'signal_handler'), false);
-        // ignore
-        pcntl_signal(SIGPIPE, SIG_IGN, false);
-        // install signal handler for dead kids
-        // pcntl_signal(SIGCHLD, array($this, 'signal_handler'));
+        // 开启一个信号监控  
+        pcntl_signal(SIGINT,  array($this, 'signal_handler'), false);   // stop
+        pcntl_signal(SIGUSR1, array($this, 'signal_handler'), false);   // reload
+        pcntl_signal(SIGUSR2, array($this, 'signal_handler'), false);   // status
+        pcntl_signal(SIGPIPE, SIG_IGN, false);                          // ignore
     }
 
     /**
-     * 卸载信号处理函数
+     * reinstall signal handlers for workers
      * @return void
      */
-    protected function uninstall_signal()
+    protected function reinstall_signal()
     {
-        // uninstall stop signal handler
+        // uninstall signal
         pcntl_signal(SIGINT,  SIG_IGN, false);
-        // uninstall reload signal handler
         pcntl_signal(SIGUSR1, SIG_IGN, false);
-        // uninstall  status signal handler
         pcntl_signal(SIGUSR2, SIG_IGN, false);
+        // reinstall signal，不要带false了，因为子进程执行完回调函数，还要重新启动信号的
+        pcntl_signal(SIGINT,  array($this, 'signal_handler'));   // stop
+        pcntl_signal(SIGUSR1, array($this, 'signal_handler'));   // reload
+        pcntl_signal(SIGUSR2, array($this, 'signal_handler'));   // status
     }
 
     /**
@@ -80,38 +85,18 @@ class worker
         switch ($signal) {
             // stop 2
             case SIGINT:
+                //echo "stop\n";
                 $this->stop_all();
                 break;
             // reload 30
             case SIGUSR1:
-                echo "sreloadtop\n";
+                echo "reload\n";
                 break;
             // show status 31
             case SIGUSR2:   
                 echo "status\n";
                 break;
         }
-    }
-
-    /**
-     * 运行worker实例
-     */
-    public function run()
-    {
-        $this->set_process_title($this->title);
-
-        for ($i = 0; $i < $this->count; $i++) 
-        {
-            $this->fork_one_worker($i);
-        }
-        $this->monitor_workers();
-
-        //$size = memory_get_usage() - $this->memory_start;
-        //$unit = array('b','kb','mb','gb','tb','pb'); 
-        //$memory = @round($size/pow(1024,($i=floor(log($size,1024)))),2).' '.$unit[$i]; 
-        //$time = microtime(true) - $this->time_start;
-        //echo "Done in $time seconds\t $memory\n";
-
     }
 
     /**
@@ -127,7 +112,7 @@ class worker
         // 父进程，$pid 是子进程的id
         if($pid > 0)
         {
-            self::$_worker_pids[$pid] = $pid;
+            self::$_worker_ids[$pid] = $worker_id;
         }
         // 子进程
         elseif(0 === $pid)
@@ -136,11 +121,46 @@ class worker
             $this->worker_pid = posix_getpid();
             $this->set_process_title($this->title);
             $this->set_process_user($this->user);
-            self::$_worker_pids = array();
-            //$this->uninstall_signal();
+            self::$_worker_ids = array();
+            // 重新给子进程安装信号
+            $this->reinstall_signal();
             if ($this->on_worker_start) 
             {
                 call_user_func($this->on_worker_start, $this);
+            }
+            exit;
+            while(1)
+            {
+                pcntl_signal_dispatch();
+                // 堵塞等待信号到来
+                $pid = pcntl_wait($status, WUNTRACED);
+                echo "pcntl_wait\n";
+            }
+            //$pid = posix_getpid();
+            //while(1)
+            //{
+                //$res = pcntl_waitpid($pid, $status, WNOHANG);
+                ////$pid = pcntl_wait($status, WUNTRACED);
+                //var_dump($res);
+                //var_dump($status);
+            //}
+            exit(250);
+            $read = array(
+                SIGINT,
+                SIGUSR1,
+                SIGUSR2
+            );
+            while (1)
+            {
+                // 检查信号
+                pcntl_signal_dispatch();
+                // waits for $read and $write to change status
+                if(($ret = stream_select($read, $write = null, $e = null, PHP_INT_MAX)))
+                {
+                    var_dump($read);
+                }
+                var_dump($write);
+                var_dump($e);
             }
             // 这里用0表示正常退出
             exit(0);
@@ -204,44 +224,44 @@ class worker
     {
         while(1)
         {
-            // pcntl_signal_dispatch 子进程无法接受到信号
-            // 如果有信号到来，尝试触发信号处理函数
-            //pcntl_signal_dispatch();
-            // 挂起进程，直到有子进程退出或者被信号打断
-            $status = 0;
+            // 检查是否有信号需要处理，PHP就是差，信号是放在一个队列里，要不断跑这个函数去检查的
+            // 但是用declare(ticks = 1)，每执行一行代码就去检查一遍信号，性能又很差
+            pcntl_signal_dispatch();
+            // 堵塞等待信号到来
             $pid = pcntl_wait($status, WUNTRACED);
-            // 如果有信号到来，尝试触发信号处理函数
-            //pcntl_signal_dispatch();
-
-            // 子进程退出信号
-            if($pid > 0)
+            // 如果不是正常退出(正常的exit和ctil+c)，是被kill等杀掉的
+            if (!pcntl_wifexited($status)) 
             {
-                //echo "worker[".$pid."] stop\n";
-                $this->stop();
-
-                // 如果不是正常退出，是被kill等杀掉的
-                if($status !== 0)
-                {
-                    echo "worker {$pid} exit with status $status\n";
-                }
-
-                unset(self::$_worker_pids[$pid]);
-
-                // 再生成一个worker
-                if (!$this->is_once) 
-                {
-                    $this->fork_one_worker();
-                }
-
-                if (!self::$_worker_pids) 
-                {
-                    exit("主进程退出\n");
-                }
+                echo "worker {$pid} exit with status $status\n";
             }
-            // 其他信号
             else 
             {
-                exit("主进程 异常 退出\n");
+                echo "worker {$pid} exit with status $status\n";
+            }
+
+            // 如果收到的是子进程发出的信号，不是主进程信号
+            // 这里已经处理了，所以不需要安装子进程死亡信号：pcntl_signal(SIGCHLD, SIG_IGN, false);
+            if ($pid > 0) 
+            {
+                // 那个worker关闭了，以它的id重新建立一个
+                $worker_id = self::$_worker_ids[$pid];
+                unset(self::$_worker_ids[$pid]);
+
+                // 再生成一个worker
+                if ($this->run_again) 
+                {
+                    $this->fork_one_worker($worker_id);
+                }
+            }
+
+            // 如果所有子进程都退出了，退出主进程
+            if (!self::$_worker_ids) 
+            {
+                if ($this->on_master_stop) 
+                {
+                    call_user_func($this->on_master_stop, $this);
+                }
+                exit();
             }
         }
     }
@@ -252,18 +272,24 @@ class worker
      */
     public function stop_all()
     {
-        if(self::$_master_pid === posix_getpid())
+        // 当前进程 == 主进程
+        if(posix_getpid() == self::$_master_pid)
         {
-            foreach (self::$_worker_pids as $worker_pid) 
+            foreach (self::$_worker_ids as $pid=>$worker_id) 
             {
-                posix_kill($worker_pid, SIGINT);
+                echo "发送关闭信号给子进程 --- ".$pid."\n";
+                // 子进程如果在运行堵塞程序，比如sleep，收到信号也不会调用回调函数的，会一直卡主
+                //posix_kill($pid, SIGINT);
+                // 发送强制关闭信号，子进程一定会退出
+                posix_kill($pid, SIGTERM);
             }
             //sleep(2);
-            echo "主进程\n";
+            //echo "主进程\n";
         }
         else 
         {
-            $this->stop();
+            //echo "子进程\n";
+            $this->worker_stop();
             exit(0);
         }
     }
@@ -272,7 +298,7 @@ class worker
      * 停止当前worker实例
      * @return void
      */
-    public function stop()
+    public function worker_stop()
     {
         if ($this->on_worker_stop) 
         {
@@ -340,6 +366,25 @@ class worker
             return 'E_USER_DEPRECATED';
         }
         return "";
+    }
+
+    /**
+     * 运行worker实例
+     */
+    public function run()
+    {
+        $this->set_process_title($this->title);
+
+        if ($this->on_master_start) 
+        {
+            call_user_func($this->on_master_start, $this);
+        }
+
+        for ($i = 0; $i < $this->count; $i++) 
+        {
+            $this->fork_one_worker($i);
+        }
+        $this->monitor_workers();
     }
 
     /**

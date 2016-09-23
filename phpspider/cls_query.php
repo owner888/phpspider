@@ -2,7 +2,7 @@
 class cls_query
 {
     private static $content;
-    private static $debug = false;
+    public static $debug = false;
 
     public static function init($content)
     {

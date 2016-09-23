@@ -16,16 +16,19 @@ class cls_curl
 {
     protected static $timeout = 10;
     protected static $ch = null;
-    protected static $proxy = null;
     protected static $useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36';
+    protected static $http_raw = false;
     protected static $cookie = null;
     protected static $cookie_jar = null;
     protected static $cookie_file = null;
     protected static $referer = null;
     protected static $ip = null;
+    protected static $proxy = null;
+    protected static $proxy_auth = null;
     protected static $headers = array();
     protected static $hosts = array();
     protected static $gzip = false;
+    protected static $info = array();
 
     /**
      * set timeout
@@ -39,14 +42,20 @@ class cls_curl
     }
 
     /**
-     * set proxy
-     *
+     * 设置代理
+     * 
+     * @param mixed $proxy
+     * @param string $proxy_auth
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
      */
-    public static function set_proxy($proxy)
+    public static function set_proxy($proxy, $proxy_auth = '')
     {
         self::$proxy = $proxy;
+        self::$proxy_auth = $proxy_auth;
     }
-    
+
     /**
      * set referer
      *
@@ -98,6 +107,19 @@ class cls_curl
     public static function set_cookie_file($cookie_file)
     {
         self::$cookie_file = $cookie_file;
+    }
+
+    /**
+     * 获取内容的时候是不是连header也一起获取
+     * 
+     * @param mixed $http_raw
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
+     */
+    public static function set_http_raw($http_raw)
+    {
+        self::$http_raw = $http_raw;
     }
 
     /**
@@ -170,10 +192,10 @@ class cls_curl
      *
      *
      */
-    public static function get($url, $fields = array(), $proxy = false)
+    public static function get($url, $fields = array())
     {
         self::init ();
-        return self::http_request($url, 'get', $fields, $proxy);
+        return self::http_request($url, 'get', $fields);
     }
 
     /**
@@ -189,18 +211,18 @@ class cls_curl
      * @access public
      * @return void
      */
-    public static function post($url, $fields = array(), $proxy = false)
+    public static function post($url, $fields = array())
     {
         self::init ();
-        return self::http_request($url, 'post', $fields, $proxy);
+        return self::http_request($url, 'post', $fields);
     }
 
-    public static function http_request($url, $type = 'get', $fields, $proxy = false)
+    public static function http_request($url, $type = 'get', $fields)
     {
         // 如果是 get 方式，直接拼凑一个 url 出来
         if (strtolower($type) == 'get' && !empty($fields)) 
         {
-            $url = $url . "?" . http_build_query($fields);
+            $url = $url . (strpos($url,"?")===false ? "?" : "&") . http_build_query($fields);
         }
 
         // 随机绑定 hosts，做负载均衡
@@ -255,46 +277,63 @@ class cls_curl
         if (self::$proxy)
         {
             curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxy );
+            if (self::$proxy_auth) 
+            {
+                curl_setopt( self::$ch, CURLOPT_PROXYUSERPWD, self::$proxy_auth);
+            }
+        }
+        if (self::$http_raw)
+        {
+            curl_setopt( self::$ch, CURLOPT_HEADER, true );
         }
         $data = curl_exec ( self::$ch );
+        self::$info = curl_getinfo(self::$ch);
         if ($data === false)
         {
-            echo 'Curl error: ' . curl_error( self::$ch );
+            echo date("Y-m-d H:i:s"), ' Curl error: ' . curl_error( self::$ch ), "\n";
         }
         // 关闭句柄
         curl_close( self::$ch );
-
         //$data = substr($data, 10);
         //$data = gzinflate($data);
         return $data;
     }
 
+    public static function get_info()
+    {
+        return self::$info;
+    }
+
+    public static function get_http_code()
+    {
+        return self::$info['http_code'];
+    }
 }
 
 function classic_curl($urls, $delay) 
 {
     $queue = curl_multi_init();
     $map = array();
- 
+
     foreach ($urls as $url) 
     {
         // create cURL resources
         $ch = curl_init();
- 
+
         // 设置 URL 和 其他参数
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_TIMEOUT, 1);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_HEADER, 0);
         curl_setopt($ch, CURLOPT_NOSIGNAL, true);
- 
+
         // 把当前 curl resources 加入到 curl_multi_init 队列
         curl_multi_add_handle($queue, $ch);
         $map[$url] = $ch;
     }
- 
+
     $active = null;
- 
+
     // execute the handles
     do {
         $mrc = curl_multi_exec($queue, $active);
@@ -310,7 +349,7 @@ function classic_curl($urls, $delay)
             } while ($mrc == CURLM_CALL_MULTI_PERFORM);
         }
     }
- 
+
     $responses = array();
     foreach ($map as $url=>$ch) {
         //$responses[$url] = callback(curl_multi_getcontent($ch), $delay);
@@ -318,7 +357,7 @@ function classic_curl($urls, $delay)
         curl_multi_remove_handle($queue, $ch);
         curl_close($ch);
     }
- 
+
     curl_multi_close($queue);
     return $responses;
 }

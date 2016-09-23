@@ -1,41 +1,4 @@
 <?php
-// 设置时区
-date_default_timezone_set('Asia/Shanghai');
-ini_set('display_errors', 1);
-// 永不超时
-ini_set('max_execution_time', 0);
-set_time_limit(0);
-// 内存限制，如果外面设置的内存比 /etc/php/php-cli.ini 大，就不要设置了
-if (intval(ini_get("memory_limit")) < 1024) 
-{
-    ini_set('memory_limit', '1024M');
-}
-
-//核心库目录
-define('CORE', dirname(__FILE__));
-define('PATH_ROOT', CORE."/../");
-define('PATH_DATA', CORE."/../data");
-define('PATH_LIBRARY', CORE."/../library");
-
-//系统配置
-if( file_exists( CORE."/config.php" ) )
-{
-    require CORE."/config.php"; 
-}
-if( PHP_SAPI != 'cli' )
-{
-    exit("You must run the CLI environment\n");
-}
-require CORE.'/log.php';
-require CORE.'/util.php';
-require CORE.'/db.php';
-require CORE.'/cache.php';
-
-// 启动的时候生成data目录
-util::path_exists(PATH_DATA);
-util::path_exists(PATH_DATA."/lock");
-util::path_exists(PATH_DATA."/log");
-util::path_exists(PATH_DATA."/cache");
 
 /**
  * Worker多进程操作类
@@ -454,37 +417,4 @@ class worker
         }
         return "";
     }
-
-
 }
-
-/**
- * 自动加载类库处理
- * @return void
- */
-function __autoload( $classname )
-{
-    $classname = preg_replace("/[^0-9a-z_]/i", '', $classname);
-    if( class_exists ( $classname ) ) {
-        return true;
-    }
-    $classfile = $classname.'.php';
-    try
-    {
-        if ( file_exists ( PATH_LIBRARY.'/'.$classfile ) )
-        {
-            require PATH_LIBRARY.'/'.$classfile;
-        }
-        else
-        {
-            throw new Exception ( 'Error: Cannot find the '.$classname );
-        }
-    }
-    catch ( Exception $e )
-    {
-        log::add($e->getMessage().'|'.$classname, "Error");
-        exit();
-    }
-}
-
-

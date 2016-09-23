@@ -114,6 +114,7 @@ class db
         {
             $rows[] = $row;
         }
+        // 命令行下面运行，一定要free
         mysqli_free_result($rsid);
         if (!empty($func))
         {
@@ -132,48 +133,52 @@ class db
         return mysqli_affected_rows(self::$conn);
     }
 
-    public static function insert($table = '', $data = null, $return_sql = false)
+    public static function insert($table = '', $set = NULL, $return_sql = FALSE)
     {
+        $set = self::strsafe($set);
+        $fields = self::get_fields($table);
         $items_sql = $values_sql = "";
-        foreach ($data as $k => $v)
+        foreach ($set as $k => $v)
         {
-            $v = stripslashes($v);
-            $v = addslashes($v);
+            // 过滤掉数据库没有的字段
+            if (!in_array($k, $fields)) 
+            {
+                continue;
+            }
             $items_sql .= "`$k`,";
             $values_sql .= "\"$v\",";
         }
-        $sql = "Insert Ignore Into `{$table}` (" . substr($items_sql, 0, -1) . ") Values (" . substr($values_sql, 0, -1) . ")";
-        if ($return_sql) 
-        {
-            return $sql;
-        }
-        else 
-        {
-            if (self::query($sql))
-            {
-                return mysqli_insert_id(self::$conn);
-            }
-            else 
-            {
-                return false;
-            }
-        }
+        $sql = "Insert Into `{$table}` (" . substr($items_sql, 0, -1) . ") Values (" . substr($values_sql, 0, -1) . ")";
+        
+        if ($return_sql) return $sql;
+        
+        $rt = self::query($sql);
+        $insert_id = self::insert_id();
+        $return = empty($insert_id) ? $rt : $insert_id;
+        return $return;
     }
 
     public static function insert_batch($table = '', $set = NULL, $return_sql = FALSE) 
     {
-        if (empty($table) || is_null($set)) 
+        if (empty($table) || empty($set)) 
         {
             return false;
         }
         $set = self::strsafe($set);
+        $fields = self::get_fields($table);
 
         $keys_sql = $vals_sql = array();
-        foreach ($set as $i=>$fields) 
+        foreach ($set as $i=>$val) 
         {
             $vals = array();
-            foreach ($fields as $k => $v)
+            foreach ($val as $k => $v)
             {
+                // 过滤掉数据库没有的字段
+                if (!in_array($k, $fields)) 
+                {
+                    continue;
+                }
+                // 如果是第一个数组，把key当做插入条件
                 if ($i == 0 && $k == 0) 
                 {
                     $keys_sql[] = "`$k`";
@@ -183,7 +188,7 @@ class db
             $vals_sql[] = implode(",", $vals);
         }
 
-        $sql = "Insert Ignore Into `{$table}`(".implode(", ", $keys_sql).") Values (".implode("), (", $vals_sql).")";
+        $sql = "Insert Into `{$table}`(".implode(", ", $keys_sql).") Values (".implode("), (", $vals_sql).")";
 
         if ($return_sql) return $sql;
         
@@ -193,67 +198,24 @@ class db
         return $return;
     }
 
-    public static function update_batch($table = '', $set = NULL, $index = NULL, $where = NULL, $return_sql = FALSE) 
+    public static function update($table = '', $set = array(), $where = null, $return_sql = false)
     {
-        if (empty($table) || is_null($set) || is_null($index)) 
-        {
-            // 不要用exit，会中断程序
-            return false;
-        }
         $set = self::strsafe($set);
-
-        $ids = array();
-        $where = ($where != '' AND count($where) >=1) ? implode(" ", $where).' AND ' : '';
-
-        foreach ($set as $val)
-		{
-            // 去重
-            $key = md5($val[$index]);
-			$ids[$key] = $val[$index];
-
-			foreach (array_keys($val) as $field)
-			{
-				if ($field != $index)
-				{
-					$final[$field][$key] =  'When `'.$index.'` = "'.$val[$index].'" Then "'.$val[$field].'"';
-				}
-			}
-		}
-        //$ids = array_values($ids);
-
-		$sql = "Update `".$table."` Set ";
-		$cases = '';
-
-		foreach ($final as $k => $v)
-		{
-			$cases .= '`'.$k.'` = Case '."\n";
-			foreach ($v as $row)
-			{
-				$cases .= $row."\n";
-			}
-
-			$cases .= 'Else `'.$k.'` End, ';
-		}
-
-		$sql .= substr($cases, 0, -2);
-
-		$sql .= ' Where '.$where.$index.' In ("'.implode('","', $ids).'")';
-
-        if ($return_sql) return $sql;
-        
-        $rt = self::query($sql);
-        $insert_id = self::affected_rows();
-        $return = empty($affected_rows) ? $rt : $affected_rows;
-        return $return;
-    }
-
-    public static function update($table = '', $data = array(), $where = null, $return_sql = false)
-    {
-        $sql = "UPDATE `{$table}` SET ";
-        foreach ($data as $k => $v)
+        if (empty($where) || $where === true)
         {
-            $v = stripslashes($v);
-            $v = addslashes($v);
+            exit("Missing argument where");
+        }
+        
+        $fields = self::get_fields($table);
+
+        $sql = "Update `{$table}` Set ";
+        foreach ($set as $k => $v)
+        {
+            // 过滤掉数据库没有的字段
+            if (!in_array($k, $fields)) 
+            {
+                continue;
+            }
             $sql .= "`{$k}` = \"{$v}\",";
         }
         if (!is_array($where))
@@ -270,21 +232,89 @@ class db
         }
         $where = empty($where) ? "" : " Where " . implode(" And ", $where);
         $sql = substr($sql, 0, -1) . $where;
-        if ($return_sql) 
+
+        if ($return_sql) return $sql;
+        if (self::query($sql))
         {
-            return $sql;
+            return self::affected_rows();
         }
         else 
         {
-            if (self::query($sql))
-            {
-                return mysqli_affected_rows(self::$conn);
-            }
-            else 
-            {
-                return false;
-            }
+            return false;
         }
+    }
+
+    public static function update_batch($table = '', $set = NULL, $index = NULL, $where = NULL, $return_sql = FALSE) 
+    {
+        if (empty($table) || is_null($set) || is_null($index)) 
+        {
+            // 不要用exit，会中断程序
+            return false;
+        }
+        $set = self::strsafe($set);
+        $fields = self::get_fields($table);
+
+        $ids = array();
+        foreach ($set as $val)
+		{
+            // 去重，其实不去也可以，因为相同的when只会执行第一个，后面的就直接跳过不执行了
+            $key = md5($val[$index]);
+			$ids[$key] = $val[$index];
+
+			foreach (array_keys($val) as $field)
+			{
+				if ($field != $index)
+				{
+					$final[$field][$key] =  'When `'.$index.'` = "'.$val[$index].'" Then "'.$val[$field].'"';
+				}
+			}
+		}
+        //$ids = array_values($ids);
+
+        // 如果不是数组而且不为空，就转数组
+        if (!is_array($where) && !empty($where))
+        {
+            $where = array($where);
+        }
+        $where[] = $index.' In ("'.implode('","', $ids).'")';
+        $where = empty($where) ? "" : " Where ".implode(" And ", $where);
+
+		$sql = "Update `".$table."` Set ";
+		$cases = '';
+
+		foreach ($final as $k => $v)
+		{
+            // 过滤掉数据库没有的字段
+            if (!in_array($k, $fields)) 
+            {
+                continue;
+            }
+			$cases .= '`'.$k.'` = Case '."\n";
+			foreach ($v as $row)
+			{
+				$cases .= $row."\n";
+			}
+
+			$cases .= 'Else `'.$k.'` End, ';
+		}
+
+		$sql .= substr($cases, 0, -2);
+
+        // 其实不带 Where In ($index) 的条件也可以的
+		$sql .= $where;
+
+        // 一百条执行一次
+        //for ($i = 0, $total = count($ar_set); $i < $total; $i = $i + 1)
+        //{
+            //$set = array_slice($ar_set, $i, 100);
+        //}
+
+        if ($return_sql) return $sql;
+        
+        $rt = self::query($sql);
+        $affected_rows = self::affected_rows();
+        $return = empty($affected_rows) ? $rt : $affected_rows;
+        return $return;
     }
 
     public static function ping()
@@ -329,9 +359,23 @@ class db
         }
     }
 
-    // 未实现，这个是给insert、update、insert_batch、update_batch用的
-    public static function get_fields($table, $set = array()) { }
-
+    // 这个是给insert、update、insert_batch、update_batch用的
+    public static function get_fields($table)
+    {
+        // $sql = "SHOW COLUMNS FROM $table"; //和下面的语句效果一样
+        $rows = self::get_all("Desc `{$table}`");
+        $fields = array();
+        foreach ($rows as $k => $v)
+        {
+            // 过滤自增主键
+            // if ($v['Key'] != 'PRI')
+            if ($v['Extra'] != 'auto_increment')
+            {
+                $fields[] = $v['Field'];
+            }
+        }
+        return $fields;
+    }
 }
 
 

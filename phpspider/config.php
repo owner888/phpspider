@@ -4,7 +4,7 @@ $GLOBALS['config']['db'] = array(
     'host'=>'127.0.0.1',
     'user'=>'root',
     'pass'=>'root',
-    'name'=>'test',
+    'name'=>'1do',
 );
 
 $GLOBALS['config']['redis'] = array(

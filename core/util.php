@@ -8,11 +8,6 @@
  */
 class util
 {
-
-    public static $client_ip = NULL;
-
-    public static $cfc_handle = NULL;
-    
     /**
      * 文件锁
      * 如果没有锁，就加一把锁并且执行逻辑，然后删除锁
@@ -90,7 +85,28 @@ class util
     }
 
     /**
-     * get_table_name
+     * 获得表数
+     * 
+     * @param mixed $table_name     表名
+     * @param mixed $item_value     唯一索引
+     * @param int $table_num        表数量
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-10-22 23:25
+     */
+    public static function get_table_num($item_value, $table_num = 100)
+    {
+        //sha1:返回一个40字符长度的16进制数字
+        $item_value = sha1(strtolower($item_value));
+        //base_convert:进制建转换，下面是把16进制转成10进制，方便做除法运算
+        //str_pad:把字符串填充为指定的长度，下面是在左边加0，表数量大于100就3位，否则2位
+        $step = $table_num > 100 ? 3 : 2;
+        $item_value = str_pad(base_convert(substr($item_value, -2), 16, 10) % $table_num, $step, "0", STR_PAD_LEFT);
+        return $item_value;
+    }
+
+    /**
+     * 获得表面
      * 
      * @param mixed $table_name     表名
      * @param mixed $item_value     唯一索引
@@ -148,7 +164,14 @@ class util
         return self::format_bytes($mem);
     }
     
-    // 7位随机数
+    /**
+     * 数字随机数
+     * 
+     * @param int $num
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
+     */
     public static function rand_num($num = 7)
     {
         $rand = "";
@@ -159,6 +182,14 @@ class util
         return $rand;
     }
 
+    /**
+     * 字母数字混合随机数
+     * 
+     * @param int $num
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
+     */
     public static function rand_str($num = 10)
     {
         $chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -171,7 +202,7 @@ class util
     }
     
     /**
-     * 汉字转拼单
+     * 汉字转拼音
      *
      * @param mixed $str 汉字
      * @param int $ishead
@@ -242,15 +273,11 @@ class util
 
     /**
      * 生成字母前缀
-     *
+     * 
      * @param mixed $s0
-     * @static
-     *
-     *
-     *
-     *
-     * @access public
      * @return char
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
      */
     public static function letter_first($s0)
     {
@@ -285,7 +312,14 @@ class util
         return 0; // null
     }
     
-    // 获得某天前的时间戳
+    /**
+     * 获得某天前的时间戳
+     * 
+     * @param mixed $day
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
+     */
     public static function getxtime($day)
     {
         $day = intval($day);
@@ -367,6 +401,14 @@ class util
         return $path;
     }
 
+    /**
+     * 递归删除目录
+     * 
+     * @param mixed $dir
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-18 10:17
+     */
     public static function deldir($dir)
     {
         //先删除目录下的文件：
@@ -400,7 +442,7 @@ class util
     }
 
     /**
-     * 批量修改目录权限
+     * 递归修改目录权限
      *
      * @param mixed $path 目录
      * @param mixed $filemode 权限
@@ -444,6 +486,25 @@ class util
         {
             return FALSE;
         }
+    }
+
+    /**
+     * 数组格式化为CSV
+     * 
+     * @param mixed $data
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-07-29 11:32
+     */
+    public static function format_csv($data)
+    {
+        foreach ($data as $k=>$v) 
+        {
+            $v = str_replace(",", "", $v);
+            $v = str_replace("，", "", $v);
+            $data[$k] = $v;
+        }
+        return implode(",", $data);
     }
 
     /**
@@ -656,6 +717,68 @@ class util
         return $retval;
     }
     
+    public static function colorize($str, $status = "default") 
+    {
+        $out = "";
+        switch ($status) 
+        {
+            case 'succ':
+                $out = "\033[32m";    // Blue
+                break;
+            case "fail":
+                $out = "\033[31m";    // Red
+                break;
+            case "warn":
+                $out = "\033[33m";    // Yellow
+                break;
+            case "note":
+                $out = "\033[34m";    // Green
+                break;
+            default:
+                $out = "\033[36m";       // Default
+                break;
+        }
+        return $out.$str."\033[0m";
+    }
+
+    public static function node_to_array($dom, $node) 
+    {
+        if(!is_a( $dom, 'DOMDocument' ) || !is_a( $node, 'DOMNode' )) 
+        {
+            return false;
+        }
+
+        $array = array(); 
+        // Discard empty nodes
+        if( empty( trim( $node->localName ))) 
+        {
+            return false;
+        }
+        if( XML_TEXT_NODE == $node->nodeType ) 
+        {
+            return $node->nodeValue;
+        }
+        foreach ($node->attributes as $attr) 
+        { 
+            $array['@'.$attr->localName] = $attr->nodeValue;
+        } 
+        foreach ($node->childNodes as $childNode) 
+        { 
+            if ( (isset($childNode->childNodes->length) && 1 == $childNode->childNodes->length) && 
+                 XML_TEXT_NODE == $childNode->firstChild->nodeType )
+            { 
+                $array[$childNode->localName] = $childNode->nodeValue; 
+            }  
+            else 
+            {
+                if( false !== ($a = self::node_to_array( $dom, $childNode))) 
+                {
+                    $array[$childNode->localName] = $a;
+                }
+            }
+        }
+        return $array; 
+    }
 
 }
 
