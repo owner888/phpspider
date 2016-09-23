@@ -636,13 +636,15 @@ class phpspider
             return false;
         }
 
-        $body = array();
         // 解析HTTP数据流
         if (!empty($html)) 
         {
-            list($header, $body) = explode("\r\n\r\n", $html);
+            // body里面可能有 \r\n\r\n，但是第一个一定是HTTP Header，去掉后剩下的就是body
+            $html_arr = explode("\r\n\r\n", $html);
+            unset($html_arr[0]);
+            $html = implode("\r\n\r\n", $html_arr);
         }
-        return $body;
+        return $html;
     }
 
     /**
