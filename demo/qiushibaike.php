@@ -19,24 +19,24 @@ $configs = array(
     'content_url_regexes' => array(
         "http://www.qiushibaike.com/article/\d+",
     ),
-    'export' => array(
-        'type' => 'db', // csv、db
-        'conf' => array(
-            'host'  => '127.0.0.1',
-            'port'  => 3306,
-            'user'  => 'root',
-            'pass'  => 'root',
-            'name'  => 'demo',
-        ),
-        'table' => 'content',
-    ),
     //'export' => array(
         //'type' => 'csv',
         //'file' => PATH_DATA.'/qiushibaike.csv',
     //),
+    'export' => array(
+        'type'  => 'sql',
+        'file'  => PATH_DATA.'/qiushibaike.sql',
+        'table' => 'content',
+    ),
     //'export' => array(
-        //'type'  => 'sql',
-        //'file'  => PATH_DATA.'/qiushibaike.sql',
+        //'type' => 'db', 
+        //'conf' => array(
+            //'host'  => '127.0.0.1',
+            //'port'  => 3306,
+            //'user'  => 'root',
+            //'pass'  => 'root',
+            //'name'  => 'demo',
+        //),
         //'table' => 'content',
     //),
     'fields' => array(
