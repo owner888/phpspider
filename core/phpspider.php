@@ -904,8 +904,8 @@ class phpspider
                         }
                     }
 
-                    // 这个子项判断父项需不需要重复是为了统一写法，并没有什么卵用
-                    $child_fields = $repeated ? array($child_fields) : $child_fields;
+                    // 这个子项判断父项需不需要重复是为了统一写法，不过这里得判断array不为空，否则下面就有坑
+                    $child_fields = $repeated && !empty($child_fields) ? array($child_fields) : $child_fields;
 
                     // 有子项就存子项的数组，没有就存HTML块
                     $fields[$conf['name']] = empty($child_fields) ? $parent_values : $child_fields;
