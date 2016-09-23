@@ -497,8 +497,12 @@ class phpspider
             $this->get_html_urls($html, $url);
         }
 
-        // 分析提取HTML页面中的字段
-        $this->get_html_fields($html, $url, $link, $page);
+        // 如果是内容页，分析提取HTML页面中的字段
+        // 列表页也可以提取数据的，source_type: urlcontext，未实现
+        if ($link['url_type'] == 'content_page') 
+        {
+            $this->get_html_fields($html, $url, $page);
+        }
 
         self::$collected_urls_num++;
 
@@ -658,8 +662,6 @@ class phpspider
      */
     public function get_html_urls($html, $collect_url) 
     { 
-        $parse_url_arr = parse_url($collect_url);
-
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
@@ -674,36 +676,16 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 去除重复的RUL
         $urls = array_unique($out[1]);
-        foreach ($urls as $k=>$v) 
+        foreach ($urls as $k=>$url) 
         {
-            // 排除JavaScript的连接
-            if (strpos($v, "javascript:") !== false) 
+            $val = $this->get_complete_url($url, $collect_url);
+            if ($val) 
+            {
+                $urls[$k] = $val;
+            }
+            else 
             {
                 unset($urls[$k]);
-                continue;
-            }
-
-            $arr = parse_url($v);
-
-            if (empty($arr['path'])) 
-            {
-                unset($urls[$k]);
-                continue;
-            }
-
-            // 如果host不为空，判断是不是要爬取的域名
-            if (!empty($arr['host'])) 
-            {
-                // 排除非域名下的url以提高爬取速度
-                if (!in_array($arr['host'], self::$configs['domains'])) 
-                {
-                    unset($urls[$k]);
-                    continue;
-                }
-            }
-            else
-            {
-                $urls[$k] = $parse_url_arr['scheme'].'://'.str_replace("//", "/", $parse_url_arr['host']."/".$v);
             }
         }
 
@@ -787,157 +769,62 @@ class phpspider
     }
 
     /**
+     * 获得完整的连接地址
+     * 
+     * @param mixed $url
+     * @param mixed $collect_url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function get_complete_url($url, $collect_url)
+    {
+        $collect_parse_url = parse_url($collect_url);
+
+        // 排除JavaScript的连接
+        if (strpos($url, "javascript:") !== false) 
+        {
+            return false;
+        }
+
+        $cur_parse_url = parse_url($url);
+
+        if (empty($cur_parse_url['path'])) 
+        {
+            return false;
+        }
+
+        // 如果host不为空，判断是不是要爬取的域名
+        if (!empty($cur_parse_url['host'])) 
+        {
+            // 排除非域名下的url以提高爬取速度
+            if (!in_array($cur_parse_url['host'], self::$configs['domains'])) 
+            {
+                return false;
+            }
+        }
+        else
+        {
+            $url = $collect_parse_url['scheme'].'://'.str_replace("//", "/", $collect_parse_url['host']."/".$url);
+        }
+        return $url;
+    }
+
+    /**
      * 分析提取HTML页面中的字段
-     * 父圈定范围，子取值，无法实现
-     * 比如父用正则匹配出了一段HTML，子用xpath去提取，就会取不到值
      * 
      * @param mixed $html
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function get_html_fields($html, $url, $link, $page) 
+    public function get_html_fields($html, $url, $page) 
     {
 
-        $fields = array();
-
-        foreach (self::$configs['fields'] as $conf) 
-        {
-            // 当前field抽取到的内容是否是有多项
-            $repeated = isset($conf['repeated']) && $conf['repeated'] ? true : false;
-            // 当前field抽取到的内容是否必须有值
-            $required = isset($conf['required']) && $conf['required'] ? true : false;
-
-            if (empty($conf['name'])) 
-            {
-                echo util::colorize(date("H:i:s") . " field的名字是空值, 请检查你的\"fields\"并添加field的名字\n\n", 'fail');
-                exit;
-            }
-
-            // 如果没有定义抽取规则
-            if (empty($conf['selector'])) 
-            {
-                $fields[$conf['name']] = array();
-            }
-            else 
-            {
-                // 没有设置抽取规则的类型 或者 设置为 xpath
-                if (!isset($conf['selector_type']) || $conf['selector_type']=='xpath') 
-                {
-                    // 返回值一定是多项的
-                    $parent_values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
-                }
-                elseif ($conf['selector_type']=='regex') 
-                {
-                    $parent_values = $this->get_fields_regex($html, $conf['selector'], $conf['name']);
-                }
-
-                if (!empty($parent_values)) 
-                {
-                    $parent_values = $repeated ? $parent_values : $parent_values[0];
-
-                    $child_fields = array();
-                    if (!empty($conf['children'])) 
-                    {
-                        foreach ($conf['children'] as $child_conf) 
-                        {
-                            // 当前field抽取到的内容是否是有多项
-                            $child_repeated = isset($child_conf['repeated']) && $child_conf['repeated'] ? true : false;
-                            // 当前field抽取到的内容是否必须有值
-                            $child_required = isset($child_conf['required']) && $child_conf['required'] ? true : false;
-
-                            if (empty($child_conf['name'])) 
-                            {
-                                echo util::colorize(date("H:i:s") . " field的名字是空值, 请检查你的\"fields\"并添加field的名字\n\n", 'fail');
-                                exit;
-                            }
-
-                            if (empty($child_conf['selector'])) 
-                            {
-                                $child_fields[$child_conf['name']] = array();
-                            }
-                            else 
-                            {
-                                // 父项抽取到的html作为子项的提取内容
-                                $html = is_array($parent_values) ? implode("", $parent_values) : $parent_values;
-                                if (!isset($child_conf['selector_type']) || $child_conf['selector_type']=='xpath') 
-                                {
-                                    $values = $this->get_fields_xpath($html, $child_conf['selector'], $child_conf['name']);
-                                }
-                                elseif ($child_conf['selector_type']=='regex') 
-                                {
-                                    $values = $this->get_fields_regex($html, $child_conf['selector'], $child_conf['name']);
-                                }
-
-                                if (!empty($values)) 
-                                {
-                                    $child_fields[$child_conf['name']] = $child_repeated ? $values : $values[0];
-                                }
-                            }
-
-                            if (empty($child_fields[$child_conf['name']]) && $required) 
-                            {
-                                // 清空整个子项fields并且跳出foreach循环
-                                $child_fields = array();
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!empty($child_fields)) 
-                    {
-                        foreach ($child_fields as $fieldname => $data) 
-                        {
-                            if ($this->on_extract_field) 
-                            {
-                                $return_data = call_user_func($this->on_extract_field, $conf['name'].'.'.$fieldname, $data, $page);
-                                if (!isset($return_data))
-                                {
-                                    echo util::colorize(date("H:i:s") . " on_extract_field函数返回为空\n\n", 'warn');
-                                }
-                                else 
-                                {
-                                    // 有数据才会执行 on_extract_field 方法，所以这里不要被替换没了
-                                    $child_fields[$fieldname] = $return_data;
-                                }
-                            }
-                        }
-                    }
-
-                    // 这个子项判断父项需不需要重复是为了统一写法，不过这里得判断array不为空，否则下面就有坑
-                    $child_fields = $repeated && !empty($child_fields) ? array($child_fields) : $child_fields;
-
-                    // 有子项就存子项的数组，没有就存HTML块
-                    $fields[$conf['name']] = empty($child_fields) ? $parent_values : $child_fields;
-                }
-            }
-            if (empty($fields[$conf['name']]) && $required) 
-            {
-                // 清空整个fields并且跳出foreach循环
-                $fields = array();
-                break;
-            }
-        }
+        $fields = $this->get_fields(self::$configs['fields'], $html, $url, $page);
 
         if (!empty($fields)) 
         {
-            foreach ($fields as $fieldname => $data) 
-            {
-                if ($this->on_extract_field) 
-                {
-                    $return_data = call_user_func($this->on_extract_field, $fieldname, $data, $page);
-                    if (!isset($return_data))
-                    {
-                        echo util::colorize(date("H:i:s") . " on_extract_field函数返回为空\n\n", 'warn');
-                    }
-                    else 
-                    {
-                        // 有数据才会执行 on_extract_field 方法，所以这里不要被替换没了
-                        $fields[$fieldname] = $return_data;
-                    }
-                }
-            }
-
             if ($this->on_extract_page) 
             {
                 $return_data = call_user_func($this->on_extract_page, $page, $fields);
@@ -978,11 +865,124 @@ class phpspider
                         db::insert(self::$export_table, $fields);
                     }
                 }
-
             }
- 
+
+        }
+    }
+
+    /**
+     * 根据配置提取HTML代码块中的字段
+     * 
+     * @param mixed $confs
+     * @param mixed $html
+     * @param mixed $page
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function get_fields($confs, $html, $url, $page) 
+    {
+        $fields = array();
+        foreach ($confs as $conf) 
+        {
+            // 当前field抽取到的内容是否是有多项
+            $repeated = isset($conf['repeated']) && $conf['repeated'] ? true : false;
+            // 当前field抽取到的内容是否必须有值
+            $required = isset($conf['required']) && $conf['required'] ? true : false;
+
+            if (empty($conf['name'])) 
+            {
+                echo util::colorize(date("H:i:s") . " field的名字是空值, 请检查你的\"fields\"并添加field的名字\n\n", 'fail');
+                exit;
+            }
+
+            $values = array();
+            // 如果定义抽取规则
+            if (!empty($conf['selector'])) 
+            {
+                // 如果这个field是上一个field的附带连接
+                if (isset($conf['source_type']) && $conf['source_type']=='attached_url') 
+                {
+                    // 取出上个field的内容作为连接
+                    if (!empty($fields[$conf['attached_url']])) 
+                    {
+                        $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
+                        echo util::colorize(date("H:i:s")." 发现内容分页：".$url."\n");
+                        $html = $this->request_url($collect_url);
+                        // 请求获取完分页数据后把连接删除了 
+                        unset($fields[$conf['attached_url']]);
+                    }
+                }
+
+                // 没有设置抽取规则的类型 或者 设置为 xpath
+                if (!isset($conf['selector_type']) || $conf['selector_type']=='xpath') 
+                {
+                    // 返回值一定是多项的
+                    $values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
+                }
+                elseif ($conf['selector_type']=='regex') 
+                {
+                    $values = $this->get_fields_regex($html, $conf['selector'], $conf['name']);
+                }
+
+                // field不为空而且存在子配置
+                if (!empty($values) && !empty($conf['children'])) 
+                {
+                    $child_values = array();
+                    // 父项抽取到的html作为子项的提取内容
+                    foreach ($values as $html) 
+                    {
+                        $child_value = $this->get_fields($conf['children'], $url, $html, $page);
+                        if (!empty($child_value)) 
+                        {
+                            $child_values[] = $child_value;
+                        }
+                    }
+                    // 有子项就存子项的数组，没有就存HTML代码块
+                    if (!empty($child_values)) 
+                    {
+                        $values = $child_values;
+                    }
+                }
+            }
+
+            if (empty($values)) 
+            {
+                // 如果值为空而且值设置为必须项，跳出foreach循环
+                if ($required) 
+                {
+                    break;
+                }
+                $fields[$conf['name']] = array();
+            }
+            else 
+            {
+                // 不重复抽取则只取第一个元素
+                $fields[$conf['name']] = $repeated ? $values : $values[0];
+            }
         }
 
+        if (!empty($fields)) 
+        {
+            foreach ($fields as $fieldname => $data) 
+            {
+                if ($this->on_extract_field) 
+                {
+                    $return_data = call_user_func($this->on_extract_field, $fieldname, $data, $page);
+                    if (!isset($return_data))
+                    {
+                        echo util::colorize(date("H:i:s") . " on_extract_field函数返回为空\n\n", 'warn');
+                    }
+                    else 
+                    {
+                        // 有数据才会执行 on_extract_field 方法，所以这里不要被替换没了
+                        $fields[$fieldname] = $return_data;
+                    }
+                }
+            }
+        }
+
+        return $fields;
     }
 
     /**
@@ -996,6 +996,7 @@ class phpspider
      */
     public function get_fields_xpath($html, $selector, $fieldname) 
     {
+        //var_dump($html);
         $dom = new DOMDocument();
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
         //libxml_use_internal_errors(true);
