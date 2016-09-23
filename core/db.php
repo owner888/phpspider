@@ -53,13 +53,13 @@ class db
             {
                 // 连接成功清零
                 self::$conn_fail = 0;
-                self::$worker_pid = function_exists('posix_getpid') ? posix_getpid() : 1; 
+                self::$worker_pid = function_exists('posix_getpid') ? posix_getpid() : 0; 
                 mysqli_query(self::$conn, " SET character_set_connection=utf8, character_set_results=utf8, character_set_client=binary, sql_mode='' ");
             }
         }
         else 
         {
-            $curr_pid = function_exists('posix_getpid') ? posix_getpid() : 1;
+            $curr_pid = function_exists('posix_getpid') ? posix_getpid() : 0;
             // 如果父进程已经生成资源就释放重新生成，因为多进程不能共享连接资源
             if (self::$worker_pid != $curr_pid) 
             {
