@@ -16,3 +16,4 @@ $GLOBALS['config']['redis'] = array(
     'timeout'   => 30,
 );
 
+include "inc_mimetype.php";

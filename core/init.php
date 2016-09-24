@@ -35,9 +35,9 @@ define('PATH_DATA', CORE."/../data");
 define('PATH_LIBRARY', CORE."/../library");
 
 //系统配置
-if( file_exists( PATH_ROOT."/inc_config.php" ) )
+if( file_exists( PATH_ROOT."/config/inc_config.php" ) )
 {
-    require PATH_ROOT."/inc_config.php"; 
+    require PATH_ROOT."/config/inc_config.php"; 
 }
 require CORE.'/log.php';
 require CORE.'/util.php';

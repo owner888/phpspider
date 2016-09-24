@@ -172,6 +172,15 @@ class phpspider
     public $on_extract_page = null;
 
     /**
+     * 如果抓取的页面是一个附件文件，比如图片、视频、二进制文件、apk、ipad、exe 
+     * 就不去分析他的内容提取field了，提取field只针对HTML
+     * 
+     * @var mixed
+     * @access public
+     */
+    public $on_attachment_file = null;
+
+    /**
      * 总共爬取链接数 
      */
     public static $collect_url_num = 0;
@@ -548,6 +557,40 @@ class phpspider
             'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
         );
 
+        // 如果定义了获取附件回调函数，直接拦截了
+        if ($this->on_attachment_file) 
+        {
+            stream_context_set_default(
+                array(
+                    'http' => array(
+                        'method' => 'HEAD'
+                    )
+                )
+            );
+            // 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
+            $headers = get_headers($url, 1);
+            if (strpos($headers[0], '302')) 
+            {
+                $url = $headers['Location'];
+                $headers = get_headers($url, 1);
+            }
+
+            $mime_type = 'html';
+            $content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
+            if (!empty($content_type)) 
+            {
+                $mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
+            }
+
+            // 如果不是html
+            if ($mime_type != 'html') 
+            {
+                echo util::colorize(date("H:i:s")." 发现{$mime_type}文件：".$url."\n");
+                call_user_func($this->on_attachment_file, $url, $mime_type);
+                return false;
+            }
+        }
+
         //ini_set('user_agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36');
         //$html = file_get_contents($url);
 
@@ -585,10 +628,14 @@ class phpspider
             cls_curl::set_headers($link['headers']);
         }
 
+        // 不能通过 curl_setopt($ch, CURLOPT_NOBODY, 1) 只获取HTTP Header
+        // 因为POST数据会失效
+        // 即想POST过去，返回的http又只想取header部分是不行的
+        cls_curl::set_http_raw(true);
+
         // 如果设置了附加的数据，如json和xml，就直接发附加的数据,php端可以用 file_get_contents("php://input"); 获取
         $fields = empty($link['context_data']) ? $link['data'] : $link['context_data'];
         $method = strtolower($link['method']);
-        cls_curl::set_http_raw(true);
         $html = cls_curl::$method($url, $fields);
 
         // 对于登录成功后302跳转的，Cookie实际上存在body而不在header，header只有一句：HTTP/1.1 100 Continue
@@ -771,8 +818,8 @@ class phpspider
     /**
      * 获得完整的连接地址
      * 
-     * @param mixed $url
-     * @param mixed $collect_url
+     * @param mixed $url            要检查的URL
+     * @param mixed $collect_url    从那个URL页面得到上面的URL
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
@@ -932,6 +979,7 @@ class phpspider
                     // 父项抽取到的html作为子项的提取内容
                     foreach ($values as $html) 
                     {
+                        // 递归调用本方法，所以多少子项目都支持
                         $child_value = $this->get_fields($conf['children'], $url, $html, $page);
                         if (!empty($child_value)) 
                         {

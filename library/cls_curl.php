@@ -286,12 +286,14 @@ class cls_curl
         {
             curl_setopt( self::$ch, CURLOPT_HEADER, true );
         }
+
         $data = curl_exec ( self::$ch );
         self::$info = curl_getinfo(self::$ch);
         if ($data === false)
         {
             echo date("Y-m-d H:i:s"), ' Curl error: ' . curl_error( self::$ch ), "\n";
         }
+
         // 关闭句柄
         curl_close( self::$ch );
         //$data = substr($data, 10);
