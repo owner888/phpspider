@@ -10,7 +10,7 @@ $configs = array(
         'ocnt0imhl.bkt.clouddn.com',
     ),
     'scan_urls' => array(
-        "http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg",
+        //"http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg",
     ),
     'list_url_regexes' => array(
     ),
@@ -23,6 +23,11 @@ $configs = array(
 $spider = new phpspider($configs);
 
 
+$spider->on_start = function($phpspider) 
+{
+    $url = "http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg";
+    $phpspider->request_url($url);
+};
 $spider->on_attachment_file = function($attachment_url, $mime_type) 
 {
     // 输出文件URL地址和文件类型
