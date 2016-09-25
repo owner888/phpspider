@@ -17,7 +17,7 @@ $configs = array(
     'scan_urls' => array(
         'http://www.qiushibaike.com/'
     ),
-    'content_url_regex' => array(
+    'content_url_regexes' => array(
         "http://www.qiushibaike.com/article/\d+"
     ),
     'list_url_regexes' => array(
