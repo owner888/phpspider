@@ -7,7 +7,7 @@ require dirname(__FILE__).'/../core/init.php';
 
 $spider = new phpspider();
 
-$spider->on_attachment_file = function($attachment_url, $fileinfo) 
+$spider->on_attachment_file = function($url, $fileinfo) 
 {
     // 输出文件URL地址和文件类型
     //var_dump($attachment_url, $fileinfo);
@@ -19,7 +19,7 @@ $spider->on_attachment_file = function($attachment_url, $fileinfo)
         // 在data目录下生成图片
         $filepath = PATH_DATA."/{$filename}.jpg";
         // 用系统自带的下载器wget下载
-        exec("wget {$attachment_url} -O {$filepath}");
+        exec("wget {$url} -O {$filepath}");
 
         // 用PHP函数下载，容易耗尽内存，慎用
         //$data = file_get_contents($attachment_url);
@@ -27,5 +27,5 @@ $spider->on_attachment_file = function($attachment_url, $fileinfo)
     }
 };
 
-$url = "http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg?token=xxx";
+$url = "http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg";
 $spider->request_url($url);
