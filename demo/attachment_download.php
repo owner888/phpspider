@@ -22,7 +22,6 @@ $configs = array(
 
 $spider = new phpspider($configs);
 
-
 $spider->on_start = function($phpspider) 
 {
     $url = "http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg";

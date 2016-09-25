@@ -6,6 +6,7 @@ require dirname(__FILE__).'/../core/init.php';
 /* 不要删除这段注释 */
 
 $configs = array(
+    'name' => '糗事百科',
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'

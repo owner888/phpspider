@@ -6,6 +6,7 @@ require dirname(__FILE__).'/../core/init.php';
 /* 不要删除这段注释 */
 
 $configs = array(
+    'name' => '13384美女图',
     'domains' => array(
         'www.13384.com'
     ),
@@ -54,10 +55,30 @@ $configs = array(
         //'table' => 'content',
     //),
     'fields' => array(
+        // 标题
+        array(
+            'name' => "name",
+            'selector' => "//div[@id='Article']//h1",
+            'required' => true,
+        ),
+        // 分类
+        array(
+            'name' => "category",
+            'selector' => "//div[contains(@class,'crumbs')]//span//a",
+            'required' => true,
+        ),
+        // 发布时间
+        array(
+            'name' => "addtime",
+            'selector' => "//p[contains(@class,'sub-info')]//span",
+            'required' => true,
+        ),
+        // 内容
         array(
             'name' => "contents",
             'selector' => "//div[@id='pages']//a//@href",
             'repeated' => true,
+            'required' => true,
             'children' => array(
                 array(
                     // 抽取出其他分页的url待用
@@ -71,7 +92,7 @@ $configs = array(
                     // attached_url 使用了上面抓取的 content_page_url
                     'source_type' => 'attached_url',
                     'attached_url' => 'content_page_url',
-                    'selector' => "//*[@id='big-pic']"
+                    'selector' => "//*[@id='big-pic']//a//img"
                 ),
             ),
         ),
@@ -82,7 +103,11 @@ $spider = new phpspider($configs);
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
-    if ($fieldname == 'contents') 
+    if ($fieldname == 'addtime') 
+    {
+        $data = substr($data, 0, 19);
+    }
+    elseif ($fieldname == 'contents') 
     {
         if (!empty($data))
         {
@@ -90,8 +115,9 @@ $spider->on_extract_field = function($fieldname, $data, $page)
             $data = "";
             foreach ($contents as $content) 
             {
-                $data .= $content['page_content'];
+                $data .= ", ".$content['page_content'];
             }
+            echo "\n\n".$data."\n\n";
         }
     }
     return $data;
