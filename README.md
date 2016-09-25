@@ -9,6 +9,7 @@ demo目录下有一些特定网站的爬取规则，只要你安装了PHP环境�
 
 ```
 $configs = array(
+    'name' => '糗事百科',
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
@@ -16,7 +17,9 @@ $configs = array(
     'scan_urls' => array(
         'http://www.qiushibaike.com/'
     ),
-    'content_url_regex' => "http://www.qiushibaike.com/article/\d+",
+    'content_url_regex' => array(
+        "http://www.qiushibaike.com/article/\d+"
+    ),
     'list_url_regexes' => array(
         "http://www.qiushibaike.com/8hr/page/\d+\?s=\d+"
     ),
