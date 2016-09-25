@@ -94,6 +94,31 @@ class phpspider
     public static $collected_urls = array();
 
     /**
+     * 总共爬取链接数 
+     */
+    public static $collect_url_num = 0;
+
+    /**
+     * 成功爬取链接数
+     */
+    public static $collected_urls_num = 0;
+
+    /**
+     * 爬虫开始时间 
+     */
+    public static $spider_time_start = 0;
+    
+    /**
+     * 提取到的字段数 
+     */
+    public static $fields_num = 0;
+
+    public static $export_type = '';
+    public static $export_file = '';
+    public static $export_conf = '';
+    public static $export_table = '';
+
+    /**
      * 爬虫初始化时调用, 用来指定一些爬取前的操作 
      * 
      * @var mixed
@@ -180,26 +205,6 @@ class phpspider
      */
     public $on_attachment_file = null;
 
-    /**
-     * 总共爬取链接数 
-     */
-    public static $collect_url_num = 0;
-
-    /**
-     * 成功爬取链接数
-     */
-    public static $collected_urls_num = 0;
-
-    /**
-     * 提取到的字段数 
-     */
-    public static $fields_num = 0;
-
-    public static $export_type = '';
-    public static $export_file = '';
-    public static $export_conf = '';
-    public static $export_table = '';
-
     function __construct($configs = array())
     {
         //$files = debug_backtrace();
@@ -212,6 +217,7 @@ class phpspider
         }
 
         self::$configs = $configs;
+        self::$configs['name']          = isset(self::$configs['name'])          ? self::$configs['name']          : '';
         self::$configs['proxy']         = isset(self::$configs['proxy'])         ? self::$configs['proxy']         : '';
         self::$configs['proxy_auth']    = isset(self::$configs['proxy_auth'])    ? self::$configs['proxy_auth']    : '';
         self::$configs['user_agent']    = isset(self::$configs['user_agent'])    ? self::$configs['user_agent']    : self::AGENT_PC;
@@ -398,7 +404,11 @@ class phpspider
             self::$collect_url_num++;
         }
 
-        echo "\n爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
+        //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
+        echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
+
+        // 爬虫开始时间
+        self::$spider_time_start = time();
 
         // 测试抓取页面
         //$this->get_contents("http://www.qiushibaike.com/article/117554075");
@@ -429,6 +439,9 @@ class phpspider
      */
     public function collect_page($link) 
     {
+        // 爬取页面开始时间
+        $time_start = microtime(true);
+
         $url = $link['url'];
         echo date("H:i:s")." 抓取队列长度：".count(self::$collect_urls)."\n\n";
 
@@ -498,7 +511,16 @@ class phpspider
         // 成功才存入已爬取列表队列，避免过多操作数组
         self::$collected_urls[md5($url)] = time();
 
-        echo date("H:i:s")." 网页下载成功：".$url."\n\n";
+        //$use_time = moi
+        // 爬取页面耗时时间
+        $time_use = round(microtime(true) - $time_start, 3);
+        echo date("H:i:s")." 网页下载成功：".$url."\t耗时: {$time_use} 秒\n\n";
+
+        self::$collected_urls_num++;
+        echo date("H:i:s")." 网页下载数量：".self::$collected_urls_num."\n\n";
+
+        $spider_time_use = round(microtime(true) - self::$spider_time_start, 3);
+        echo date("H:i:s")." 爬虫运行时间：{$spider_time_use} 秒\n\n";
 
         if ($is_collect_url) 
         {
@@ -512,8 +534,6 @@ class phpspider
         {
             $this->get_html_fields($html, $url, $page);
         }
-
-        self::$collected_urls_num++;
 
         // 爬虫爬取每个网页的时间间隔，单位：秒
         if (!empty(self::$configs['interval'])) 
@@ -546,6 +566,7 @@ class phpspider
 
         $link = array(
             'url'           => $url,
+            'url_type'      => isset($options['url_type'])      ? $options['url_type']       : '',             
             'method'        => isset($options['method'])        ? $options['method']         : 'get',             
             'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
             'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
@@ -1001,7 +1022,9 @@ class phpspider
                 {
                     break;
                 }
-                $fields[$conf['name']] = array();
+                // 避免内容分页时attached_url拼接时候string + array了
+                $fields[$conf['name']] = '';
+                //$fields[$conf['name']] = array();
             }
             else 
             {
