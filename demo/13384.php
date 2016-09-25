@@ -34,6 +34,9 @@ $configs = array(
         "http://www.13384.com/meinvmote/\d+.html",
         "http://www.13384.com/weimeixiezhen/\d+.html",
     ),
+    'attachment_url_regexes' => array(
+    ),
+
     //'export' => array(
         //'type' => 'csv',
         //'file' => PATH_DATA.'/qiushibaike.csv',

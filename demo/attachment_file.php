@@ -7,12 +7,12 @@ require dirname(__FILE__).'/../core/init.php';
 
 $spider = new phpspider();
 
-$spider->on_attachment_file = function($url, $fileinfo) 
+$spider->on_attachment_file = function($url, $filetype, $phpspider) 
 {
     // 输出文件URL地址和文件类型
-    //var_dump($attachment_url, $fileinfo);
+    //var_dump($url, $filetype);
 
-    if ($fileinfo['fileext'] == 'jpg') 
+    if ($filetype == 'jpg') 
     {
         // 以纳秒为单位生成随机数
         $filename = uniqid();

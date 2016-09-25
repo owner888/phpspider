@@ -181,6 +181,14 @@ class phpspider
     public $on_content_page = null;
 
     /**
+     * 在抽取到field内容之后调用, 对其中包含的img标签进行回调处理 
+     * 
+     * @var mixed
+     * @access public
+     */
+    public $on_handle_img = null;
+
+    /**
      * 当一个field的内容被抽取到后进行的回调, 在此回调中可以对网页中抽取的内容作进一步处理 
      * 
      * @var mixed
@@ -309,7 +317,7 @@ class phpspider
      */
     public function add_url($url, $options = array())
     {
-        $this->push_queue_links($url, $option);
+        $this->push_queue_link($url, $option);
     }
 
     public function start()
@@ -402,15 +410,13 @@ class phpspider
         while(!empty(self::$collect_queue_links))
         { 
             // 从队列取出要爬取的URL对象
-            $link = array_shift(self::$collect_queue_links); 
-            // 从采集数组中排除这个URL
-            unset(self::$collect_urls[md5($link['url'])]);
+            $link = $this->pop_queue_link();
             $this->collect_page($link);
         } 
 
-        $spider_time_use = round(microtime(true) - self::$spider_time_start, 3);
+        $spider_time_run = round(microtime(true) - self::$spider_time_start, 3);
         echo date("H:i:s")." 爬取完成 \n";
-        echo "总耗时：{$spider_time_use} 秒\n";
+        echo "总耗时：{$spider_time_run} 秒\n";
         echo "总共爬取链接数：".self::$collect_url_num."\n";
         echo "成功爬取链接数：".self::$collected_urls_num."\n";
     }
@@ -430,6 +436,17 @@ class phpspider
 
         $url = $link['url'];
         echo date("H:i:s")." 抓取队列长度：".count(self::$collect_urls)."\n\n";
+
+        if ($link['url_type'] == 'attachment_file') 
+        {
+            if ($this->on_attachment_file) 
+            {
+                $pathinfo = pathinfo($url);
+                $filetype = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
+                call_user_func($this->on_attachment_file, $url, $filetype, $this);
+            }
+            return true;
+        }
 
         $html = $this->request_url($url, $link);
         if (!$html) 
@@ -465,7 +482,9 @@ class phpspider
         // 在一个网页下载完成之后调用. 主要用来对下载的网页进行处理.
         if ($this->on_download_page) 
         {
-            // 回调函数记得无论如何最后一定要 return $page;
+            // 在一个网页下载完成之后调用. 主要用来对下载的网页进行处理
+            // 比如下载了某个网页，希望向网页的body中添加html标签
+            // 回调函数记得无论如何最后一定要 return $page，因为下面的 入口、列表、内容页回调都用的 $page['raw']
             $page = call_user_func($this->on_download_page, $page, $this);
         }
 
@@ -476,37 +495,36 @@ class phpspider
             if ($this->on_scan_page) 
             {
                 // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_collect_url = call_user_func($this->on_scan_page, $page, $html, $this);
+                $is_collect_url = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
             }
         }
         elseif ($link['url_type'] == 'list_page') 
         {
             if ($this->on_list_page) 
             {
-                $is_collect_url = call_user_func($this->on_list_page, $page, $html, $this);
+                $is_collect_url = call_user_func($this->on_list_page, $page, $page['raw'], $this);
             }
         }
         elseif ($link['url_type'] == 'content_page') 
         {
             if ($this->on_content_page) 
             {
-                $is_collect_url = call_user_func($this->on_content_page, $page, $html, $this);
+                $is_collect_url = call_user_func($this->on_content_page, $page, $page['raw'], $this);
             }
         }
 
         // 成功才存入已爬取列表队列，避免过多操作数组
         self::$collected_urls[md5($url)] = time();
 
-        //$use_time = moi
         // 爬取页面耗时时间
-        $time_use = round(microtime(true) - $time_start, 3);
-        echo date("H:i:s")." 网页下载成功：".$url."\t耗时: {$time_use} 秒\n\n";
+        $time_run = round(microtime(true) - $time_start, 3);
+        echo date("H:i:s")." 网页下载成功：".$url."\t耗时: {$time_run} 秒\n\n";
 
         self::$collected_urls_num++;
         echo date("H:i:s")." 网页下载数量：".self::$collected_urls_num."\n\n";
 
-        $spider_time_use = round(microtime(true) - self::$spider_time_start, 3);
-        echo date("H:i:s")." 爬虫运行时间：{$spider_time_use} 秒\n\n";
+        $spider_time_run = round(microtime(true) - self::$spider_time_start, 3);
+        echo date("H:i:s")." 爬虫运行时间：{$spider_time_run} 秒\n\n";
 
         if ($is_collect_url) 
         {
@@ -656,15 +674,16 @@ class phpspider
         $http_code = cls_curl::get_http_code();
         if ($http_code != 200)
         {
+            // 采集次数加一
+            $link['collect_count']++;
             if ($http_code == 407) 
             {
                 echo util::colorize(date("H:i:s")." 代理服务器验证失败，请检查代理服务器设置\n\n", 'fail');
                 return false;
             }
             // 抓取次数 小于 允许抓取失败次数
-            if ( $link['collect_count'] < $link['collect_fails'] ) 
+            if ( $link['collect_count'] <= $link['collect_fails'] ) 
             {
-                $link['collect_count']++;
                 // 扔回去继续采集
                 array_push(self::$collect_queue_links, $link);
                 self::$collect_urls[md5($url)] = time();
@@ -758,17 +777,14 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
-        preg_match_all('/<a .*?href="(.*?)".*?>/is', $html, $out); 
-        if (empty($out[1])) 
-        {
-            return false;
-        }
+        preg_match_all('/<a .*?href="(.*?)".*?>/is', $html, $matchs); 
+        $urls = !empty($matchs[1]) ? $matchs[1] : array();
 
         //--------------------------------------------------------------------------------
         // 过滤和拼凑URL
         //--------------------------------------------------------------------------------
         // 去除重复的RUL
-        $urls = array_unique($out[1]);
+        $urls = array_unique($urls);
         foreach ($urls as $k=>$url) 
         {
             $val = $this->get_complete_url($url, $collect_url);
@@ -793,89 +809,141 @@ class phpspider
         //--------------------------------------------------------------------------------
         foreach ($urls as $url) 
         {
-            $this->push_queue_links($url);
+            $this->push_queue_link($url);
         }
         echo "\n";
         //echo date("H:i:s")." 网页分析成功：".$collect_url."\n\n";
     }
 
     /**
-     * 连接投递到队列
+     * 是否在已采集队列中的URL
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function is_collected_url($url)
+    {
+        return array_key_exists(md5($url), self::$collected_urls);
+    }
+
+    /**
+     * 是否在采集队列中的URL
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function is_collect_url($url)
+    {
+        return array_key_exists(md5($url), self::$collect_urls);
+    }
+
+    /**
+     * 投递到队列
      * 
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function push_queue_links($url, $options = array())
+    public function push_queue_link($url, $options = array())
     {
         // 投递状态
         $push_status = false;
-        foreach (self::$configs['list_url_regexes'] as $regex) 
+        if (!empty(self::$configs['list_url_regexes'])) 
         {
-            // 如果是列表链接
-            // 不存在已爬取数组
-            // 不存在爬取数组
-            if (preg_match("#{$regex}#i", $url) &&
-                !array_key_exists(md5($url), self::$collected_urls) &&
-                !array_key_exists(md5($url), self::$collect_urls))
+            foreach (self::$configs['list_url_regexes'] as $regex) 
             {
-                echo util::colorize(date("H:i:s")." 发现列表网页：".$url."\n");
+                if (preg_match("#{$regex}#i", $url) && 
+                    !$this->is_collected_url($url) && 
+                    !$this->is_collect_url($url))
+                {
+                    echo util::colorize(date("H:i:s")." 发现列表网页：".$url."\n");
 
-                $link = array(
-                    'url'           => $url,            
-                    'url_type'      => 'list_page', 
-                    'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-                    'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
-                    'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-                    'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-                    'data'          => isset($options['data'])          ? $options['data']          : array(),           
-                    'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
-                    'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
-                    'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
-                    'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
-                );
+                    $link = array(
+                        'url'           => $url,            
+                        'url_type'      => 'list_page', 
+                        'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+                        'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
+                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
+                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+                        'data'          => isset($options['data'])          ? $options['data']          : array(),           
+                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
+                        'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
+                        'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
+                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
+                    );
 
-                // 放入爬虫队列
-                array_push(self::$collect_queue_links, $link);
-                // 放入抓取数组
-                self::$collect_urls[md5($url)] = time();
-                // 抓取队列数加1
-                self::$collect_url_num++;
+                    // 放入爬虫队列
+                    array_push(self::$collect_queue_links, $link);
+                    // 放入抓取数组
+                    self::$collect_urls[md5($url)] = time();
+                    // 抓取队列数加1
+                    self::$collect_url_num++;
+                }
             }
         }
 
-        foreach (self::$configs['content_url_regexes'] as $regex) 
+        if (!empty(self::$configs['content_url_regexes'])) 
         {
-            // 如果是内容链接
-            // 不存在已爬取数组
-            // 不存在爬取数组
-            if (preg_match("#{$regex}#i", $url) &&
-                !array_key_exists($url, self::$collected_urls) &&
-                !array_key_exists($url, self::$collect_urls))
+            foreach (self::$configs['content_url_regexes'] as $regex) 
             {
-                echo util::colorize(date("H:i:s")." 发现内容网页：".$url."\n");
-                $link = array(
-                    'url'           => $url,            
-                    'url_type'      => 'content_page', 
-                    'method'        => isset($options['method'])        ? $options['method']         : 'get',             
-                    'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
-                    'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
-                    'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
-                    'data'          => isset($options['data'])          ? $options['data']           : array(),           
-                    'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
-                    'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
-                    'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
-                    'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
-                );
+                if (preg_match("#{$regex}#i", $url) && 
+                    !$this->is_collected_url($url) && 
+                    !$this->is_collect_url($url))
+                {
+                    echo util::colorize(date("H:i:s")." 发现内容网页：".$url."\n");
+                    $link = array(
+                        'url'           => $url,            
+                        'url_type'      => 'content_page', 
+                        'method'        => isset($options['method'])        ? $options['method']         : 'get',             
+                        'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
+                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
+                        'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
+                        'data'          => isset($options['data'])          ? $options['data']           : array(),           
+                        'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
+                        'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
+                        'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
+                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
+                    );
 
-                // 放入爬虫队列
-                array_push(self::$collect_queue_links, $link);
-                // 放入抓取数组
-                self::$collect_urls[md5($url)] = time();
-                // 抓取队列数加1
-                self::$collect_url_num++;
+                    // 放入爬虫队列
+                    array_push(self::$collect_queue_links, $link);
+                    // 放入抓取数组
+                    self::$collect_urls[md5($url)] = time();
+                    // 抓取队列数加1
+                    self::$collect_url_num++;
+                }
             }
         }
+
+        if (!empty(self::$configs['attachment_url_regexes'])) 
+        {
+            foreach (self::$configs['attachment_url_regexes'] as $regex) 
+            {
+            }
+        }
+    }
+
+    /**
+     * 从队列中取出
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function pop_queue_link()
+    {
+        // 先进先出，一般采用这种，但是考虑到爬虫某些特性放弃之
+        //$link = array_shift(self::$collect_queue_links); 
+        // 后进先出，采用这种做法是为了避免采集内容页有分页的时候采集失败数据拼凑不全
+        // 还可以按顺序采集分页
+        $link = array_pop(self::$collect_queue_links); 
+        // 从采集数组中排除这个URL
+        unset(self::$collect_urls[md5($link['url'])]);
+        return $link;
     }
 
     /**
@@ -1079,17 +1147,34 @@ class phpspider
         {
             foreach ($fields as $fieldname => $data) 
             {
+                $pattern = "/<img.*?src=[\'|\"](.*?(?:[\.gif|\.jpg|\.jpeg|\.png]))[\'|\"].*?[\/]?>/i"; 
+                // 在抽取到field内容之后调用, 对其中包含的img标签进行回调处理
+                if ($this->on_handle_img && preg_match($pattern, $data)) 
+                {
+                    $return = call_user_func($this->on_handle_img, $fieldname, $data);
+                    if (!isset($return))
+                    {
+                        echo util::colorize(date("H:i:s") . " on_handle_img函数返回为空\n\n", 'warn');
+                    }
+                    else 
+                    {
+                        // 有数据才会执行 on_handle_img 方法，所以这里不要被替换没了
+                        $data = $return;
+                    }
+                }
+
+                // 当一个field的内容被抽取到后进行的回调, 在此回调中可以对网页中抽取的内容作进一步处理
                 if ($this->on_extract_field) 
                 {
-                    $return_data = call_user_func($this->on_extract_field, $fieldname, $data, $page);
-                    if (!isset($return_data))
+                    $return = call_user_func($this->on_extract_field, $fieldname, $data, $page);
+                    if (!isset($return))
                     {
                         echo util::colorize(date("H:i:s") . " on_extract_field函数返回为空\n\n", 'warn');
                     }
                     else 
                     {
                         // 有数据才会执行 on_extract_field 方法，所以这里不要被替换没了
-                        $fields[$fieldname] = $return_data;
+                        $fields[$fieldname] = $return;
                     }
                 }
             }
