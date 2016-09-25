@@ -309,23 +309,7 @@ class phpspider
      */
     public function add_url($url, $options = array())
     {
-        $link = array(
-            'url'           => $url,            
-            'url_type'      => '', 
-            'method'        => isset($options['method'])        ? $options['method']         : 'get',             
-            'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
-            'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
-            'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
-            'data'          => isset($options['data'])          ? $options['data']           : array(),           
-            'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
-            'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
-            'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
-            'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
-        );
-        // 放入爬虫队列
-        array_push(self::$collect_queue_links, $link);
-        // 放入抓取数组
-        self::$collect_urls[md5($url)] = time();
+        $this->push_queue_links($url, $option);
     }
 
     public function start()
@@ -791,72 +775,87 @@ class phpspider
         //--------------------------------------------------------------------------------
         foreach ($urls as $url) 
         {
-            foreach (self::$configs['list_url_regexes'] as $regex) 
-            {
-                // 如果是列表链接
-                // 不存在已爬取数组
-                // 不存在爬取数组
-                if (preg_match("#{$regex}#i", $url) &&
-                    !array_key_exists(md5($url), self::$collected_urls) &&
-                    !array_key_exists(md5($url), self::$collect_urls))
-                {
-                    echo util::colorize(date("H:i:s")." 发现列表网页：".$url."\n");
-                    $link = array(
-                        'url'           => $url,                            // 要抓取的URL
-                        'url_type'      => 'list_page',                     // 要抓取的URL类型
-                        'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                        'headers'       => self::$headers,                  // 此url的Headers, 可以为空
-                        'data'          => array(),                         // 发送请求时需添加的参数, 可以为空
-                        'context_data'  => '',                              // 此url附加的数据, 可以为空
-                        'repeat'        => false,                           // 是否去重，true表示之前处理过的url也会插入待爬队列
-                        'proxy'         => self::$configs['proxy'],         // 代理服务器
-                        'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
-                        'collect_count' => 0,                               // 抓取次数
-                        'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
-                    );
-                    // 放入爬虫队列
-                    array_push(self::$collect_queue_links, $link);
-                    // 放入抓取数组
-                    self::$collect_urls[md5($url)] = time();
-                    // 抓取队列数加1
-                    self::$collect_url_num++;
-                }
-            }
-
-            foreach (self::$configs['content_url_regexes'] as $regex) 
-            {
-                // 如果是内容链接
-                // 不存在已爬取数组
-                // 不存在爬取数组
-                if (preg_match("#{$regex}#i", $url) &&
-                    !array_key_exists($url, self::$collected_urls) &&
-                    !array_key_exists($url, self::$collect_urls))
-                {
-                    echo util::colorize(date("H:i:s")." 发现内容网页：".$url."\n");
-                    $link = array(
-                        'url'           => $url,                            // 要抓取的URL
-                        'url_type'      => 'content_page',                  // 要抓取的URL类型
-                        'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                        'headers'       => self::$headers,                  // 此url的Headers, 可以为空
-                        'data'          => array(),                         // 发送请求时需添加的参数, 可以为空
-                        'context_data'  => '',                              // 此url附加的数据, 可以为空
-                        'repeat'        => false,                           // 是否去重，true表示之前处理过的url也会插入待爬队列
-                        'proxy'         => self::$configs['proxy'],         // 代理服务器
-                        'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
-                        'collect_count' => 0,                               // 抓取次数
-                        'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
-                    );
-                    // 放入爬虫队列
-                    array_push(self::$collect_queue_links, $link);
-                    // 放入抓取数组
-                    self::$collect_urls[md5($url)] = time();
-                    // 抓取队列数加1
-                    self::$collect_url_num++;
-                }
-            }
+            $this->push_queue_links($url);
         }
         echo "\n";
         //echo date("H:i:s")." 网页分析成功：".$collect_url."\n\n";
+    }
+
+    /**
+     * 连接投递到队列
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function push_queue_links($url, $options = array())
+    {
+        foreach (self::$configs['list_url_regexes'] as $regex) 
+        {
+            // 如果是列表链接
+            // 不存在已爬取数组
+            // 不存在爬取数组
+            if (preg_match("#{$regex}#i", $url) &&
+                !array_key_exists(md5($url), self::$collected_urls) &&
+                !array_key_exists(md5($url), self::$collect_urls))
+            {
+                echo util::colorize(date("H:i:s")." 发现列表网页：".$url."\n");
+
+                $link = array(
+                    'url'           => $url,            
+                    'url_type'      => 'list_page', 
+                    'method'        => isset($options['method'])        ? $options['method']         : 'get',             
+                    'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
+                    'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
+                    'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
+                    'data'          => isset($options['data'])          ? $options['data']           : array(),           
+                    'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
+                    'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
+                    'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
+                    'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
+                );
+
+                // 放入爬虫队列
+                array_push(self::$collect_queue_links, $link);
+                // 放入抓取数组
+                self::$collect_urls[md5($url)] = time();
+                // 抓取队列数加1
+                self::$collect_url_num++;
+            }
+        }
+
+        foreach (self::$configs['content_url_regexes'] as $regex) 
+        {
+            // 如果是内容链接
+            // 不存在已爬取数组
+            // 不存在爬取数组
+            if (preg_match("#{$regex}#i", $url) &&
+                !array_key_exists($url, self::$collected_urls) &&
+                !array_key_exists($url, self::$collect_urls))
+            {
+                echo util::colorize(date("H:i:s")." 发现内容网页：".$url."\n");
+                $link = array(
+                    'url'           => $url,            
+                    'url_type'      => 'content_page', 
+                    'method'        => isset($options['method'])        ? $options['method']         : 'get',             
+                    'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
+                    'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
+                    'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
+                    'data'          => isset($options['data'])          ? $options['data']           : array(),           
+                    'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
+                    'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
+                    'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
+                    'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
+                );
+
+                // 放入爬虫队列
+                array_push(self::$collect_queue_links, $link);
+                // 放入抓取数组
+                self::$collect_urls[md5($url)] = time();
+                // 抓取队列数加1
+                self::$collect_url_num++;
+            }
+        }
     }
 
     /**
