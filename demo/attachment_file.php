@@ -28,4 +28,5 @@ $spider->on_attachment_file = function($url, $fileinfo)
 };
 
 $url = "http://ocnt0imhl.bkt.clouddn.com/imgs/1637/2015-07/k306n1wzvkq669nm.jpg";
+$url = "http://www.epooll.com/archives/806/";
 $spider->request_url($url);

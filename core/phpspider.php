@@ -552,68 +552,26 @@ class phpspider
 
         $link = array(
             'url'           => $url,
-            'url_type'      => isset($options['url_type'])      ? $options['url_type']       : '',             
-            'method'        => isset($options['method'])        ? $options['method']         : 'get',             
-            'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
-            'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
-            'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
-            'data'          => isset($options['data'])          ? $options['data']           : array(),           
-            'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
-            'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
-            'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
-            'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
+            'url_type'      => isset($options['url_type'])      ? $options['url_type']      : '',             
+            'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+            'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
+            'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
+            'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+            'data'          => isset($options['data'])          ? $options['data']          : array(),           
+            'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
+            'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
+            'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
+            'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
         );
 
         // 如果定义了获取附件回调函数，直接拦截了
         if ($this->on_attachment_file) 
         {
-            $mime_types = $GLOBALS['config']['mimetype'];
-
-            stream_context_set_default(
-                array(
-                    'http' => array(
-                        'method' => 'HEAD'
-                    )
-                )
-            );
-            // 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
-            $headers = get_headers($url, 1);
-            if (strpos($headers[0], '302')) 
-            {
-                $url = $headers['Location'];
-                $headers = get_headers($url, 1);
-            }
-            //print_r($headers);
-            $fileinfo = array();
-            $pathinfo = pathinfo($url);
-            $fileinfo = array(
-                'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
-                'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
-                'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
-                'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
-                //'filesize' => isset($headers['Content-Length']) ? util::format_bytes($headers['Content-Length']) : 0,
-                'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
-                'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
-            );
-
-            $mime_type = 'html';
-            $content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
-            if (!empty($content_type)) 
-            {
-                $mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
-            }
-            $mime_types_flip = array_flip($mime_types);
-            // 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
-            if (!isset($mime_types_flip[$fileinfo['fileext']]))
-            {
-                $fileinfo['fileext'] = $mime_type;
-                $fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
-            }
-
+            $fileinfo = $this->is_attachment_file($url);
             // 如果不是html
-            if ($mime_type != 'html') 
+            if (!empty($fileinfo)) 
             {
-                echo util::colorize(date("H:i:s")." 发现{$mime_type}文件：".$url."\n");
+                echo util::colorize(date("H:i:s")." 发现{$fileinfo['fileext']}文件：".$url."\n");
                 call_user_func($this->on_attachment_file, $url, $fileinfo);
                 return false;
             }
@@ -727,6 +685,66 @@ class phpspider
     }
 
     /**
+     * 判断是否附件文件
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function is_attachment_file($url)
+    {
+        $mime_types = $GLOBALS['config']['mimetype'];
+        $mime_types_flip = array_flip($mime_types);
+
+        $pathinfo = pathinfo($url);
+        $fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
+
+        $fileinfo = array();
+        // 存在文件后缀并且是配置里面的后缀
+        if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
+        {
+            stream_context_set_default(
+                array(
+                    'http' => array(
+                        'method' => 'HEAD'
+                    )
+                )
+            );
+            // 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
+            $headers = get_headers($url, 1);
+            if (strpos($headers[0], '302')) 
+            {
+                $url = $headers['Location'];
+                $headers = get_headers($url, 1);
+            }
+            //print_r($headers);
+            $fileinfo = array(
+                'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
+                'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
+                'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
+                'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
+                'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
+                'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
+            );
+
+            $mime_type = 'html';
+            $content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
+            if (!empty($content_type)) 
+            {
+                $mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
+            }
+            $mime_types_flip = array_flip($mime_types);
+            // 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
+            if (!isset($mime_types_flip[$fileinfo['fileext']]))
+            {
+                $fileinfo['fileext'] = $mime_type;
+                $fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
+            }
+        }
+        return $fileinfo;
+    }
+
+    /**
      * 分析提取HTML页面中的URL
      * 
      * @param mixed $html           HTML内容
@@ -790,6 +808,8 @@ class phpspider
      */
     public function push_queue_links($url, $options = array())
     {
+        // 投递状态
+        $push_status = false;
         foreach (self::$configs['list_url_regexes'] as $regex) 
         {
             // 如果是列表链接
@@ -804,15 +824,15 @@ class phpspider
                 $link = array(
                     'url'           => $url,            
                     'url_type'      => 'list_page', 
-                    'method'        => isset($options['method'])        ? $options['method']         : 'get',             
-                    'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
-                    'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
-                    'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
-                    'data'          => isset($options['data'])          ? $options['data']           : array(),           
-                    'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
-                    'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
-                    'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
-                    'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
+                    'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+                    'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
+                    'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
+                    'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+                    'data'          => isset($options['data'])          ? $options['data']          : array(),           
+                    'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
+                    'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
+                    'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
+                    'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
                 );
 
                 // 放入爬虫队列
