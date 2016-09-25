@@ -5,7 +5,7 @@
  */
 
 $GLOBALS['config']['mimetype'] = array(
-    'application/octet-stream'  => '二进制',
+    'application/octet-stream'  => 'binary',
     //'text/xml'                  => 'xml',
     //'text/html'                 => 'html',
     //'text/htm'                  => 'htm',
@@ -20,6 +20,7 @@ $GLOBALS['config']['mimetype'] = array(
     'application/pdf'           => 'pdf',
     'audio/mp3'                 => 'mp3',
     'video/avi'                 => 'avi',
+    'video/mp4'                 => 'mp4',
     'application/x-msdownload'  => 'exe',
     'application/vnd.iphone'    => 'ipa',
     'application/x-bittorrent'  => 'torrent',

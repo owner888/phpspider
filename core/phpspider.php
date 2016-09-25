@@ -424,7 +424,9 @@ class phpspider
             $this->collect_page($link);
         } 
 
-        echo date("H:i:s")." 爬取完成\n";
+        $spider_time_use = round(microtime(true) - self::$spider_time_start, 3);
+        echo date("H:i:s")." 爬取完成 \n";
+        echo "总耗时：{$spider_time_use} 秒\n";
         echo "总共爬取链接数：".self::$collect_url_num."\n";
         echo "成功爬取链接数：".self::$collected_urls_num."\n";
     }
@@ -581,6 +583,8 @@ class phpspider
         // 如果定义了获取附件回调函数，直接拦截了
         if ($this->on_attachment_file) 
         {
+            $mime_types = $GLOBALS['config']['mimetype'];
+
             stream_context_set_default(
                 array(
                     'http' => array(
@@ -595,6 +599,18 @@ class phpspider
                 $url = $headers['Location'];
                 $headers = get_headers($url, 1);
             }
+            //print_r($headers);
+            $fileinfo = array();
+            $pathinfo = pathinfo($url);
+            $fileinfo = array(
+                'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
+                'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
+                'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
+                'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
+                //'filesize' => isset($headers['Content-Length']) ? util::format_bytes($headers['Content-Length']) : 0,
+                'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
+                'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
+            );
 
             $mime_type = 'html';
             $content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
@@ -602,12 +618,19 @@ class phpspider
             {
                 $mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
             }
+            $mime_types_flip = array_flip($mime_types);
+            // 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
+            if (!isset($mime_types_flip[$fileinfo['fileext']]))
+            {
+                $fileinfo['fileext'] = $mime_type;
+                $fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
+            }
 
             // 如果不是html
             if ($mime_type != 'html') 
             {
                 echo util::colorize(date("H:i:s")." 发现{$mime_type}文件：".$url."\n");
-                call_user_func($this->on_attachment_file, $url, $mime_type);
+                call_user_func($this->on_attachment_file, $url, $fileinfo);
                 return false;
             }
         }
@@ -1067,7 +1090,6 @@ class phpspider
      */
     public function get_fields_xpath($html, $selector, $fieldname) 
     {
-        //var_dump($html);
         $dom = new DOMDocument();
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
         //libxml_use_internal_errors(true);
@@ -1080,9 +1102,7 @@ class phpspider
         //}
 
         $xpath = new DOMXpath($dom);
-        //$selector = "//*[@id='single-next-link']//div[contains(@class,'content')]/text()[1]";
         $elements = @$xpath->query($selector);
-        //var_dump($elements);exit;
         if ($elements === false)
         {
             echo util::colorize(date("H:i:s") . "  field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n\n", 'fail');
@@ -1094,9 +1114,11 @@ class phpspider
         {
             foreach ($elements as $element) 
             {
-                //var_dump($element);
                 $nodeName = $element->nodeName;
                 $nodeType = $element->nodeType;     // 1.Element 2.Attribute 3.Text
+                //$nodeAttr = $element->getAttribute('src');
+                //$nodes = util::node_to_array($dom, $element);
+                //echo $nodes['@src']."\n";
                 // 如果是img标签，直接取src值
                 if ($nodeType == 1 && in_array($nodeName, array('img'))) 
                 {
@@ -1115,11 +1137,6 @@ class phpspider
                     $content = preg_replace(array("#^<{$nodeName}.*>#isU","#</{$nodeName}>$#isU"), array('', ''), $content);
                 }
                 $array[] = trim($content);
-                //$nodes = util::node_to_array($dom, $element);
-                //echo $nodes['@src']."\n";
-                //echo "name: ".$element->nodeName."\n";
-                //echo "value: ".$element->nodeValue."\n";
-                //echo "attr: ".$element->getAttribute('src')."\n\n";
             }
         }
         return $array;
