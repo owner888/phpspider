@@ -12,27 +12,27 @@ $configs = array(
     ),
     'scan_urls' => array(
         "http://www.13384.com/qingchunmeinv/",
-        "http://www.13384.com/xingganmeinv/",
-        "http://www.13384.com/mingxingmeinv/",
-        "http://www.13384.com/siwameitui/",
-        "http://www.13384.com/meinvmote/",
-        "http://www.13384.com/weimeixiezhen/",
+        //"http://www.13384.com/xingganmeinv/",
+        //"http://www.13384.com/mingxingmeinv/",
+        //"http://www.13384.com/siwameitui/",
+        //"http://www.13384.com/meinvmote/",
+        //"http://www.13384.com/weimeixiezhen/",
     ),
     'list_url_regexes' => array(
         "http://www.13384.com/qingchunmeinv/index_\d+.html",
-        "http://www.13384.com/xingganmeinv/index_\d+.html",
-        "http://www.13384.com/mingxingmeinv/index_\d+.html",
-        "http://www.13384.com/siwameitui/index_\d+.html",
-        "http://www.13384.com/meinvmote/index_\d+.html",
-        "http://www.13384.com/weimeixiezhen/index_\d+.html",
+        //"http://www.13384.com/xingganmeinv/index_\d+.html",
+        //"http://www.13384.com/mingxingmeinv/index_\d+.html",
+        //"http://www.13384.com/siwameitui/index_\d+.html",
+        //"http://www.13384.com/meinvmote/index_\d+.html",
+        //"http://www.13384.com/weimeixiezhen/index_\d+.html",
     ),
     'content_url_regexes' => array(
         "http://www.13384.com/qingchunmeinv/\d+.html",
-        "http://www.13384.com/xingganmeinv/\d+.html",
-        "http://www.13384.com/mingxingmeinv/\d+.html",
-        "http://www.13384.com/siwameitui/\d+.html",
-        "http://www.13384.com/meinvmote/\d+.html",
-        "http://www.13384.com/weimeixiezhen/\d+.html",
+        //"http://www.13384.com/xingganmeinv/\d+.html",
+        //"http://www.13384.com/mingxingmeinv/\d+.html",
+        //"http://www.13384.com/siwameitui/\d+.html",
+        //"http://www.13384.com/meinvmote/\d+.html",
+        //"http://www.13384.com/weimeixiezhen/\d+.html",
     ),
     'attachment_url_regexes' => array(
     ),
@@ -46,17 +46,10 @@ $configs = array(
         //'file'  => PATH_DATA.'/13384.sql',
         //'table' => 'content',
     //),
-    //'export' => array(
-        //'type' => 'db', 
-        //'conf' => array(
-            //'host'  => '127.0.0.1',
-            //'port'  => 3306,
-            //'user'  => 'root',
-            //'pass'  => 'root',
-            //'name'  => 'demo',
-        //),
-        //'table' => 'content',
-    //),
+    'export' => array(
+        'type' => 'db', 
+        'table' => 'meinv_content',
+    ),
     'fields' => array(
         // 标题
         array(
@@ -78,7 +71,7 @@ $configs = array(
         ),
         // 内容
         array(
-            'name' => "contents",
+            'name' => "content",
             'selector' => "//div[@id='pages']//a//@href",
             'repeated' => true,
             'required' => true,
@@ -106,21 +99,30 @@ $spider = new phpspider($configs);
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
+    if ($fieldname == 'name') 
+    {
+        $data = trim(preg_replace("#\(.*?\)#", "", $data));
+    }
     if ($fieldname == 'addtime') 
     {
-        $data = substr($data, 0, 19);
+        $data = strtotime(substr($data, 0, 19));
     }
-    elseif ($fieldname == 'contents') 
+    elseif ($fieldname == 'content') 
     {
-        if (!empty($data))
+        $contents = $data;
+        $array = array();
+        foreach ($contents as $content) 
         {
-            $contents = $data;
-            $data = "";
-            foreach ($contents as $content) 
-            {
-                $data .= ", ".$content['page_content'];
-            }
+            $url = $content['page_content'];
+            // 以纳秒为单位生成随机数
+            $filename = uniqid().".jpg";
+            // 在data目录下生成图片
+            $filepath = PATH_ROOT."/images/{$filename}";
+            // 用系统自带的下载器wget下载
+            //exec("wget {$url} -O {$filepath}");
+            $array[] = $filename;
         }
+        $data = implode(",", $array);
     }
     return $data;
 };
