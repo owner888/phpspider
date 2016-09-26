@@ -229,7 +229,6 @@ class phpspider
         self::$configs['interval']      = isset(self::$configs['interval'])      ? self::$configs['interval']      : self::INTERVAL;
         self::$configs['timeout']       = isset(self::$configs['timeout'])       ? self::$configs['timeout']       : self::TIMEOUT;
         self::$configs['collect_fails'] = isset(self::$configs['collect_fails']) ? self::$configs['collect_fails'] : self::COLLECT_FAILS;
-        self::$configs['queue_length']  = isset(self::$configs['queue_length'])  ? self::$configs['queue_length']  : 0;
         self::$configs['export']        = isset(self::$configs['export'])        ? self::$configs['export']        : array();
     }
 
@@ -392,13 +391,16 @@ class phpspider
         // 爬虫开始时间
         self::$spider_time_start = time();
 
+        // csv、sql、db
+        self::$export_type = isset(self::$configs['export']['type']) ? self::$configs['export']['type'] : '';
+        self::$export_file = isset(self::$configs['export']['file']) ? self::$configs['export']['file'] : '';
+        self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
+
         // 如果设置了导出选项
         if (!empty(self::$configs['export'])) 
         {
-            self::$export_type = isset(self::$configs['export']['type']) ? self::$configs['export']['type'] : '';
             if (self::$export_type == 'csv') 
             {
-                self::$export_file = isset(self::$configs['export']['file']) ? self::$configs['export']['file'] : '';
                 if (empty(self::$export_file)) 
                 {
                     $this->log("设置了导出类型为CSV的导出文件不能为空", 'fail');
@@ -407,8 +409,6 @@ class phpspider
             }
             elseif (self::$export_type == 'sql') 
             {
-                self::$export_file = isset(self::$configs['export']['file']) ? self::$configs['export']['file'] : '';
-                self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
                 if (empty(self::$export_file)) 
                 {
                     $this->log("设置了导出类型为sql的导出文件不能为空", 'fail');
@@ -417,16 +417,11 @@ class phpspider
             }
             elseif (self::$export_type == 'db') 
             {
-                self::$export_conf = isset(self::$configs['export']['conf']) ? self::$configs['export']['conf'] : '';
-                self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
-                if (!empty(self::$export_conf)) 
+                db::_init_mysql($GLOBALS['config']['db']);
+                if (!db::table_exists(self::$export_table))
                 {
-                    db::_init_mysql(self::$export_conf);
-                    if (!db::table_exists(self::$export_table))
-                    {
-                        $this->log("数据库表(".self::$export_table.")不存在", 'warn');
-                        exit;
-                    }
+                    $this->log("数据库表(".self::$export_table.")不存在", 'warn');
+                    exit;
                 }
             }
         }
@@ -472,8 +467,8 @@ class phpspider
         // 抓取页面
         while(!empty(self::$queue_collect))
         { 
-            // 从队列取出要爬取的URL对象
-            $link = $this->queue_lpop();
+            // 先进先出
+            $link = $this->queue_rpop();
             $this->collect_page($link);
         } 
 
@@ -564,6 +559,7 @@ class phpspider
         {
             if ($this->on_list_page) 
             {
+                // 回调函数如果返回false表示不需要再从此网页中发现待爬url
                 $is_collect_url = call_user_func($this->on_list_page, $page, $page['raw'], $this);
             }
         }
@@ -571,11 +567,12 @@ class phpspider
         {
             if ($this->on_content_page) 
             {
+                // 回调函数如果返回false表示不需要再从此网页中发现待爬url
                 $is_collect_url = call_user_func($this->on_content_page, $page, $page['raw'], $this);
             }
         }
 
-        // 成功才存入已爬取列表队列，避免过多操作数组
+        // 页面下载成功 或 下载失败次数超过 都存入已爬取列表队列
         $this->set_collected_url($url);
 
         // 爬取页面耗时时间
@@ -589,12 +586,14 @@ class phpspider
 
         $this->log("已经抓取网页：".count(self::$collected_urls)." 个\n");
 
+        // 这个就是现阶段检查程序有木有出Bug用的
         if (count(self::$queue_collect) != count(self::$collect_urls)) 
         {
             $this->log("等待抓取网页 和 队列 数量不等，请检查程序", 'fail');
             exit;
         }
 
+        // on_scan_page、on_list_pag、on_content_page 返回false表示不需要再从此网页中发现待爬url
         if ($is_collect_url) 
         {
             // 分析提取HTML页面中的URL
@@ -753,10 +752,10 @@ class phpspider
                 return false;
             }
             // 抓取次数 小于 允许抓取失败次数
-            if ( $link['collect_count'] <= $link['collect_fails'] ) 
+            if ( $link['collect_count'] < $link['collect_fails'] ) 
             {
-                // 扔回去继续采集
-                $this->queue_lpush($link);
+                // 直接扔到队列头部去，可以立刻继续采集
+                $this->queue_rpush($link);
             }
             // 失败次数超过了就放入已采集队列，免得以后在其他页面遇到又采集一次
             else 
@@ -982,9 +981,7 @@ class phpspider
             return false;
         }
         $url = $link['url'];
-        // 放入爬虫队列
         array_push(self::$queue_collect, $link);
-        // 放入抓取数组
         $this->set_collect_url($url);
         return true;
     }
@@ -1003,9 +1000,7 @@ class phpspider
             return false;
         }
         $url = $link['url'];
-        // 放入爬虫队列
         array_unshift(self::$queue_collect, $link);
-        // 放入抓取数组
         $this->set_collect_url($url);
         return true;
     }
@@ -1019,8 +1014,9 @@ class phpspider
      */
     public function queue_lpop()
     {
-        // 后进先出，采用这种做法是为了避免采集内容页有分页的时候采集失败数据拼凑不全
-        // 还可以按顺序采集分页
+        // 后进先出
+        // 可以避免采集内容页有分页的时候采集失败数据拼凑不全
+        // 还可以按顺序采集列表页
         $link = array_pop(self::$queue_collect); 
         // 从采集数组中排除这个URL
         $this->del_collect_url($link['url']);
@@ -1177,7 +1173,7 @@ class phpspider
                 // 如果这个field是上一个field的附带连接
                 if (isset($conf['source_type']) && $conf['source_type']=='attached_url') 
                 {
-                    // 取出上个field的内容作为连接
+                    // 取出上个field的内容作为连接，内容分页是不进队列直接下载网页的
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
