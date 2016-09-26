@@ -164,7 +164,7 @@ class rolling_curl
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public static function set_http_raw($http_raw = false)
+    public function set_http_raw($http_raw = false)
     {
         $this->options[CURLOPT_HEADER] = $http_raw;
     }

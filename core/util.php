@@ -734,8 +734,11 @@ class util
             case "note":
                 $out = "\033[34m";    // Green
                 break;
+            case "info":
+                $out = "\033[36m";    // Green
+                break;
             default:
-                $out = "\033[36m";       // Default
+                $out = "\033[0m";       // Default
                 break;
         }
         return $out.$str."\033[0m";

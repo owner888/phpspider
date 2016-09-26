@@ -10,6 +10,12 @@
 class phpspider
 {
     /**
+     * 版本号
+     * @var string
+     */
+    const VERSION = '1.1.0';
+
+    /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时，单位：秒
      */
     const INTERVAL = 0;
@@ -22,7 +28,7 @@ class phpspider
     /**
      * 爬取失败次数，不想失败重新爬取则设置为0 
      */
-    const COLLECT_FAILS = 5;
+    const COLLECT_FAILS = 0;
 
     /**
      * 抽取规则的类型：xpath、jsonpath、regex 
@@ -79,7 +85,7 @@ class phpspider
          'collect_fails'=> 0        // 允许抓取失败次数
      ) 
      */
-    public static $collect_queue_links = array();
+    public static $queue_collect = array();
 
     /**
      * 要抓取的URL数组
@@ -92,16 +98,6 @@ class phpspider
      * md5($url) => time()
      */
     public static $collected_urls = array();
-
-    /**
-     * 总共爬取链接数 
-     */
-    public static $collect_url_num = 0;
-
-    /**
-     * 成功爬取链接数
-     */
-    public static $collected_urls_num = 0;
 
     /**
      * 爬虫开始时间 
@@ -221,7 +217,8 @@ class phpspider
         $content = file_get_contents($included_files[0]);
         if (!preg_match("#/\* Do NOT delete this comment \*/#", $content) || !preg_match("#/\* 不要删除这段注释 \*/#", $content))
         {
-            exit(util::colorize("未知错误；请参考文档或寻求技术支持。\n", 'fail'));
+            $this->log("未知错误；请参考文档或寻求技术支持。", 'fail');
+            exit;
         }
 
         self::$configs = $configs;
@@ -317,7 +314,72 @@ class phpspider
      */
     public function add_url($url, $options = array())
     {
-        $this->push_queue_link($url, $option);
+        // 投递状态
+        $push_status = false;
+        if (!empty(self::$configs['list_url_regexes'])) 
+        {
+            foreach (self::$configs['list_url_regexes'] as $regex) 
+            {
+                if (preg_match("#{$regex}#i", $url) && 
+                    !$this->is_collected_url($url) && 
+                    !$this->is_collect_url($url))
+                {
+                    $this->log("发现列表网页：{$url}", 'info');
+
+                    $link = array(
+                        'url'           => $url,            
+                        'url_type'      => 'list_page', 
+                        'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+                        'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
+                        'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
+                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
+                        'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
+                        'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
+                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
+                    );
+
+                    $push_status = $this->queue_lpush($link);
+                }
+            }
+        }
+
+        if (!empty(self::$configs['content_url_regexes'])) 
+        {
+            foreach (self::$configs['content_url_regexes'] as $regex) 
+            {
+                if (preg_match("#{$regex}#i", $url) && 
+                    !$this->is_collected_url($url) && 
+                    !$this->is_collect_url($url))
+                {
+                    $this->log("发现内容网页：{$url}", 'info');
+                    $link = array(
+                        'url'           => $url,            
+                        'url_type'      => 'content_page', 
+                        'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+                        'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
+                        'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
+                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
+                        'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
+                        'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
+                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
+                    );
+
+                    $push_status = $this->queue_lpush($link);
+                }
+            }
+        }
+
+        if (!empty(self::$configs['attachment_url_regexes'])) 
+        {
+            foreach (self::$configs['attachment_url_regexes'] as $regex) 
+            {
+            }
+        }
+        return $push_status;
     }
 
     public function start()
@@ -331,7 +393,8 @@ class phpspider
                 self::$export_file = isset(self::$configs['export']['file']) ? self::$configs['export']['file'] : '';
                 if (empty(self::$export_file)) 
                 {
-                    exit(util::colorize(date("H:i:s") . " 设置了导出类型为CSV的导出文件不能为空\n\n", 'fail'));
+                    $this->log("设置了导出类型为CSV的导出文件不能为空", 'fail');
+                    exit;
                 }
             }
             elseif (self::$export_type == 'sql') 
@@ -340,7 +403,8 @@ class phpspider
                 self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
                 if (empty(self::$export_file)) 
                 {
-                    exit(util::colorize(date("H:i:s") . " 设置了导出类型为sql的导出文件不能为空\n\n", 'fail'));
+                    $this->log("设置了导出类型为sql的导出文件不能为空", 'fail');
+                    exit;
                 }
             }
             elseif (self::$export_type == 'db') 
@@ -352,7 +416,8 @@ class phpspider
                     db::_init_mysql(self::$export_conf);
                     if (!db::table_exists(self::$export_table))
                     {
-                        exit(util::colorize(date("H:i:s") . " 数据库表(".self::$export_table.")不存在\n\n", 'warn'));
+                        $this->log("数据库表(".self::$export_table.")不存在", 'warn');
+                        exit;
                     }
                 }
             }
@@ -389,11 +454,7 @@ class phpspider
                 'collect_count' => 0,                               // 抓取次数
                 'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
             );
-            // 放入爬虫队列
-            array_push(self::$collect_queue_links, $link);
-            // 放入抓取数组
-            self::$collect_urls[md5($url)] = time();
-            self::$collect_url_num++;
+            $this->queue_lpush($link);
         }
 
         //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
@@ -407,18 +468,18 @@ class phpspider
         //exit;
 
         // 抓取页面
-        while(!empty(self::$collect_queue_links))
+        while(!empty(self::$queue_collect))
         { 
             // 从队列取出要爬取的URL对象
-            $link = $this->pop_queue_link();
+            $link = $this->queue_lpop();
             $this->collect_page($link);
         } 
 
         $spider_time_run = round(microtime(true) - self::$spider_time_start, 3);
         echo date("H:i:s")." 爬取完成 \n";
         echo "总耗时：{$spider_time_run} 秒\n";
-        echo "总共爬取链接数：".self::$collect_url_num."\n";
-        echo "成功爬取链接数：".self::$collected_urls_num."\n";
+        echo "总共爬取链接数：".count(self::$collect_urls)."\n";
+        echo "成功爬取链接数：".count(self::$collected_urls)."\n";
     }
 
     /**
@@ -435,7 +496,6 @@ class phpspider
         $time_start = microtime(true);
 
         $url = $link['url'];
-        echo date("H:i:s")." 抓取队列长度：".count(self::$collect_urls)."\n\n";
 
         if ($link['url_type'] == 'attachment_file') 
         {
@@ -514,17 +574,24 @@ class phpspider
         }
 
         // 成功才存入已爬取列表队列，避免过多操作数组
-        self::$collected_urls[md5($url)] = time();
+        $this->set_collected_url($url);
 
         // 爬取页面耗时时间
         $time_run = round(microtime(true) - $time_start, 3);
-        echo date("H:i:s")." 网页下载成功：".$url."\t耗时: {$time_run} 秒\n\n";
-
-        self::$collected_urls_num++;
-        echo date("H:i:s")." 网页下载数量：".self::$collected_urls_num."\n\n";
+        $this->log("网页下载成功：".$url."\t耗时: {$time_run} 秒\n");
 
         $spider_time_run = round(microtime(true) - self::$spider_time_start, 3);
-        echo date("H:i:s")." 爬虫运行时间：{$spider_time_run} 秒\n\n";
+        $this->log("爬虫运行时间：{$spider_time_run} 秒\n");
+
+        $this->log("等待抓取网页：".count(self::$collect_urls)." 个\n");
+
+        $this->log("已经抓取网页：".count(self::$collected_urls)." 个\n");
+
+        if (count(self::$queue_collect) != count(self::$collect_urls)) 
+        {
+            $this->log("等待抓取网页 和 队列 数量不等，请检查程序", 'fail');
+            exit;
+        }
 
         if ($is_collect_url) 
         {
@@ -544,6 +611,11 @@ class phpspider
         {
             sleep(self::$configs['interval']);
         }
+        // 默认睡眠100毫秒，太快了会被认为是ddos
+        else 
+        {
+            usleep(100000);
+        }
     }
 
     /**
@@ -562,7 +634,8 @@ class phpspider
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if(!preg_match($pattern, $url))
         {
-            exit(util::colorize(date("H:i:s")." 你所请求的URL({$url})不是有效的HTTP地址\n\n", 'fail'));
+            $this->log("你所请求的URL({$url})不是有效的HTTP地址", 'fail');
+            exit;
         }
 
         $parse_url_arr = parse_url($url);
@@ -589,14 +662,11 @@ class phpspider
             // 如果不是html
             if (!empty($fileinfo)) 
             {
-                echo util::colorize(date("H:i:s")." 发现{$fileinfo['fileext']}文件：".$url."\n");
+                $this->log("发现{$fileinfo['fileext']}文件：{$url}", 'info');
                 call_user_func($this->on_attachment_file, $url, $fileinfo);
                 return false;
             }
         }
-
-        //ini_set('user_agent','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36');
-        //$html = file_get_contents($url);
 
         cls_curl::set_timeout(self::$configs['timeout']);
         cls_curl::set_useragent(self::$configs['user_agent']);
@@ -641,12 +711,11 @@ class phpspider
         $fields = empty($link['context_data']) ? $link['fields'] : $link['context_data'];
         $method = strtolower($link['method']);
         $html = cls_curl::$method($url, $fields);
+        //ini_set('user_agent','Mozilla/5.0');
+        //$html = file_get_contents($url);
+
 
         // 对于登录成功后302跳转的，Cookie实际上存在body而不在header，header只有一句：HTTP/1.1 100 Continue
-        //if (cls_curl::get_http_code() == 302)
-        //{
-        //}
-
         // 为了兼容301和301这些乱七八糟的，还是header+body一起匹配吧
         // 解析Cookie并存入 self::$cookies 方便调用
         preg_match_all("/.*?Set\-Cookie: ([^\r\n]*)/i", $html, $matches);
@@ -678,22 +747,21 @@ class phpspider
             $link['collect_count']++;
             if ($http_code == 407) 
             {
-                echo util::colorize(date("H:i:s")." 代理服务器验证失败，请检查代理服务器设置\n\n", 'fail');
+                $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'fail');
                 return false;
             }
             // 抓取次数 小于 允许抓取失败次数
             if ( $link['collect_count'] <= $link['collect_fails'] ) 
             {
                 // 扔回去继续采集
-                array_push(self::$collect_queue_links, $link);
-                self::$collect_urls[md5($url)] = time();
+                $this->queue_lpush($link);
             }
             // 失败次数超过了就放入已采集队列，免得以后在其他页面遇到又采集一次
             else 
             {
-                self::$collected_urls[md5($url)] = time();
+                $this->is_collected_url($url);
             }
-            echo util::colorize(date("H:i:s")." 网页下载失败：".$url." 失败次数：".$link['collect_count']."\n\n", 'fail');
+            $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'fail');
             return false;
         }
 
@@ -814,27 +882,14 @@ class phpspider
         //--------------------------------------------------------------------------------
         foreach ($urls as $url) 
         {
-            $this->push_queue_link($url);
+            $this->add_url($url);
         }
         echo "\n";
         //echo date("H:i:s")." 网页分析成功：".$collect_url."\n\n";
     }
 
     /**
-     * 是否在已采集队列中的URL
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function is_collected_url($url)
-    {
-        return array_key_exists(md5($url), self::$collected_urls);
-    }
-
-    /**
-     * 是否在采集队列中的URL
+     * 是否待爬取网页
      * 
      * @param mixed $url
      * @return void
@@ -847,107 +902,141 @@ class phpspider
     }
 
     /**
-     * 投递到队列
+     * 添加待爬取网页标记
      * 
+     * @param mixed $url
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function push_queue_link($url, $options = array())
+    public function set_collect_url($url)
     {
-        // 投递状态
-        $push_status = false;
-        if (!empty(self::$configs['list_url_regexes'])) 
-        {
-            foreach (self::$configs['list_url_regexes'] as $regex) 
-            {
-                if (preg_match("#{$regex}#i", $url) && 
-                    !$this->is_collected_url($url) && 
-                    !$this->is_collect_url($url))
-                {
-                    echo util::colorize(date("H:i:s")." 发现列表网页：".$url."\n");
-
-                    $link = array(
-                        'url'           => $url,            
-                        'url_type'      => 'list_page', 
-                        'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-                        'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
-                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
-                        'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
-                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-                        'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
-                        'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
-                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
-                    );
-
-                    // 放入爬虫队列
-                    array_push(self::$collect_queue_links, $link);
-                    // 放入抓取数组
-                    self::$collect_urls[md5($url)] = time();
-                    // 抓取队列数加1
-                    self::$collect_url_num++;
-                }
-            }
-        }
-
-        if (!empty(self::$configs['content_url_regexes'])) 
-        {
-            foreach (self::$configs['content_url_regexes'] as $regex) 
-            {
-                if (preg_match("#{$regex}#i", $url) && 
-                    !$this->is_collected_url($url) && 
-                    !$this->is_collect_url($url))
-                {
-                    echo util::colorize(date("H:i:s")." 发现内容网页：".$url."\n");
-                    $link = array(
-                        'url'           => $url,            
-                        'url_type'      => 'content_page', 
-                        'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-                        'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
-                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
-                        'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
-                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-                        'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
-                        'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
-                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
-                    );
-
-                    // 放入爬虫队列
-                    array_push(self::$collect_queue_links, $link);
-                    // 放入抓取数组
-                    self::$collect_urls[md5($url)] = time();
-                    // 抓取队列数加1
-                    self::$collect_url_num++;
-                }
-            }
-        }
-
-        if (!empty(self::$configs['attachment_url_regexes'])) 
-        {
-            foreach (self::$configs['attachment_url_regexes'] as $regex) 
-            {
-            }
-        }
+        self::$collect_urls[md5($url)] = time();
     }
 
     /**
-     * 从队列中取出
+     * 删除待爬取网页标记
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function del_collect_url($url)
+    {
+        unset(self::$collect_urls[md5($url)]);
+    }
+
+    /**
+     * 是否已爬取网页
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function is_collected_url($url)
+    {
+        return array_key_exists(md5($url), self::$collected_urls);
+    }
+
+    /**
+     * 添加已爬取网页标记
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function set_collected_url($url)
+    {
+        self::$collected_urls[md5($url)] = time();
+    }
+
+    /**
+     * 删除已爬取网页标记
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function del_collected_url($url)
+    {
+        unset(self::$collected_urls[md5($url)]);
+    }
+
+    /**
+     * 从队列左边插入
      * 
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function pop_queue_link()
+    public function queue_lpush($link = array())
     {
-        // 先进先出，一般采用这种，但是考虑到爬虫某些特性放弃之
-        //$link = array_shift(self::$collect_queue_links); 
+        if (empty($link) || empty($link['url'])) 
+        {
+            return false;
+        }
+        $url = $link['url'];
+        // 放入爬虫队列
+        array_push(self::$queue_collect, $link);
+        // 放入抓取数组
+        $this->set_collect_url($url);
+        return true;
+    }
+
+    /**
+     * 从队列右边插入
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function queue_rpush($link = array())
+    {
+        if (empty($link) || empty($link['url'])) 
+        {
+            return false;
+        }
+        $url = $link['url'];
+        // 放入爬虫队列
+        array_unshift(self::$queue_collect, $link);
+        // 放入抓取数组
+        $this->set_collect_url($url);
+        return true;
+    }
+
+    /**
+     * 从队列左边取出
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function queue_lpop()
+    {
         // 后进先出，采用这种做法是为了避免采集内容页有分页的时候采集失败数据拼凑不全
         // 还可以按顺序采集分页
-        $link = array_pop(self::$collect_queue_links); 
+        $link = array_pop(self::$queue_collect); 
         // 从采集数组中排除这个URL
-        unset(self::$collect_urls[md5($link['url'])]);
+        $this->del_collect_url($link['url']);
+        return $link;
+    }
+
+    /**
+     * 从队列右边取出
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function queue_rpop()
+    {
+        $link = array_shift(self::$queue_collect); 
+        // 从采集数组中排除这个URL
+        $this->del_collect_url($link['url']);
         return $link;
     }
 
@@ -1013,11 +1102,11 @@ class phpspider
                 $return_data = call_user_func($this->on_extract_page, $page, $fields);
                 if (!isset($return_data))
                 {
-                    echo util::colorize(date("H:i:s") . " on_extract_page函数返回为空\n\n", 'warn');
+                    $this->log("on_extract_page函数返回为空\n", 'warn');
                 }
                 elseif (!is_array($return_data))
                 {
-                    echo util::colorize(date("H:i:s") . " on_extract_page函数返回值必须是数组\n\n", 'warn');
+                    $this->log("on_extract_page函数返回值必须是数组\n", 'warn');
                 }
                 else 
                 {
@@ -1075,7 +1164,7 @@ class phpspider
 
             if (empty($conf['name'])) 
             {
-                echo util::colorize(date("H:i:s") . " field的名字是空值, 请检查你的\"fields\"并添加field的名字\n\n", 'fail');
+                $this->log("field的名字是空值, 请检查你的\"fields\"并添加field的名字\n", 'fail');
                 exit;
             }
 
@@ -1090,7 +1179,7 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
-                        echo util::colorize(date("H:i:s")." 发现内容分页：".$url."\n");
+                        $this->log("发现内容分页：{$url}", 'info');
                         $html = $this->request_url($collect_url);
                         // 请求获取完分页数据后把连接删除了 
                         unset($fields[$conf['attached_url']]);
@@ -1159,7 +1248,7 @@ class phpspider
                     $return = call_user_func($this->on_handle_img, $fieldname, $data);
                     if (!isset($return))
                     {
-                        echo util::colorize(date("H:i:s") . " on_handle_img函数返回为空\n\n", 'warn');
+                        $this->log("on_handle_img函数返回为空\n", 'warn');
                     }
                     else 
                     {
@@ -1174,7 +1263,7 @@ class phpspider
                     $return = call_user_func($this->on_extract_field, $fieldname, $data, $page);
                     if (!isset($return))
                     {
-                        echo util::colorize(date("H:i:s") . " on_extract_field函数返回为空\n\n", 'warn');
+                        $this->log("on_extract_field函数返回为空\n", 'warn');
                     }
                     else 
                     {
@@ -1214,7 +1303,7 @@ class phpspider
         $elements = @$xpath->query($selector);
         if ($elements === false)
         {
-            echo util::colorize(date("H:i:s") . "  field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n\n", 'fail');
+            $this->log("field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n", 'fail');
             exit;
         }
 
@@ -1264,7 +1353,7 @@ class phpspider
     {
         if(@preg_match_all($selector, $html, $out) === false)
         {
-            echo util::colorize(date("H:i:s") . "  field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n\n", 'fail');
+            $this->log("field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n", 'fail');
             exit;
         }
 
@@ -1291,6 +1380,11 @@ class phpspider
      */
     public function get_fields_css($html, $selector, $fieldname) 
     {
+    }
+
+    public function log($msg, $status = '')
+    {
+        echo util::colorize(date("H:i:s") . "  {$msg}\n", $status);
     }
 }
 

@@ -120,7 +120,6 @@ $spider->on_extract_field = function($fieldname, $data, $page)
             {
                 $data .= ", ".$content['page_content'];
             }
-            echo "\n\n".$data."\n\n";
         }
     }
     return $data;
