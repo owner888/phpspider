@@ -380,12 +380,12 @@ class phpspider
                 'url'           => $url,                            // 要抓取的URL
                 'url_type'      => 'scan_page',                     // 要抓取的URL类型
                 'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
+                'fields'        => array(),                         // 发送请求时需添加的参数, 可以为空
                 'headers'       => self::$headers,                  // 此url的Headers, 可以为空
-                'data'          => array(),                         // 发送请求时需添加的参数, 可以为空
                 'context_data'  => '',                              // 此url附加的数据, 可以为空
-                'repeat'        => false,                           // 是否去重，true表示之前处理过的url也会插入待爬队列
                 'proxy'         => self::$configs['proxy'],         // 代理服务器
                 'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
+                'repeat'        => false,                           // 是否去重，true表示之前处理过的url也会插入待爬队列
                 'collect_count' => 0,                               // 抓取次数
                 'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
             );
@@ -471,9 +471,9 @@ class phpspider
             'request' => array(
                 'url'           => $url,
                 'method'        => $link['method'],
-                'data'          => $link['data'],
-                'context_data'  => $link['context_data'],
+                'fields'        => $link['fields'],
                 'headers'       => $link['headers'],
+                'context_data'  => $link['context_data'],
                 'collect_count' => $link['collect_count'],
                 'collect_fails' => $link['collect_fails'],
             ),
@@ -572,11 +572,11 @@ class phpspider
             'url'           => $url,
             'url_type'      => isset($options['url_type'])      ? $options['url_type']      : '',             
             'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+            'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+            'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+            'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
             'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
             'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-            'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-            'data'          => isset($options['data'])          ? $options['data']          : array(),           
-            'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
             'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
             'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
             'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
@@ -638,7 +638,7 @@ class phpspider
         cls_curl::set_http_raw(true);
 
         // 如果设置了附加的数据，如json和xml，就直接发附加的数据,php端可以用 file_get_contents("php://input"); 获取
-        $fields = empty($link['context_data']) ? $link['data'] : $link['context_data'];
+        $fields = empty($link['context_data']) ? $link['fields'] : $link['context_data'];
         $method = strtolower($link['method']);
         $html = cls_curl::$method($url, $fields);
 
@@ -687,6 +687,11 @@ class phpspider
                 // 扔回去继续采集
                 array_push(self::$collect_queue_links, $link);
                 self::$collect_urls[md5($url)] = time();
+            }
+            // 失败次数超过了就放入已采集队列，免得以后在其他页面遇到又采集一次
+            else 
+            {
+                self::$collected_urls[md5($url)] = time();
             }
             echo util::colorize(date("H:i:s")." 网页下载失败：".$url." 失败次数：".$link['collect_count']."\n\n", 'fail');
             return false;
@@ -866,11 +871,11 @@ class phpspider
                         'url'           => $url,            
                         'url_type'      => 'list_page', 
                         'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+                        'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
                         'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
                         'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-                        'data'          => isset($options['data'])          ? $options['data']          : array(),           
-                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
                         'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
                         'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
                         'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
@@ -898,15 +903,15 @@ class phpspider
                     $link = array(
                         'url'           => $url,            
                         'url_type'      => 'content_page', 
-                        'method'        => isset($options['method'])        ? $options['method']         : 'get',             
-                        'proxy'         => isset($options['proxy'])         ? $options['proxy']          : self::$configs['proxy'],             
-                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']     : self::$configs['proxy_auth'],             
-                        'headers'       => isset($options['headers'])       ? $options['headers']        : self::$headers,    
-                        'data'          => isset($options['data'])          ? $options['data']           : array(),           
-                        'context_data'  => isset($options['context_data'])  ? $options['context_data']   : '',                
-                        'repeat'        => isset($options['repeat'])        ? $options['repeat']         : false,             
-                        'collect_count' => isset($options['collect_count']) ? $options['collect_count']  : 0,                 
-                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails']  : self::$configs['collect_fails'],
+                        'method'        => isset($options['method'])        ? $options['method']        : 'get',             
+                        'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+                        'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+                        'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
+                        'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
+                        'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
+                        'repeat'        => isset($options['repeat'])        ? $options['repeat']        : false,             
+                        'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
+                        'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
                     );
 
                     // 放入爬虫队列
