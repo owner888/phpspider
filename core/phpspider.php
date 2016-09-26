@@ -384,6 +384,14 @@ class phpspider
 
     public function start()
     {
+        //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
+        echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
+
+        echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
+
+        // 爬虫开始时间
+        self::$spider_time_start = time();
+
         // 如果设置了导出选项
         if (!empty(self::$configs['export'])) 
         {
@@ -456,12 +464,6 @@ class phpspider
             );
             $this->queue_lpush($link);
         }
-
-        //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
-        echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
-
-        // 爬虫开始时间
-        self::$spider_time_start = time();
 
         // 测试抓取页面
         //$this->get_contents("http://www.qiushibaike.com/article/117554075");
