@@ -51,6 +51,24 @@ class util
         unlink(PATH_DATA."/lock/{$lock_name}.lock");
     }
 
+    public static function time2second($seconds)
+    {
+        $seconds = (int)$seconds;
+        if( $seconds>3600 ){
+            if( $seconds>24*3600 ){
+                $days		= (int)($seconds/86400);
+                $days_num	= $days."天";
+                $seconds	= $seconds%86400;//取余
+            }
+            $hours = intval($seconds/3600);
+            $minutes = $seconds%3600;//取余下秒数
+            $time = $days_num.$hours."小时".gmstrftime('%M分钟%S秒', $minutes);
+        }else{
+            $time = gmstrftime('%H小时%M分钟%S秒', $seconds);
+        }
+        return $time;
+    }
+
     public static function get_days($day_sta, $day_end = true, $range = 86400)
     {
         if ($day_end === true) $day_end = date('Y-m-d');
@@ -717,7 +735,7 @@ class util
         return $retval;
     }
     
-    public static function colorize($str, $status = "default") 
+    public static function colorize($str, $status = "info") 
     {
         $out = "";
         switch ($status) 
@@ -725,7 +743,7 @@ class util
             case 'succ':
                 $out = "\033[32m";    // Blue
                 break;
-            case "fail":
+            case "error":
                 $out = "\033[31m";    // Red
                 break;
             case "warn":
@@ -734,11 +752,11 @@ class util
             case "note":
                 $out = "\033[34m";    // Green
                 break;
-            case "info":
+            case "debug":
                 $out = "\033[36m";    // Green
                 break;
             default:
-                $out = "\033[0m";       // Default
+                $out = "\033[0m";     // info
                 break;
         }
         return $out.$str."\033[0m";

@@ -216,7 +216,7 @@ class phpspider
         $content = file_get_contents($included_files[0]);
         if (!preg_match("#/\* Do NOT delete this comment \*/#", $content) || !preg_match("#/\* 不要删除这段注释 \*/#", $content))
         {
-            $this->log("未知错误；请参考文档或寻求技术支持。", 'fail');
+            $this->log("未知错误；请参考文档或寻求技术支持。", 'error');
             exit;
         }
 
@@ -335,7 +335,7 @@ class phpspider
                     !$this->is_collected_url($url) && 
                     !$this->is_collect_url($url))
                 {
-                    $this->log("发现列表网页：{$url}", 'info');
+                    $this->log("发现列表网页：{$url}", 'debug');
                     $link['url_type'] = 'list_page';
                     $status = $this->queue_lpush($link);
                 }
@@ -350,7 +350,7 @@ class phpspider
                     !$this->is_collected_url($url) && 
                     !$this->is_collect_url($url))
                 {
-                    $this->log("发现内容网页：{$url}", 'info');
+                    $this->log("发现内容网页：{$url}", 'debug');
                     $link['url_type'] = 'content_page';
                     $status = $this->queue_lpush($link);
                 }
@@ -365,7 +365,7 @@ class phpspider
                     !$this->is_collected_url($url) && 
                     !$this->is_collect_url($url))
                 {
-                    $this->log("发现网页文件：{$url}", 'info');
+                    $this->log("发现网页文件：{$url}", 'debug');
                     $link['url_type'] = 'attachment_file';
                     $status = $this->queue_lpush($link);
                 }
@@ -396,7 +396,7 @@ class phpspider
             {
                 if (empty(self::$export_file)) 
                 {
-                    $this->log("设置了导出类型为CSV的导出文件不能为空", 'fail');
+                    $this->log("设置了导出类型为CSV的导出文件不能为空", 'error');
                     exit;
                 }
             }
@@ -404,7 +404,7 @@ class phpspider
             {
                 if (empty(self::$export_file)) 
                 {
-                    $this->log("设置了导出类型为sql的导出文件不能为空", 'fail');
+                    $this->log("设置了导出类型为sql的导出文件不能为空", 'error');
                     exit;
                 }
             }
@@ -421,7 +421,7 @@ class phpspider
 
         if (empty(self::$configs['scan_urls'])) 
         {
-            $this->log("No scan url to start\n", 'fail');
+            $this->log("No scan url to start\n", 'error');
             exit;
         }
 
@@ -435,7 +435,7 @@ class phpspider
             $parse_url_arr = parse_url($url);
             if (empty($parse_url_arr['host']) || !in_array($parse_url_arr['host'], self::$configs['domains'])) 
             {
-                $this->log("scan_urls中的域名(\"{$parse_url_arr['host']}\")不匹配domains中的域名\n", 'fail');
+                $this->log("scan_urls中的域名(\"{$parse_url_arr['host']}\")不匹配domains中的域名\n", 'error');
                 exit;
             }
 
@@ -468,10 +468,9 @@ class phpspider
 
         $this->log("爬取完成\n");
 
-        $spider_time_run = round(microtime(true) - self::$spider_time_start, 3);
-        echo "总耗时：{$spider_time_run} 秒\n";
-        echo "总共爬取链接数：".count(self::$collect_urls)."\n";
-        echo "成功爬取链接数：".count(self::$collected_urls)."\n";
+        $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
+        echo "爬虫运行时间：{$spider_time_run}\n";
+        echo "总共抓取网页：".count(self::$collected_urls)."\n";
     }
 
     /**
@@ -574,8 +573,8 @@ class phpspider
         $time_run = round(microtime(true) - $time_start, 3);
         $this->log("网页下载成功：{$url}\t耗时: {$time_run} 秒\n");
 
-        $spider_time_run = round(microtime(true) - self::$spider_time_start, 3);
-        $this->log("爬虫运行时间：{$spider_time_run} 秒\n");
+        $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
+        $this->log("爬虫运行时间：{$spider_time_run}\n");
 
         $this->log("等待抓取网页：".count(self::$collect_urls)." 个\n");
 
@@ -584,7 +583,7 @@ class phpspider
         // 这个就是现阶段检查程序有木有出Bug用的
         if (count(self::$collect_queue) != count(self::$collect_urls)) 
         {
-            $this->log("等待抓取网页 和 队列 数量不等，请检查程序", 'fail');
+            $this->log("等待抓取网页 和 队列 数量不等，请检查程序", 'error');
             exit;
         }
 
@@ -630,7 +629,7 @@ class phpspider
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if(!preg_match($pattern, $url))
         {
-            $this->log("你所请求的URL({$url})不是有效的HTTP地址", 'fail');
+            $this->log("你所请求的URL({$url})不是有效的HTTP地址", 'error');
             exit;
         }
 
@@ -657,7 +656,7 @@ class phpspider
             // 如果不是html
             if (!empty($fileinfo)) 
             {
-                $this->log("发现{$fileinfo['fileext']}文件：{$url}", 'info');
+                $this->log("发现{$fileinfo['fileext']}文件：{$url}", 'debug');
                 call_user_func($this->on_attachment_file, $url, $fileinfo);
                 return false;
             }
@@ -752,15 +751,15 @@ class phpspider
             {
                 // 先设置为采集过的网页，不再采集它了
                 $this->is_collected_url($url);
-                $this->log("网页下载失败：{$url}\n", 'fail');
-                $this->log("HTTP CODE：{$http_code} 网页不存在\n", 'fail');
+                $this->log("网页下载失败：{$url}\n", 'error');
+                $this->log("HTTP CODE：{$http_code} 网页不存在\n", 'error');
             }
             elseif ($http_code == 407) 
             {
                 // 扔到队列头部去，继续采集
                 $this->queue_rpush($link);
-                $this->log("网页下载失败：{$url}\n", 'fail');
-                $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'fail');
+                $this->log("网页下载失败：{$url}\n", 'error');
+                $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'error');
             }
             elseif ($http_code == 503) 
             {
@@ -777,13 +776,13 @@ class phpspider
                 {
                     $this->is_collected_url($url);
                 }
-                $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'fail');
-                $this->log("HTTP CODE：{$http_code} 服务器过载\n", 'fail');
+                $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'error');
+                $this->log("HTTP CODE：{$http_code} 服务器过载\n", 'error');
             }
             else 
             {
-                $this->log("网页下载失败：{$url}\n", 'fail');
-                $this->log("HTTP CODE：{$http_code}\n", 'fail');
+                $this->log("网页下载失败：{$url}\n", 'error');
+                $this->log("HTTP CODE：{$http_code}\n", 'error');
             }
             return false;
         }
@@ -1206,7 +1205,7 @@ class phpspider
 
             if (empty($conf['name'])) 
             {
-                $this->log("field的名字是空值, 请检查你的\"fields\"并添加field的名字\n", 'fail');
+                $this->log("field的名字是空值, 请检查你的\"fields\"并添加field的名字\n", 'error');
                 exit;
             }
 
@@ -1345,7 +1344,7 @@ class phpspider
         $elements = @$xpath->query($selector);
         if ($elements === false)
         {
-            $this->log("field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n", 'fail');
+            $this->log("field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n", 'error');
             exit;
         }
 
@@ -1395,7 +1394,7 @@ class phpspider
     {
         if(@preg_match_all($selector, $html, $out) === false)
         {
-            $this->log("field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n", 'fail');
+            $this->log("field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n", 'error');
             exit;
         }
 

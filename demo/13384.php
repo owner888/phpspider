@@ -34,8 +34,6 @@ $configs = array(
         //"http://www.13384.com/meinvmote/\d+.html",
         //"http://www.13384.com/weimeixiezhen/\d+.html",
     ),
-    'attachment_url_regexes' => array(
-    ),
 
     //'export' => array(
         //'type' => 'csv',
@@ -119,7 +117,7 @@ $spider->on_extract_field = function($fieldname, $data, $page)
             // 在data目录下生成图片
             $filepath = PATH_ROOT."/images/{$filename}";
             // 用系统自带的下载器wget下载
-            //exec("wget {$url} -O {$filepath}");
+            exec("wget {$url} -O {$filepath}");
             $array[] = $filename;
         }
         $data = implode(",", $array);
