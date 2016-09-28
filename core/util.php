@@ -54,11 +54,14 @@ class util
     public static function time2second($seconds)
     {
         $seconds = (int)$seconds;
-        if( $seconds>3600 ){
-            if( $seconds>24*3600 ){
-                $days		= (int)($seconds/86400);
-                $days_num	= $days."天";
-                $seconds	= $seconds%86400;//取余
+        if( $seconds > 3600 )
+        {
+            $days_num = '';
+            if( $seconds > 24*3600 )
+            {
+                $days	  = (int)($seconds/86400);
+                $days_num = $days."天";
+                $seconds  = $seconds%86400;//取余
             }
             $hours = intval($seconds/3600);
             $minutes = $seconds%3600;//取余下秒数

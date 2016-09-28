@@ -35,7 +35,7 @@ class db
 
         if ( !self::$conn ) 
         {
-            self::$conn = @mysqli_connect(self::$config['host'], self::$config['user'], self::$config['pass'], self::$config['name'], self::$config['port'], '/run/mysqld/mysqld.sock');
+            self::$conn = @mysqli_connect(self::$config['host'], self::$config['user'], self::$config['pass'], self::$config['name'], self::$config['port']);
             if(mysqli_connect_errno())
             {
                 self::$conn_fail++;
