@@ -54,6 +54,11 @@ class phpspider
     public static $tasknum = 1;
 
     /**
+     * 任务主进程 
+     */
+    public static $taskmaster = true;
+
+    /**
      * 是否保存爬虫运行状态 
      */
     public static $save_running_state = false;
@@ -396,10 +401,11 @@ class phpspider
         return $status;
     }
 
-    public function start($master_task = true, $taskid = 1)
+    public function start($taskmaster = true, $taskid = 1)
     {
         // 当前任务ID
         self::$taskid = $taskid;
+        self::$taskmaster = $taskmaster;
 
         // 多任务 而且 不从上次继续采集
         if (self::$tasknum > 1 && !self::$save_running_state) 
@@ -408,7 +414,7 @@ class phpspider
             $this->clear_redis();
         }
 
-        if ($master_task) 
+        if (self::$taskmaster) 
         {
             //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
@@ -465,7 +471,7 @@ class phpspider
         }
 
         // 主任务负责采集连接到任务数的两倍时其他任务才开始运行
-        if ($master_task) 
+        if (self::$taskmaster) 
         {
             foreach ( self::$configs['scan_urls'] as $url ) 
             {
@@ -490,9 +496,9 @@ class phpspider
                 );
                 $this->queue_lpush($link);
             }
-            //$this->set_master_task_status(1);
+            //$this->set_taskmaster_status(1);
 
-            while(self::queue_lsize())
+            while( self::queue_lsize() )
             { 
                 // 抓取页面
                 $this->collect_page();
@@ -502,28 +508,22 @@ class phpspider
 
             $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
             echo "爬虫运行时间：{$spider_time_run}\n";
-            echo "总共抓取网页：".count(self::$collected_urls)."\n";
+
+            $count_collected_url = $this->count_collected_url();
+            echo "总共抓取网页：{$count_collected_url} 个\n\n";
         }
         else 
         {
-            // 直接睡眠一秒等主进程把入口文件扔进去队列
-            sleep(1);
-
-            $start_collect_url_num = self::$tasknum * 2;
-            while($queue_lsize = self::queue_lsize())
+            // 第一次先判断主进程准备好没有
+            while( !$this->get_taskmaster_status() )
+            {
+                $this->log("任务".self::$taskid."等待中...\n", "warn");
+                sleep(1);
+            }
+            while( self::queue_lsize() )
             { 
-                // 当主进程采集到一定数量的网页时开始采集
-                if ($queue_lsize > $start_collect_url_num) 
-                {
-                    // 抓取页面
-                    $this->collect_page();
-                }
-                // 开始时队列里面的链接数不够分
-                // 采集到最后队列里面的链接数不够分，就让主进程去采集剩下的就好
-                else 
-                {
-                    sleep(1);
-                }
+                // 抓取页面
+                $this->collect_page();
             } 
         }
     }
@@ -660,6 +660,21 @@ class phpspider
         if ($link['url_type'] == 'content_page') 
         {
             $this->get_html_fields($html, $url, $page);
+        }
+
+        // 如果是主任务进程在执行
+        if (self::$taskmaster) 
+        {
+            if (!$this->get_taskmaster_status()) 
+            {
+                $start_collect_url_num = self::$tasknum * 2;
+                // 如果队列中的网页比任务数的两倍还多，设置主进程为准备好状态
+                if ($this->queue_lsize() > $start_collect_url_num) 
+                {
+                    $this->log("主任务进程准备就绪...\n", "warn");
+                    $this->set_taskmaster_status(1);
+                }
+            }
         }
 
         // 爬虫爬取每个网页的时间间隔，单位：秒
@@ -970,10 +985,10 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    //public function get_master_task_status()
-    //{
-        //cls_redis::get("master_task_ready"); 
-    //}
+    public function get_taskmaster_status()
+    {
+        return cls_redis::get("taskmaster_ready"); 
+    }
 
     /**
      * 设置主进程准备状态
@@ -982,10 +997,10 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    //public function set_master_task_status($status)
-    //{
-        //cls_redis::set("master_task_ready", $status); 
-    //}
+    public function set_taskmaster_status($status)
+    {
+        cls_redis::set("taskmaster_ready", $status); 
+    }
 
     /**
      * 清空Redis里面上次爬取的采集数据
