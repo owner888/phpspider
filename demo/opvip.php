@@ -7,6 +7,7 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => 'op_news',
+    'save_running_state' => true,
     'domains' => array(
         'www.opvip.com',
     ),

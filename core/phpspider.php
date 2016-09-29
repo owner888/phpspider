@@ -357,9 +357,7 @@ class phpspider
         {
             foreach (self::$configs['list_url_regexes'] as $regex) 
             {
-                if (preg_match("#{$regex}#i", $url) && 
-                    !$this->is_collected_url($url) && 
-                    !$this->is_collect_url($url))
+                if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
                     $this->log("发现列表网页：{$url}", 'debug');
                     $link['url_type'] = 'list_page';
@@ -372,9 +370,7 @@ class phpspider
         {
             foreach (self::$configs['content_url_regexes'] as $regex) 
             {
-                if (preg_match("#{$regex}#i", $url) && 
-                    !$this->is_collected_url($url) && 
-                    !$this->is_collect_url($url))
+                if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
                     $this->log("发现内容网页：{$url}", 'debug');
                     $link['url_type'] = 'content_page';
@@ -498,10 +494,8 @@ class phpspider
 
             while(self::queue_lsize())
             { 
-                // 先进先出
-                $link = $this->queue_rpop();
                 // 抓取页面
-                $this->collect_page($link);
+                $this->collect_page();
             } 
 
             $this->log("爬取完成\n");
@@ -521,10 +515,8 @@ class phpspider
                 // 当主进程采集到一定数量的网页时开始采集
                 if ($queue_lsize > $start_collect_url_num) 
                 {
-                    // 先进先出
-                    $link = $this->queue_rpop();
                     // 抓取页面
-                    $this->collect_page($link);
+                    $this->collect_page();
                 }
                 // 开始时队列里面的链接数不够分
                 // 采集到最后队列里面的链接数不够分，就让主进程去采集剩下的就好
@@ -544,12 +536,22 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function collect_page($link) 
+    public function collect_page() 
     {
+        $count_collect_url = $this->count_collect_url();
+        $this->log("发现抓取网页：{$count_collect_url} 个\n");
+
+        $queue_lsize = $this->queue_lsize();
+        $this->log("等待抓取网页：{$queue_lsize} 个\n");
+
+        $count_collected_url = $this->count_collected_url();
+        $this->log("已经抓取网页：{$count_collected_url} 个\n");
+
+        // 先进先出
+        $link = $this->queue_rpop();
         $url = $link['url'];
 
-        // 先存入已爬取数据结构
-        // 避免多进程下，当前进程还没采集完，其他进程又怕他入库了造成死循环
+        // 标记为已经网页
         $this->set_collected_url($url);
 
         // 爬取页面开始时间
@@ -607,13 +609,13 @@ class phpspider
         }
 
         // 是否从当前页面分析提取URL
-        $is_collect_url = true;
+        $is_find_url = true;
         if ($link['url_type'] == 'scan_page') 
         {
             if ($this->on_scan_page) 
             {
                 // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_collect_url = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
+                $is_find_url = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
             }
         }
         elseif ($link['url_type'] == 'list_page') 
@@ -621,7 +623,7 @@ class phpspider
             if ($this->on_list_page) 
             {
                 // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_collect_url = call_user_func($this->on_list_page, $page, $page['raw'], $this);
+                $is_find_url = call_user_func($this->on_list_page, $page, $page['raw'], $this);
             }
         }
         elseif ($link['url_type'] == 'content_page') 
@@ -629,7 +631,7 @@ class phpspider
             if ($this->on_content_page) 
             {
                 // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_collect_url = call_user_func($this->on_content_page, $page, $page['raw'], $this);
+                $is_find_url = call_user_func($this->on_content_page, $page, $page['raw'], $this);
             }
         }
 
@@ -646,14 +648,8 @@ class phpspider
         $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
         $this->log("爬虫运行时间：{$spider_time_run}\n");
 
-        $count_collect_url = $this->count_collect_url();
-        $this->log("等待抓取网页：{$count_collect_url} 个\n");
-
-        $count_collected_url = $this->count_collected_url();
-        $this->log("已经抓取网页：{$count_collected_url} 个\n");
-
         // on_scan_page、on_list_pag、on_content_page 返回false表示不需要再从此网页中发现待爬url
-        if ($is_collect_url) 
+        if ($is_find_url) 
         {
             // 分析提取HTML页面中的URL
             $this->get_html_urls($html, $url);
@@ -809,6 +805,8 @@ class phpspider
                 $info = cls_curl::get_info();
                 $link['url'] = $info['redirect_url'];
                 $this->queue_rpush($link);
+                $this->log("网页下载失败：{$url}\n", 'error');
+                $this->log("HTTP CODE：{$http_code} 网页{$http_code}跳转\n", 'error');
             }
             elseif ($http_code == 404) 
             {
@@ -830,7 +828,6 @@ class phpspider
                 if ( $link['collect_count'] < $link['collect_fails'] ) 
                 {
                     // 扔到队列头部去，继续采集
-                    // 运行collect_page的时候会调用多一次 $this->set_collect_url() 方法，但是没事
                     $this->queue_rpush($link);
                 }
                 $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'error');
@@ -1032,7 +1029,7 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            cls_redis::exists("collect_urls-".md5($url)); 
+            return cls_redis::exists("collect_urls-".md5($url)); 
         }
         else 
         {
@@ -1041,7 +1038,7 @@ class phpspider
     }
 
     /**
-     * 添加待爬取网页标记
+     * 添加发现网页标记
      * 
      * @param mixed $url
      * @return void
@@ -1062,7 +1059,8 @@ class phpspider
     }
 
     /**
-     * 删除待爬取网页标记
+     * 删除发现网页标记
+     * 暂时没用到
      * 
      * @param mixed $url
      * @return void
@@ -1083,7 +1081,7 @@ class phpspider
     }
 
     /**
-     * 等待爬取网页数量
+     * 发现爬取网页数量
      * 
      * @param mixed $url
      * @return void
@@ -1141,7 +1139,7 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            cls_redis::exists("collected_urls-".md5($url)); 
+            return cls_redis::exists("collected_urls-".md5($url)); 
         }
         else 
         {
@@ -1206,6 +1204,8 @@ class phpspider
         }
 
         $url = $link['url'];
+        // 先标记为待爬取网页，再入爬取队列
+        $this->set_collect_url($url);
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
@@ -1216,7 +1216,6 @@ class phpspider
         {
             array_push(self::$collect_queue, $link);
         }
-        $this->set_collect_url($url);
         return true;
     }
 
@@ -1233,7 +1232,10 @@ class phpspider
         {
             return false;
         }
+
         $url = $link['url'];
+        // 先标记为待爬取网页，再入爬取队列
+        $this->set_collect_url($url);
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
@@ -1244,7 +1246,6 @@ class phpspider
         {
             array_unshift(self::$collect_queue, $link);
         }
-        $this->set_collect_url($url);
         return true;
     }
 
@@ -1270,7 +1271,6 @@ class phpspider
         {
             $link = array_pop(self::$collect_queue); 
         }
-        $this->del_collect_url($link['url']);
         return $link;
     }
 
@@ -1293,7 +1293,6 @@ class phpspider
         {
             $link = array_shift(self::$collect_queue); 
         }
-        $this->del_collect_url($link['url']);
         return $link;
     }
 
