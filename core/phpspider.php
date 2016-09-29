@@ -44,16 +44,19 @@ class phpspider
     const AGENT_MOBILE = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36";
 
     /**
+     * 当前任务ID 
+     */
+    public static $taskid = 1;
+
+    /**
      * 并发任务数
      */
     public static $tasknum = 1;
 
     /**
-     * 当前任务ID 
+     * 是否保存爬虫运行状态 
      */
-    public static $taskid = 1;
-
-    public static $continue = false;
+    public static $save_running_state = false;
 
     /**
      * HTTP请求的Header 
@@ -74,7 +77,7 @@ class phpspider
      * 试运行
      * 试运行状态下，程序持续三分钟或抓取到30条数据后停止
      */
-    public static $test_run = true;
+    //public static $test_run = true;
 
     /**
      * 配置 
@@ -242,10 +245,16 @@ class phpspider
         self::$configs['collect_fails'] = isset(self::$configs['collect_fails']) ? self::$configs['collect_fails'] : self::COLLECT_FAILS;
         self::$configs['export']        = isset(self::$configs['export'])        ? self::$configs['export']        : array();
 
-        // 并发任务数
-        self::$tasknum = empty(self::$configs['tasknum']) ? self::$tasknum : self::$configs['tasknum'];
-        // 从上次任务继续执行
-        self::$continue = isset(self::$configs['continue']) && self::$configs['continue'] ? true : false;
+        // 是否设置了并发任务数，并且大于1
+        if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1) 
+        {
+            self::$tasknum = self::$configs['tasknum'];
+        }
+        // 是否设置了保留运行状态
+        if (isset(self::$configs['save_running_state'])) 
+        {
+            self::$save_running_state = isset(self::$configs['save_running_state']);
+        }
     }
 
     public function add_useragent($useragent)
@@ -397,7 +406,7 @@ class phpspider
         self::$taskid = $taskid;
 
         // 多任务 而且 不从上次继续采集
-        if (self::$tasknum > 1 && !self::$continue) 
+        if (self::$tasknum > 1 && !self::$save_running_state) 
         {
             // 清空redis里面的数据
             $this->clear_redis();
@@ -537,10 +546,14 @@ class phpspider
      */
     public function collect_page($link) 
     {
+        $url = $link['url'];
+
+        // 先存入已爬取数据结构
+        // 避免多进程下，当前进程还没采集完，其他进程又怕他入库了造成死循环
+        $this->set_collected_url($url);
+
         // 爬取页面开始时间
         $time_start = microtime(true);
-
-        $url = $link['url'];
 
         if ($link['url_type'] == 'attachment_file') 
         {
@@ -619,9 +632,6 @@ class phpspider
                 $is_collect_url = call_user_func($this->on_content_page, $page, $page['raw'], $this);
             }
         }
-
-        // 页面下载成功 或 下载失败次数超过 都存入已爬取列表队列
-        $this->set_collected_url($url);
 
         // 多任务的时候输出爬虫序号
         if (self::$tasknum > 1) 
@@ -795,8 +805,6 @@ class phpspider
             // 如果是301、302跳转，抓取跳转后的网页内容
             if ($http_code == 301 || $http_code == 302) 
             {
-                // 先设置为采集过的网页，不再采集它了
-                $this->is_collected_url($url);
                 // 获取跳转后的地址扔到队列头部去，可以立刻采集
                 $info = cls_curl::get_info();
                 $link['url'] = $info['redirect_url'];
@@ -804,8 +812,6 @@ class phpspider
             }
             elseif ($http_code == 404) 
             {
-                // 先设置为采集过的网页，不再采集它了
-                $this->is_collected_url($url);
                 $this->log("网页下载失败：{$url}\n", 'error');
                 $this->log("HTTP CODE：{$http_code} 网页不存在\n", 'error');
             }
@@ -824,12 +830,8 @@ class phpspider
                 if ( $link['collect_count'] < $link['collect_fails'] ) 
                 {
                     // 扔到队列头部去，继续采集
+                    // 运行collect_page的时候会调用多一次 $this->set_collect_url() 方法，但是没事
                     $this->queue_rpush($link);
-                }
-                // 失败次数超过了就放入已采集队列，免得以后在其他页面遇到又采集一次
-                else 
-                {
-                    $this->is_collected_url($url);
                 }
                 $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'error');
                 $this->log("HTTP CODE：{$http_code} 服务器过载\n", 'error');
@@ -971,10 +973,10 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function get_master_task_status()
-    {
-        cls_redis::get("master_task_ready"); 
-    }
+    //public function get_master_task_status()
+    //{
+        //cls_redis::get("master_task_ready"); 
+    //}
 
     /**
      * 设置主进程准备状态
@@ -983,11 +985,18 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function set_master_task_status($status)
-    {
-        cls_redis::set("master_task_ready", $status); 
-    }
+    //public function set_master_task_status($status)
+    //{
+        //cls_redis::set("master_task_ready", $status); 
+    //}
 
+    /**
+     * 清空Redis里面上次爬取的采集数据
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-29 13:00
+     */
     public function clear_redis()
     {
         // 删除队列
@@ -1021,7 +1030,7 @@ class phpspider
     public function is_collect_url($url)
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::exists("collect_urls-".md5($url)); 
         }
@@ -1042,7 +1051,7 @@ class phpspider
     public function set_collect_url($url)
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::set("collect_urls-".md5($url), time()); 
         }
@@ -1063,7 +1072,7 @@ class phpspider
     public function del_collect_url($url)
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::del("collect_urls-".md5($url)); 
         }
@@ -1084,7 +1093,7 @@ class phpspider
     public function count_collect_url()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $keys = cls_redis::keys("collect_urls-*"); 
             $count = count($keys);
@@ -1107,7 +1116,7 @@ class phpspider
     public function count_collected_url()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $keys = cls_redis::keys("collected_urls-*"); 
             $count = count($keys);
@@ -1130,7 +1139,7 @@ class phpspider
     public function is_collected_url($url)
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::exists("collected_urls-".md5($url)); 
         }
@@ -1151,7 +1160,7 @@ class phpspider
     public function set_collected_url($url)
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::set("collected_urls-".md5($url), time()); 
         }
@@ -1172,7 +1181,7 @@ class phpspider
     public function del_collected_url($url)
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::del("collected_urls-".md5($url)); 
         }
@@ -1198,7 +1207,7 @@ class phpspider
 
         $url = $link['url'];
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = json_encode($link);
             cls_redis::lpush("collect_queue", $link); 
@@ -1226,7 +1235,7 @@ class phpspider
         }
         $url = $link['url'];
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = json_encode($link);
             cls_redis::rpush("collect_queue", $link); 
@@ -1252,7 +1261,7 @@ class phpspider
     public function queue_lpop()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = cls_redis::lpop("collect_queue"); 
             $link = json_decode($link, true);
@@ -1275,7 +1284,7 @@ class phpspider
     public function queue_rpop()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = cls_redis::rpop("collect_queue"); 
             $link = json_decode($link, true);
@@ -1298,7 +1307,7 @@ class phpspider
     public function queue_lsize()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $lsize = cls_redis::lsize("collect_queue"); 
         }
@@ -1319,7 +1328,7 @@ class phpspider
     public function incr_fields_num()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $fields_num = cls_redis::incr("fields_num"); 
         }
@@ -1341,7 +1350,7 @@ class phpspider
     public function get_fields_num()
     {
         // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$continue)
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
             $fields_num = cls_redis::get("fields_num"); 
         }
