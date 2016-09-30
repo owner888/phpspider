@@ -258,7 +258,7 @@ class phpspider
         // 是否设置了保留运行状态
         if (isset(self::$configs['save_running_state'])) 
         {
-            self::$save_running_state = isset(self::$configs['save_running_state']);
+            self::$save_running_state = self::$configs['save_running_state'];
         }
     }
 
@@ -343,6 +343,7 @@ class phpspider
      */
     public function add_url($url, $options = array())
     {
+
         // 投递状态
         $status = false;
         $link = array(
@@ -364,6 +365,12 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
+                    $data = array(
+                        'taskid' => self::$taskid,
+                        'url' => $url,
+                    );
+                    db::insert("urls", $data);
+
                     $this->log("发现列表网页：{$url}", 'debug');
                     $link['url_type'] = 'list_page';
                     $status = $this->queue_lpush($link);
@@ -377,6 +384,12 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
+                    $data = array(
+                        'taskid' => self::$taskid,
+                        'url' => $url,
+                    );
+                    db::insert("urls", $data);
+
                     $this->log("发现内容网页：{$url}", 'debug');
                     $link['url_type'] = 'content_page';
                     $status = $this->queue_lpush($link);
@@ -388,9 +401,7 @@ class phpspider
         {
             foreach (self::$configs['attachment_url_regexes'] as $regex) 
             {
-                if (preg_match("#{$regex}#i", $url) && 
-                    !$this->is_collected_url($url) && 
-                    !$this->is_collect_url($url))
+                if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
                     $this->log("发现网页文件：{$url}", 'debug');
                     $link['url_type'] = 'attachment_file';
@@ -522,8 +533,18 @@ class phpspider
             }
             while( self::queue_lsize() )
             { 
-                // 抓取页面
-                $this->collect_page();
+                $start_collect_url_num = self::$tasknum * 2;
+                // 如果队列中的网页比任务数的两倍还多，子任务可以采集
+                if ($this->queue_lsize() > $start_collect_url_num) 
+                {
+                    // 抓取页面
+                    $this->collect_page();
+                }
+                // 队列中网页太少，就都给主进程采集好了
+                else 
+                {
+                    sleep(1);
+                }
             } 
         }
     }
@@ -551,7 +572,7 @@ class phpspider
         $link = $this->queue_rpop();
         $url = $link['url'];
 
-        // 标记为已经网页
+        // 标记为已爬取网页
         $this->set_collected_url($url);
 
         // 爬取页面开始时间
@@ -1044,7 +1065,7 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            return cls_redis::exists("collect_urls-".md5($url)); 
+            return cls_redis::get("collect_urls-".md5($url)); 
         }
         else 
         {
@@ -1154,7 +1175,7 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            return cls_redis::exists("collected_urls-".md5($url)); 
+            return cls_redis::get("collected_urls-".md5($url)); 
         }
         else 
         {

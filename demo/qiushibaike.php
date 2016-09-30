@@ -8,12 +8,10 @@ require dirname(__FILE__).'/../core/init.php';
 $configs = array(
     'name' => '糗事百科',
     'domains' => array(
-        'ip.kkk5.com',
         'qiushibaike.com',
         'www.qiushibaike.com'
     ),
     'scan_urls' => array(
-        'http://ip.kkk5.com/',
         'http://www.qiushibaike.com/'
     ),
     'list_url_regexes' => array(
