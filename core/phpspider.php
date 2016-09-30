@@ -365,12 +365,6 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    $data = array(
-                        'taskid' => self::$taskid,
-                        'url' => $url,
-                    );
-                    db::insert("urls", $data);
-
                     $this->log("发现列表网页：{$url}", 'debug');
                     $link['url_type'] = 'list_page';
                     $status = $this->queue_lpush($link);
@@ -384,12 +378,6 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    $data = array(
-                        'taskid' => self::$taskid,
-                        'url' => $url,
-                    );
-                    db::insert("urls", $data);
-
                     $this->log("发现内容网页：{$url}", 'debug');
                     $link['url_type'] = 'content_page';
                     $status = $this->queue_lpush($link);
