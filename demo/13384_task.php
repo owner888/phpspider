@@ -138,13 +138,13 @@ $w = new worker();
 $w->count = $configs['tasknum'];
 $w->on_worker_start = function($worker) use ($spider) {
 
-    $master_task = false;
+    $taskmaster = false;
     // 把第一个worker进程当做主任务
     if ($worker->worker_id == 1) 
     {
-        $master_task = true;
+        $taskmaster = true;
     }
-    $spider->start($master_task, $worker->worker_id);
+    $spider->start($taskmaster, $worker->worker_id);
 
 };
 
