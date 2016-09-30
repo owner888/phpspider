@@ -135,6 +135,36 @@ class cls_redis
         return NULL;
     }
 
+
+    /**
+     * set
+     * 
+     * @param mixed $key    键
+     * @param mixed $value  值
+     * @param int $expire   过期时间，单位：秒
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2015-12-13 01:05
+     */
+    public static function setnx($key, $value, $expire = 0)
+    {
+        $redis = self::init();
+
+        if ($redis) 
+        {
+            if ($expire > 0)
+            {
+                return $redis->setnx($key, $expire, $value);
+            }
+            else
+            {
+                return $redis->setnx($key, $value);
+            }
+        }
+
+        return NULL;
+    }
+
     /**
      * get
      * 

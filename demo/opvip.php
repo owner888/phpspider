@@ -5,6 +5,11 @@ require dirname(__FILE__).'/../core/init.php';
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
+//var_dump(cls_redis::get("lock"));
+//var_dump(cls_redis::del("lock"));
+//var_dump(cls_redis::setnx("lock", "name"));
+//var_dump(cls_redis::setnx("lock", "name"));
+//exit;
 $configs = array(
     'name' => 'op_news',
     'tasknum' => 8,

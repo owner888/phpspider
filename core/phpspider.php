@@ -334,6 +334,7 @@ class phpspider
 
     /**
      * 一般在 on_scan_page 和 on_list_page 回调函数中调用，用来往待爬队列中添加url
+     * 两个进程同时调用这个方法，传递相同url的时候，就会出现url重复进入队列
      * 
      * @param mixed $url
      * @param mixed $options
@@ -343,7 +344,6 @@ class phpspider
      */
     public function add_url($url, $options = array())
     {
-
         // 投递状态
         $status = false;
         $link = array(
@@ -409,6 +409,7 @@ class phpspider
                 }
             }
         }
+
         return $status;
     }
 
@@ -533,9 +534,9 @@ class phpspider
             }
             while( self::queue_lsize() )
             { 
-                $start_collect_url_num = self::$tasknum * 2;
+                //$start_collect_url_num = self::$tasknum * 2;
                 // 如果队列中的网页比任务数的两倍还多，子任务可以采集
-                if ($this->queue_lsize() > $start_collect_url_num) 
+                if ($this->queue_lsize() > self::$tasknum) 
                 {
                     // 抓取页面
                     $this->collect_page();
@@ -688,9 +689,9 @@ class phpspider
         {
             if (!$this->get_taskmaster_status()) 
             {
-                $start_collect_url_num = self::$tasknum * 2;
+                //$start_collect_url_num = self::$tasknum * 2;
                 // 如果队列中的网页比任务数的两倍还多，设置主进程为准备好状态
-                if ($this->queue_lsize() > $start_collect_url_num) 
+                if ($this->queue_lsize() > self::$tasknum) 
                 {
                     $this->log("主任务进程准备就绪...\n", "warn");
                     $this->set_taskmaster_status(1);
@@ -1065,7 +1066,19 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            return cls_redis::get("collect_urls-".md5($url)); 
+            $lock = "lock-collect_urls-".md5($url);
+            // 如果不能上锁，说明同时有一个进程带了一样的URL进来判断，而且刚好比这个进程快一丢丢
+            // 那么这个进程的URL就可以直接过滤了
+            if (!cls_redis::setnx($lock, "lock"))
+            {
+                return true;
+            }
+            else 
+            {
+                // 删除锁然后判断一下这个连接是不是已经在队列里面了
+                cls_redis::del($lock);
+                return cls_redis::exists("collect_urls-".md5($url)); 
+            }
         }
         else 
         {
@@ -1175,7 +1188,7 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            return cls_redis::get("collected_urls-".md5($url)); 
+            return cls_redis::exists("collected_urls-".md5($url)); 
         }
         else 
         {
