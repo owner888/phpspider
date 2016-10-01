@@ -423,7 +423,7 @@ class phpspider
         }
 
         // 多任务 而且 不保留运行状态
-        if (self::$tasknum > 1 && !self::$save_running_state) 
+        if (self::$tasknum > 1 && self::$taskmaster && !self::$save_running_state) 
         {
             // 清空redis里面的数据
             $this->clear_redis();
