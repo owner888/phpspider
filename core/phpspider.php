@@ -418,7 +418,15 @@ class phpspider
         // 多任务 或者 保留运行状态，都需要redis支持
         if (self::$tasknum > 1 || self::$save_running_state) 
         {
+            // 验证redis
             cls_redis::init();
+        }
+
+        // 多任务 而且 不保留运行状态
+        if (self::$tasknum > 1 && !self::$save_running_state) 
+        {
+            // 清空redis里面的数据
+            $this->clear_redis();
         }
 
         // 多任务下主进程先设置状态为0
