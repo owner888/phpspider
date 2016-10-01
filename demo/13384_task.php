@@ -8,7 +8,7 @@ require dirname(__FILE__).'/../core/init.php';
 $configs = array(
     'name' => '13384美女图',
     'tasknum' => 4,
-    'save_running_state' => true,
+    //'save_running_state' => true,
     'domains' => array(
         'www.13384.com'
     ),
@@ -48,9 +48,21 @@ $configs = array(
     //),
     'export' => array(
         'type' => 'db', 
-        'table' => 'meinv_content',
+        'table' => 'meinv_content_bak',
     ),
     'fields' => array(
+        // 发布时间
+        array(
+            'name' => "taskid",
+            'selector' => "//p[contains(@class,'sub-info')]//span",
+            'required' => true,
+        ),
+        // 发布时间
+        array(
+            'name' => "url",
+            'selector' => "//p[contains(@class,'sub-info')]//span",
+            'required' => true,
+        ),
         // 标题
         array(
             'name' => "name",
@@ -97,13 +109,21 @@ $configs = array(
 
 $spider = new phpspider($configs);
 
-$spider->on_extract_field = function($fieldname, $data, $page) 
+$spider->on_extract_field = function($fieldname, $data, $page, $taskid) 
 {
-    if ($fieldname == 'name') 
+    if ($fieldname == 'url') 
+    {
+        $data = $page['url'];
+    }
+    elseif ($fieldname == 'taskid') 
+    {
+        $data = $taskid;
+    }
+    elseif ($fieldname == 'name') 
     {
         $data = trim(preg_replace("#\(.*?\)#", "", $data));
     }
-    if ($fieldname == 'addtime') 
+    elseif ($fieldname == 'addtime') 
     {
         $data = strtotime(substr($data, 0, 19));
     }
