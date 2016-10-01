@@ -407,18 +407,30 @@ class phpspider
         self::$taskid = $taskid;
         self::$taskmaster = $taskmaster;
 
-        // 多任务 而且 不从上次继续采集
-        if (self::$tasknum > 1 && !self::$save_running_state) 
-        {
-            // 清空redis里面的数据
-            $this->clear_redis();
-        }
-
         if (self::$taskmaster) 
         {
             //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
             echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
+            echo util::colorize("爬虫数：".self::$tasknum."\n\n", "warn");
+        }
+
+        // 多任务 或者 保留运行状态，都需要redis支持
+        if (self::$tasknum > 1 || self::$save_running_state) 
+        {
+            cls_redis::init();
+        }
+
+        // 多任务下主进程先设置状态为0
+        if (self::$tasknum > 1 && self::$taskmaster) 
+        {
+            // 设置主任务为未准备状态
+            $this->set_taskmaster_status(0);
+        }
+        else 
+        {
+            // 子进程等待1秒钟，等主进程设置状态为0
+            sleep(1);
         }
 
         // 爬虫开始时间
@@ -503,6 +515,13 @@ class phpspider
                 // 抓取页面
                 $this->collect_page();
             } 
+
+            // 多任务 而且 不保留运行状态
+            if (self::$tasknum > 1 && !self::$save_running_state) 
+            {
+                // 清空redis里面的数据
+                $this->clear_redis();
+            }
 
             $this->log("爬取完成\n");
 
@@ -673,7 +692,7 @@ class phpspider
         }
 
         // 如果是主任务进程在执行
-        if (self::$taskmaster) 
+        if (self::$taskmaster && self::$tasknum > 1) 
         {
             if (!$this->get_taskmaster_status()) 
             {
@@ -1616,7 +1635,7 @@ class phpspider
                 // 当一个field的内容被抽取到后进行的回调, 在此回调中可以对网页中抽取的内容作进一步处理
                 if ($this->on_extract_field) 
                 {
-                    $return = call_user_func($this->on_extract_field, $fieldname, $data, $page);
+                    $return = call_user_func($this->on_extract_field, $fieldname, $data, $page, self::$taskid);
                     if (!isset($return))
                     {
                         $this->log("on_extract_field函数返回为空\n", 'warn');
