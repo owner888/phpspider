@@ -453,8 +453,8 @@ class phpspider
         }
         else 
         {
-            // 子进程等待1秒钟，等主进程设置状态为0
-            sleep(1);
+            // 子进程等待100毫秒，等主进程设置状态为0
+            usleep(100000);
         }
 
         // 爬虫开始时间
@@ -506,7 +506,6 @@ class phpspider
                     exit;
                 }
 
-                db::_init_mysql($GLOBALS['config']['db']);
                 if (!db::table_exists(self::$export_table))
                 {
                     $this->log("数据库表 ".self::$export_table." 不存在\n", 'error');
