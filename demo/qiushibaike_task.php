@@ -8,7 +8,7 @@ require dirname(__FILE__).'/../core/init.php';
 $configs = array(
     'name' => '糗事百科',
     'tasknum' => 5,
-    'save_running_state' => true,
+    //'save_running_state' => true,
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
@@ -39,6 +39,11 @@ $configs = array(
             'required' => true,
         ),
         array(
+            'name' => "article_headimg",
+            'selector' => "//div[contains(@class,'author')]//a[1]",
+            'required' => true,
+        ),
+        array(
             'name' => "article_content",
             'selector' => "//*[@id='single-next-link']//div[contains(@class,'content')]",
             'required' => true,
@@ -48,10 +53,45 @@ $configs = array(
             'selector' => "//div[contains(@class,'author')]//h2",
             'required' => true,
         ),
+        array(
+            'name' => "url",
+            'selector' => "//div[contains(@class,'author')]//h2",   // 这里随便设置，on_extract_field回调里面会替换
+            'required' => true,
+        ),
     ),
 );
 
 $spider = new phpspider($configs);
+
+$spider->on_handle_img = function($fieldname, $img) 
+{
+    $regex = '/src="(https?:\/\/.*?)"/i';
+    preg_match($regex, $img, $rs);
+    if (!$rs) 
+    {
+        return $img;
+    }
+
+    $url = $rs[1];
+    $img = $url;
+
+    //$pathinfo = pathinfo($url);
+    //$fileext = $pathinfo['extension'];
+    //if (strtolower($fileext) == 'jpeg') 
+    //{
+        //$fileext = 'jpg';
+    //}
+    //// 以纳秒为单位生成随机数
+    //$filename = uniqid().".".$fileext;
+    //// 在data目录下生成图片
+    //$filepath = PATH_ROOT."/images/{$filename}";
+    //// 用系统自带的下载器wget下载
+    //exec("wget {$url} -O {$filepath}");
+
+    //// 替换成真是图片url
+    //$img = str_replace($url, $filename, $img);
+    return $img;
+};
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
@@ -68,6 +108,11 @@ $spider->on_extract_field = function($fieldname, $data, $page)
     {
         // 用当前采集时间戳作为发布时间
         $data = time();
+    }
+    // 把当前内容页URL替换上面的field
+    elseif ($fieldname == 'url') 
+    {
+        $data = $page['url'];
     }
     return $data;
 };
