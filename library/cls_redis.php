@@ -25,10 +25,17 @@ class cls_redis
      */
     public static $prefix  = "3kwan";
 
-    protected static function init()
+    public static $error  = "";
+
+    public static function init()
     {
         // 获取配置
         $configs = empty(self::$configs) ? self::_get_default_config() : self::$configs;
+        if (empty($configs)) 
+        {
+            self::$error = "You not set a config array for connect";
+            return false;
+        }
 
         // 如果当前链接标识符为空，或者ping不同，就close之后重新打开
         if ( empty(self::$redis) || !self::ping() )
@@ -39,15 +46,27 @@ class cls_redis
                 self::$redis->close();
             }
 
+            if (!extension_loaded("redis"))
+            {
+                self::$error = "Unable to load redis extension";
+                return false;
+            }
+
             self::$prefix = empty($configs['prefix'])  ? self::$prefix  : $configs['prefix'];
             self::$redis = new Redis();
-            self::$redis->pconnect($configs['host'], $configs['port'], $configs['timeout']);
+            if (!self::$redis->pconnect($configs['host'], $configs['port'], $configs['timeout']))
+            {
+                self::$error = "Unable to connect to redis server";
+                return false;
+            }
+
             // 验证
             if ($configs['pass'])
             {
                 if ( !self::$redis->auth($configs['pass']) ) 
                 {
-                    throw new Exception("Redis Server authentication failed!!");
+                    self::$error = "Redis Server authentication failed";
+                    return false;
                 }
             }
 
@@ -98,9 +117,9 @@ class cls_redis
     */
     protected static function _get_default_config()
     {
-        if (!is_array($GLOBALS['config']['redis']))
+        if (empty($GLOBALS['config']['redis']))
         {
-            handler_fatal_error('cls_redis.php _get_default_config()', '没有redis配置，page: ' . util::get_cururl());
+            return array();
         }
         self::$configs = $GLOBALS['config']['redis'];
         return self::$configs;

@@ -409,18 +409,34 @@ class phpspider
 
         if (self::$taskmaster) 
         {
-            //echo "\n".self::$configs['name']."爬虫开始测试, 将持续三分钟或抓取到30条数据后停止.\n\n";
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
             echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
             echo util::colorize("爬虫数：".self::$tasknum."\n\n", "warn");
         }
 
         // 多任务 或者 保留运行状态，都需要redis支持
-        if (self::$tasknum > 1 || self::$save_running_state) 
+        if (self::$tasknum > 1) 
         {
             // 验证redis
             cls_redis::init();
+            if(cls_redis::$error)
+            {
+                $this->log("多任务(即 tasknum 大于 1)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n", 'error');
+                exit;
+            }
         }
+
+        if (self::$save_running_state) 
+        {
+            // 验证redis
+            cls_redis::init();
+            if(cls_redis::$error)
+            {
+                $this->log("保存爬虫运行状态(即 save_running_state 为 true)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n", 'error');
+                exit;
+            }
+        }
+
 
         // 多任务 而且 不保留运行状态
         if (self::$tasknum > 1 && self::$taskmaster && !self::$save_running_state) 
@@ -470,10 +486,30 @@ class phpspider
             }
             elseif (self::$export_type == 'db') 
             {
+                if (empty($GLOBALS['config']['db'])) 
+                {
+                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: You not set a config array for connect\n", 'error');
+                    exit;
+                }
+
+                if (!function_exists('mysqli_connect'))
+                {
+                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: Unable to load mysqli extension\n", 'error');
+                    exit;
+                }
+
+                $config = $GLOBALS['config']['db'];
+                @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
+                if(mysqli_connect_errno())
+                {
+                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: ".mysqli_connect_error()." \n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n", 'error');
+                    exit;
+                }
+
                 db::_init_mysql($GLOBALS['config']['db']);
                 if (!db::table_exists(self::$export_table))
                 {
-                    $this->log("数据库表(".self::$export_table.")不存在", 'warn');
+                    $this->log("数据库表 ".self::$export_table." 不存在\n", 'error');
                     exit;
                 }
             }

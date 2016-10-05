@@ -7,8 +7,8 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '13384美女图',
-    'tasknum' => 4,
-    //'save_running_state' => true,
+    'tasknum' => 1,
+    'save_running_state' => true,
     'domains' => array(
         'www.13384.com'
     ),
@@ -36,7 +36,6 @@ $configs = array(
         "http://www.13384.com/meinvmote/\d+.html",
         "http://www.13384.com/weimeixiezhen/\d+.html",
     ),
-
     //'export' => array(
         //'type' => 'csv',
         //'file' => PATH_DATA.'/13384.csv',
