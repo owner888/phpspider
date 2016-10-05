@@ -525,7 +525,7 @@ class phpspider
             call_user_func($this->on_start, $this);
         }
 
-        // 主任务负责采集连接到任务数的两倍时其他任务才开始运行
+        // 主任务负责采集足够URL时其他任务才开始运行
         if (self::$taskmaster) 
         {
             foreach ( self::$configs['scan_urls'] as $url ) 
@@ -551,7 +551,6 @@ class phpspider
                 );
                 $this->queue_lpush($link);
             }
-            //$this->set_taskmaster_status(1);
 
             while( self::queue_lsize() )
             { 
@@ -584,8 +583,7 @@ class phpspider
             }
             while( self::queue_lsize() )
             { 
-                //$start_collect_url_num = self::$tasknum * 2;
-                // 如果队列中的网页比任务数的两倍还多，子任务可以采集
+                // 如果队列中的网页比任务数多，子任务可以采集
                 if ($this->queue_lsize() > self::$tasknum) 
                 {
                     // 抓取页面
@@ -734,13 +732,12 @@ class phpspider
             $this->get_html_fields($html, $url, $page);
         }
 
-        // 如果是主任务进程在执行
+        // 如果是多任务下主任务进程在执行
         if (self::$taskmaster && self::$tasknum > 1) 
         {
             if (!$this->get_taskmaster_status()) 
             {
-                //$start_collect_url_num = self::$tasknum * 2;
-                // 如果队列中的网页比任务数的两倍还多，设置主进程为准备好状态
+                // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
                 if ($this->queue_lsize() > self::$tasknum) 
                 {
                     $this->log("主任务进程准备就绪...\n", "warn");
@@ -810,8 +807,6 @@ class phpspider
             }
         }
 
-        // 如果有代理服务器，自动切换IP
-        cls_curl::set_headers(array('Proxy-Switch-Ip: yes'));
         cls_curl::set_timeout(self::$configs['timeout']);
         cls_curl::set_useragent(self::$configs['user_agent']);
         
@@ -838,6 +833,8 @@ class phpspider
         if (!empty($link['proxy'])) 
         {
             cls_curl::set_proxy($link['proxy'], $link['proxy_auth']);
+            // 自动切换IP
+            cls_curl::set_headers(array('Proxy-Switch-Ip: yes'));
         }
 
         // 如何设置了 HTTP Headers
@@ -907,7 +904,7 @@ class phpspider
                 $this->log("网页下载失败：{$url}\n", 'error');
                 $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'error');
             }
-            elseif ($http_code == 503) 
+            elseif ($http_code == 502 || $http_code == 503 || $http_code == 0) 
             {
                 // 采集次数加一
                 $link['collect_count']++;
