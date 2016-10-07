@@ -52,11 +52,11 @@ class cls_redis
                 return false;
             }
 
-            self::$prefix = empty($configs['prefix'])  ? self::$prefix  : $configs['prefix'];
             self::$redis = new Redis();
             if (!self::$redis->pconnect($configs['host'], $configs['port'], $configs['timeout']))
             {
                 self::$error = "Unable to connect to redis server";
+                self::$redis = null;
                 return false;
             }
 
@@ -66,16 +66,13 @@ class cls_redis
                 if ( !self::$redis->auth($configs['pass']) ) 
                 {
                     self::$error = "Redis Server authentication failed";
+                    self::$redis = null;
                     return false;
                 }
             }
 
-            // 不序列化的话不能存数组，用php的序列化方式其他语言又不能读取，所以这里自己用json序列化了，性能还比php的序列化好1.4倍
-            //self::$redis->setOption(Redis::OPT_SERIALIZER, Redis::SERIALIZER_NONE);   // don't serialize data
-            //self::$redis->setOption(Redis::OPT_SERIALIZER, Redis::SERIALIZER_PHP);    // use built-in serialize/unserialize
-            //self::$redis->setOption(Redis::OPT_SERIALIZER, Redis::SERIALIZER_IGBINARY);   // use igBinary serialize/unserialize
-            
-            self::$redis->setOption(Redis::OPT_PREFIX, $configs['prefix'] . ":");
+            $prefix = empty($configs['prefix']) ? self::$prefix : $configs['prefix'];
+            self::$redis->setOption(Redis::OPT_PREFIX, $prefix . ":");
         }
 
         return self::$redis;

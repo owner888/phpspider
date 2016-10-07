@@ -59,6 +59,11 @@ class phpspider
     public static $taskmaster = true;
 
     /**
+     * 任务主进程状态 
+     */
+    public static $taskmaster_status = false;
+
+    /**
      * 是否保存爬虫运行状态 
      */
     public static $save_running_state = false;
@@ -398,6 +403,14 @@ class phpspider
             }
         }
 
+        if ($status) 
+        {
+            $msg = "Success process page {$url}\n";
+        }
+        else 
+        {
+            $msg = "URL not match content_url_regexes and list_url_regexes, {$url}\n";
+        }
         return $status;
     }
 
@@ -405,61 +418,185 @@ class phpspider
     {
         // 当前任务ID
         self::$taskid = $taskid;
+        // 当前任务是否主任务
         self::$taskmaster = $taskmaster;
+        // 爬虫开始时间
+        self::$spider_time_start = time();
 
+        // 不同项目的采集以采集名称作为前缀区分
+        if (isset($GLOBALS['config']['redis']['prefix'])) 
+        {
+            $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
+        }
+
+        if ($this->on_start) 
+        {
+            call_user_func($this->on_start, $this);
+        }
+
+        // 如果是主任务，单任务里面的任务也是这里
         if (self::$taskmaster) 
         {
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
             echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
-            echo util::colorize("爬虫数：".self::$tasknum."\n\n", "warn");
-        }
+            echo util::colorize("爬虫任务数：".self::$tasknum."\n\n", "warn");
 
-        // 多任务 或者 保留运行状态，都需要redis支持
-        if (self::$tasknum > 1) 
-        {
-            // 验证redis
-            cls_redis::init();
-            if(cls_redis::$error)
+            // 多任务
+            if (self::$tasknum > 1) 
             {
-                $this->log("多任务(即 tasknum 大于 1)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n", 'error');
+                // 设置主任务为未准备状态，堵塞子进程
+                $this->set_taskmaster_status(0);
+
+                // 验证redis
+                cls_redis::init();
+                if(cls_redis::$error)
+                {
+                    $this->log("多任务(即 tasknum 大于 1)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n\n请检查 config/inc_config.php 下的Redis配置 \$GLOBALS['config']['redis']\n", 'error');
+                    exit;
+                }
+
+                // 不保留运行状态
+                if (!self::$save_running_state) 
+                {
+                    // 清空redis里面的数据
+                    $this->clear_redis();
+                }
+            }
+
+            if (self::$save_running_state) 
+            {
+                cls_redis::init();
+                if(cls_redis::$error)
+                {
+                    $this->log("保存爬虫运行状态(即 save_running_state 为 true)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n\n请检查 config/inc_config.php 下的Redis配置 \$GLOBALS['config']['redis']\n", 'error');
+                    exit;
+                }
+            }
+
+            // 验证导出
+            $this->auth_export();
+
+            if (empty(self::$configs['scan_urls'])) 
+            {
+                $this->log("No scan url to start\n", 'error');
+                // 多任务下设置主任务为就绪状态，让子任务进入采集循环
+                if (self::$tasknum > 1) 
+                {
+                    $this->set_taskmaster_status(1);
+                }
                 exit;
             }
-        }
 
-        if (self::$save_running_state) 
-        {
-            // 验证redis
-            cls_redis::init();
-            if(cls_redis::$error)
+            foreach ( self::$configs['scan_urls'] as $url ) 
             {
-                $this->log("保存爬虫运行状态(即 save_running_state 为 true)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n", 'error');
-                exit;
+                $parse_url_arr = parse_url($url);
+                if (empty($parse_url_arr['host']) || !in_array($parse_url_arr['host'], self::$configs['domains'])) 
+                {
+                    $this->log("scan_urls中的域名(\"{$parse_url_arr['host']}\")不匹配domains中的域名\n", 'error');
+                    if (self::$tasknum > 1) 
+                    {
+                        $this->set_taskmaster_status(1);
+                    }
+                    exit;
+                }
+
+                $link = array(
+                    'url'           => $url,                            // 要抓取的URL
+                    'url_type'      => 'scan_page',                     // 要抓取的URL类型
+                    'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
+                    'fields'        => array(),                         // 发送请求时需添加的参数, 可以为空
+                    'headers'       => self::$headers,                  // 此url的Headers, 可以为空
+                    'context_data'  => '',                              // 此url附加的数据, 可以为空
+                    'proxy'         => self::$configs['proxy'],         // 代理服务器
+                    'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
+                    'collect_count' => 0,                               // 抓取次数
+                    'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
+                );
+                $this->queue_lpush($link);
             }
-        }
 
+            while( self::queue_lsize() )
+            { 
+                // 抓取页面
+                $this->collect_page();
 
-        // 多任务 而且 不保留运行状态
-        if (self::$tasknum > 1 && self::$taskmaster && !self::$save_running_state) 
-        {
-            // 清空redis里面的数据
-            $this->clear_redis();
-        }
+                // 多任务下主任务未准备就绪
+                if (self::$tasknum > 1 && !self::$taskmaster_status) 
+                {
+                    // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
+                    if ($this->queue_lsize() > self::$tasknum) 
+                    {
+                        $this->log("主任务准备就绪...\n", "warn");
+                        // 给主任务自己用的
+                        self::$taskmaster_status = true;
+                        // 给子任务判断用的
+                        $this->set_taskmaster_status(1);
+                    }
+                }
+            } 
 
-        // 多任务下主进程先设置状态为0
-        if (self::$tasknum > 1 && self::$taskmaster) 
-        {
-            // 设置主任务为未准备状态
-            $this->set_taskmaster_status(0);
+            $this->log("爬取完成\n");
+
+            $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
+            echo "爬虫运行时间：{$spider_time_run}\n";
+
+            $count_collected_url = $this->count_collected_url();
+            echo "总共抓取网页：{$count_collected_url} 个\n\n";
+
+            if (self::$tasknum > 1) 
+            {
+                $this->set_taskmaster_status(1);
+            }
+            // 最后:多任务下不保留运行状态，清空redis数据
+            if (self::$tasknum > 1 && !self::$save_running_state) 
+            {
+                $this->clear_redis();
+            }
         }
         else 
         {
-            // 子进程等待100毫秒，等主进程设置状态为0
-            usleep(100000);
+            // 子任务如果验证redis不成功就直接退出好了，主任务提示错误即可
+            cls_redis::init();
+            if(cls_redis::$error)
+            {
+                exit;
+            }
+
+            // sleep 1秒，等待主任务设置状态
+            sleep(1);
+            // 第一次先判断主进程准备好没有
+            while( !$this->get_taskmaster_status() )
+            {
+                $this->log("任务".self::$taskid."等待中...\n", "warn");
+                sleep(1);
+            }
+            while( self::queue_lsize() )
+            { 
+                // 如果队列中的网页比任务数多，子任务可以采集
+                if ($this->queue_lsize() > self::$tasknum) 
+                {
+                    // 抓取页面
+                    $this->collect_page();
+                }
+                // 队列中网页太少，就都给主进程采集好了
+                else 
+                {
+                    $this->log("任务".self::$taskid."等待中...\n", "warn");
+                    sleep(1);
+                }
+            } 
         }
+    }
 
-        // 爬虫开始时间
-        self::$spider_time_start = time();
-
+    /**
+     * 验证导出
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-02 23:37
+     */
+    public function auth_export()
+    {
         // csv、sql、db
         self::$export_type = isset(self::$configs['export']['type']) ? self::$configs['export']['type'] : '';
         self::$export_file = isset(self::$configs['export']['file']) ? self::$configs['export']['file'] : '';
@@ -512,89 +649,6 @@ class phpspider
                     exit;
                 }
             }
-        }
-
-        if (empty(self::$configs['scan_urls'])) 
-        {
-            $this->log("No scan url to start\n", 'error');
-            exit;
-        }
-
-        if ($this->on_start) 
-        {
-            call_user_func($this->on_start, $this);
-        }
-
-        // 主任务负责采集足够URL时其他任务才开始运行
-        if (self::$taskmaster) 
-        {
-            foreach ( self::$configs['scan_urls'] as $url ) 
-            {
-                $parse_url_arr = parse_url($url);
-                if (empty($parse_url_arr['host']) || !in_array($parse_url_arr['host'], self::$configs['domains'])) 
-                {
-                    $this->log("scan_urls中的域名(\"{$parse_url_arr['host']}\")不匹配domains中的域名\n", 'error');
-                    exit;
-                }
-
-                $link = array(
-                    'url'           => $url,                            // 要抓取的URL
-                    'url_type'      => 'scan_page',                     // 要抓取的URL类型
-                    'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                    'fields'        => array(),                         // 发送请求时需添加的参数, 可以为空
-                    'headers'       => self::$headers,                  // 此url的Headers, 可以为空
-                    'context_data'  => '',                              // 此url附加的数据, 可以为空
-                    'proxy'         => self::$configs['proxy'],         // 代理服务器
-                    'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
-                    'collect_count' => 0,                               // 抓取次数
-                    'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
-                );
-                $this->queue_lpush($link);
-            }
-
-            while( self::queue_lsize() )
-            { 
-                // 抓取页面
-                $this->collect_page();
-            } 
-
-            // 多任务 而且 不保留运行状态
-            if (self::$tasknum > 1 && !self::$save_running_state) 
-            {
-                // 清空redis里面的数据
-                $this->clear_redis();
-            }
-
-            $this->log("爬取完成\n");
-
-            $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
-            echo "爬虫运行时间：{$spider_time_run}\n";
-
-            $count_collected_url = $this->count_collected_url();
-            echo "总共抓取网页：{$count_collected_url} 个\n\n";
-        }
-        else 
-        {
-            // 第一次先判断主进程准备好没有
-            while( !$this->get_taskmaster_status() )
-            {
-                $this->log("任务".self::$taskid."等待中...\n", "warn");
-                sleep(1);
-            }
-            while( self::queue_lsize() )
-            { 
-                // 如果队列中的网页比任务数多，子任务可以采集
-                if ($this->queue_lsize() > self::$tasknum) 
-                {
-                    // 抓取页面
-                    $this->collect_page();
-                }
-                // 队列中网页太少，就都给主进程采集好了
-                else 
-                {
-                    sleep(1);
-                }
-            } 
         }
     }
 
@@ -730,20 +784,6 @@ class phpspider
         if ($link['url_type'] == 'content_page') 
         {
             $this->get_html_fields($html, $url, $page);
-        }
-
-        // 如果是多任务下主任务进程在执行
-        if (self::$taskmaster && self::$tasknum > 1) 
-        {
-            if (!$this->get_taskmaster_status()) 
-            {
-                // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
-                if ($this->queue_lsize() > self::$tasknum) 
-                {
-                    $this->log("主任务进程准备就绪...\n", "warn");
-                    $this->set_taskmaster_status(1);
-                }
-            }
         }
 
         // 爬虫爬取每个网页的时间间隔，单位：秒
