@@ -598,8 +598,8 @@ class phpspider
     public function auth_export()
     {
         // csv、sql、db
-        self::$export_type = isset(self::$configs['export']['type']) ? self::$configs['export']['type'] : '';
-        self::$export_file = isset(self::$configs['export']['file']) ? self::$configs['export']['file'] : '';
+        self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
+        self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
         self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
 
         // 如果设置了导出选项
@@ -623,15 +623,15 @@ class phpspider
             }
             elseif (self::$export_type == 'db') 
             {
-                if (empty($GLOBALS['config']['db'])) 
+                if (!function_exists('mysqli_connect'))
                 {
-                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: You not set a config array for connect\n", 'error');
+                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: Unable to load mysqli extension.\n", 'error');
                     exit;
                 }
 
-                if (!function_exists('mysqli_connect'))
+                if (empty($GLOBALS['config']['db'])) 
                 {
-                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: Unable to load mysqli extension\n", 'error');
+                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: You not set a config array for connect.\n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n", 'error');
                     exit;
                 }
 
@@ -907,8 +907,13 @@ class phpspider
             foreach ($cookies as $cookie) 
             {
                 $cookie_arr = explode("=", $cookie);
+                if (count($cookie_arr) < 2) 
+                {
+                    continue;
+                }
+                $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
                 // 过滤掉domain路径
-                if (trim($cookie_arr[0]) == 'path') 
+                if (in_array($cookie_name, array('path', 'domain', 'expires'))) 
                 {
                     continue;
                 }
