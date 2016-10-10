@@ -978,6 +978,7 @@ class phpspider
             $html_arr = explode("\r\n\r\n", $html);
             foreach ($html_arr as $k=>$html) 
             {
+                // post 方法会有两个http header：HTTP/1.1 100 Continue、HTTP/1.1 200 OK
                 if (preg_match("#HTTP/.*? 100 Continue#", $html) || preg_match("#HTTP/.*? 200 OK#", $html)) 
                 {
                     unset($html_arr[$k]);
