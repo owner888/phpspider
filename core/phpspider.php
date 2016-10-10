@@ -892,6 +892,7 @@ class phpspider
         $fields = empty($link['context_data']) ? $link['fields'] : $link['context_data'];
         $method = strtolower($link['method']);
         $html = cls_curl::$method($url, $fields);
+        //var_dump($html);exit;
 
         // 对于登录成功后302跳转的，Cookie实际上存在body而不在header，header只有一句：HTTP/1.1 100 Continue
         // 为了兼容301和301这些乱七八糟的，还是header+body一起匹配吧
@@ -975,7 +976,13 @@ class phpspider
         {
             // body里面可能有 \r\n\r\n，但是第一个一定是HTTP Header，去掉后剩下的就是body
             $html_arr = explode("\r\n\r\n", $html);
-            unset($html_arr[0]);
+            foreach ($html_arr as $k=>$html) 
+            {
+                if (preg_match("#HTTP/.*? 100 Continue#", $html) || preg_match("#HTTP/.*? 200 OK#", $html)) 
+                {
+                    unset($html_arr[$k]);
+                }
+            }
             $html = implode("\r\n\r\n", $html_arr);
         }
         return $html;
