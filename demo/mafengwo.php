@@ -7,7 +7,7 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '马蜂窝',
-    'tasknum' => 5,
+    'tasknum' => 1,
     //'save_running_state' => true,
     'domains' => array(
         'www.mafengwo.cn'
@@ -164,20 +164,20 @@ $spider->on_extract_field = function($fieldname, $data, $page)
 };
 
 // 单任务
-//$spider->start();
+$spider->start();
 // 多任务
-$w = new worker();
-// 直接使用上面配置的任务数作为worker进程数
-$w->count = $configs['tasknum'];
-$w->on_worker_start = function($worker) use ($spider) {
+//$w = new worker();
+//// 直接使用上面配置的任务数作为worker进程数
+//$w->count = $configs['tasknum'];
+//$w->on_worker_start = function($worker) use ($spider) {
 
-    $taskmaster = false;
-    // 把第一个worker进程当做主任务
-    if ($worker->worker_id == 1) 
-    {
-        $taskmaster = true;
-    }
-    $spider->start($taskmaster, $worker->worker_id);
+    //$taskmaster = false;
+    //// 把第一个worker进程当做主任务
+    //if ($worker->worker_id == 1) 
+    //{
+        //$taskmaster = true;
+    //}
+    //$spider->start($taskmaster, $worker->worker_id);
 
-};
-$w->run();
+//};
+//$w->run();
