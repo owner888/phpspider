@@ -255,6 +255,11 @@ class phpspider
         self::$configs['collect_fails'] = isset(self::$configs['collect_fails']) ? self::$configs['collect_fails'] : self::COLLECT_FAILS;
         self::$configs['export']        = isset(self::$configs['export'])        ? self::$configs['export']        : array();
 
+        // csv、sql、db
+        self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
+        self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
+        self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
+
         // 是否设置了并发任务数，并且大于1
         if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1) 
         {
@@ -597,11 +602,6 @@ class phpspider
      */
     public function auth_export()
     {
-        // csv、sql、db
-        self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
-        self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
-        self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
-
         // 如果设置了导出选项
         if (!empty(self::$configs['export'])) 
         {
