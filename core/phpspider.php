@@ -101,7 +101,7 @@ class phpspider
          'url_type'     => '',      // 要爬取的URL类型,scan_page、list_page、content_page
          'method'       => 'get',   // 默认为"GET"请求, 也支持"POST"请求
          'headers'      => array(), // 此url的Headers, 可以为空
-         'data'         => array(), // 发送请求时需添加的参数, 可以为空
+         'params'       => array(), // 发送请求时需添加的参数, 可以为空
          'context_data' => '',      // 此url附加的数据, 可以为空
          'proxy'        => false,   // 是否使用代理
          'proxy_auth'   => '',      // 代理验证: {$USER}:{$PASS}
@@ -372,8 +372,8 @@ class phpspider
             'url'           => $url,            
             'url_type'      => '', 
             'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-            'params'        => isset($options['params'])        ? $options['params']        : array(),           
             'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+            'params'        => isset($options['params'])        ? $options['params']        : array(),           
             'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
             'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
             'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
@@ -521,8 +521,8 @@ class phpspider
                     'url'           => $url,                            // 要抓取的URL
                     'url_type'      => 'scan_page',                     // 要抓取的URL类型
                     'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                    'params'        => array(),                         // 发送请求时需添加的参数, 可以为空
                     'headers'       => self::$headers,                  // 此url的Headers, 可以为空
+                    'params'        => array(),                         // 发送请求时需添加的参数, 可以为空
                     'context_data'  => '',                              // 此url附加的数据, 可以为空
                     'proxy'         => self::$configs['proxy'],         // 代理服务器
                     'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
@@ -837,8 +837,8 @@ class phpspider
             'url'           => $url,
             'url_type'      => isset($options['url_type'])      ? $options['url_type']      : '',             
             'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-            'params'        => isset($options['params'])        ? $options['params']        : array(),           
             'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
+            'params'        => isset($options['params'])        ? $options['params']        : array(),           
             'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
             'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
             'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
