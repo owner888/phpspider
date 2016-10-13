@@ -65,7 +65,7 @@ $spider->on_scan_page = function($page, $content, $phpspider)
         $options = array(
             'url_type' => $url,
             'method' => 'post',
-            'fields' => array(
+            'params' => array(
                 'mddid'=>21536,
                 'page'=>$i,
             )
@@ -90,7 +90,7 @@ $spider->on_list_page = function($page, $content, $phpspider)
                 $options = array(
                     'url_type' => $url,
                     'method' => 'post',
-                    'fields' => array(
+                    'params' => array(
                         'mddid'=>$v,
                         'pageid'=>'mdd_index',
                         'sort'=>1,
@@ -111,7 +111,7 @@ $spider->on_list_page = function($page, $content, $phpspider)
         $data = json_decode($content, true);
         $html = $data['list'];
         // 遇到第一页的时候，获取分页数，把其他分页全部入队列
-        if ($page['request']['fields']['page'] == 1)
+        if ($page['request']['params']['page'] == 1)
         {
             $data_page = trim($data['page']);
             if (!empty($data_page)) 
@@ -119,12 +119,12 @@ $spider->on_list_page = function($page, $content, $phpspider)
                 preg_match('#<span class="count">共<span>(.*?)</span>页#', $data_page, $out);
                 for ($i = 0; $i < $out[1]; $i++) 
                 {
-                    $v = $page['request']['fields']['mddid'];
+                    $v = $page['request']['params']['mddid'];
                     $url = "http://www.mafengwo.cn/gonglve/ajax.php?act=get_travellist&mddid={$v}&page={$i}";
                     $options = array(
                         'url_type' => $url,
                         'method' => 'post',
-                        'fields' => array(
+                        'params' => array(
                             'mddid'=>$v,
                             'pageid'=>'mdd_index',
                             'sort'=>1,

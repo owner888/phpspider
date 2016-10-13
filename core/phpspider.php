@@ -338,7 +338,19 @@ class phpspider
         foreach ($cookies_arr as $cookie) 
         {
             $cookie_arr = explode("=", $cookie);
-            self::$cookies[trim($cookie_arr[0])] = trim($cookie_arr[1]);
+            $cookie_key = $cookie_value = "";
+            foreach ($cookie_arr as $k=>$v) 
+            {
+                if ($k == 0) 
+                {
+                    $cookie_key = trim($v);
+                }
+                else 
+                {
+                    $cookie_value .= trim(str_replace('"', '', $v));
+                }
+            }
+            self::$cookies[$cookie_key] = $cookie_value;
         }
     }
 
@@ -360,7 +372,7 @@ class phpspider
             'url'           => $url,            
             'url_type'      => '', 
             'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-            'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+            'params'        => isset($options['params'])        ? $options['params']        : array(),           
             'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
             'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
             'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
@@ -509,7 +521,7 @@ class phpspider
                     'url'           => $url,                            // 要抓取的URL
                     'url_type'      => 'scan_page',                     // 要抓取的URL类型
                     'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                    'fields'        => array(),                         // 发送请求时需添加的参数, 可以为空
+                    'params'        => array(),                         // 发送请求时需添加的参数, 可以为空
                     'headers'       => self::$headers,                  // 此url的Headers, 可以为空
                     'context_data'  => '',                              // 此url附加的数据, 可以为空
                     'proxy'         => self::$configs['proxy'],         // 代理服务器
@@ -716,7 +728,7 @@ class phpspider
                 'url'           => $url,
                 'method'        => $link['method'],
                 'headers'       => $link['headers'],
-                'fields'        => $link['fields'],
+                'params'        => $link['params'],
                 'context_data'  => $link['context_data'],
                 'collect_count' => $link['collect_count'],
                 'collect_fails' => $link['collect_fails'],
@@ -825,7 +837,7 @@ class phpspider
             'url'           => $url,
             'url_type'      => isset($options['url_type'])      ? $options['url_type']      : '',             
             'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-            'fields'        => isset($options['fields'])        ? $options['fields']        : array(),           
+            'params'        => isset($options['params'])        ? $options['params']        : array(),           
             'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
             'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
             'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
@@ -889,9 +901,9 @@ class phpspider
         cls_curl::set_http_raw(true);
 
         // 如果设置了附加的数据，如json和xml，就直接发附加的数据,php端可以用 file_get_contents("php://input"); 获取
-        $fields = empty($link['context_data']) ? $link['fields'] : $link['context_data'];
+        $params = empty($link['context_data']) ? $link['params'] : $link['context_data'];
         $method = strtolower($link['method']);
-        $html = cls_curl::$method($url, $fields);
+        $html = cls_curl::$method($url, $params);
         //var_dump($html);exit;
 
         // 对于登录成功后302跳转的，Cookie实际上存在body而不在header，header只有一句：HTTP/1.1 100 Continue
@@ -914,7 +926,7 @@ class phpspider
                 }
                 $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
                 // 过滤掉domain路径
-                if (in_array($cookie_name, array('path', 'domain', 'expires'))) 
+                if (in_array(strtolower($cookie_name), array('path', 'domain', 'expires', 'max-age'))) 
                 {
                     continue;
                 }
@@ -931,45 +943,53 @@ class phpspider
             // 如果是301、302跳转，抓取跳转后的网页内容
             if ($http_code == 301 || $http_code == 302) 
             {
-                // 获取跳转后的地址扔到队列头部去，可以立刻采集
                 $info = cls_curl::get_info();
-                $link['url'] = $info['redirect_url'];
-                $this->queue_rpush($link);
-                $this->log("网页下载失败：{$url}\n", 'error');
-                $this->log("HTTP CODE：{$http_code} 网页{$http_code}跳转\n", 'error');
-            }
-            elseif ($http_code == 404) 
-            {
-                $this->log("网页下载失败：{$url}\n", 'error');
-                $this->log("HTTP CODE：{$http_code} 网页不存在\n", 'error');
-            }
-            elseif ($http_code == 407) 
-            {
-                // 扔到队列头部去，继续采集
-                $this->queue_rpush($link);
-                $this->log("网页下载失败：{$url}\n", 'error');
-                $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'error');
-            }
-            elseif ($http_code == 502 || $http_code == 503 || $http_code == 0) 
-            {
-                // 采集次数加一
-                $link['collect_count']++;
-                // 抓取次数 小于 允许抓取失败次数
-                if ( $link['collect_count'] < $link['collect_fails'] ) 
-                {
-                    // 扔到队列头部去，继续采集
-                    $this->queue_rpush($link);
-                }
-                $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'error');
-                $this->log("HTTP CODE：{$http_code} 服务器过载\n", 'error');
+                $url = $info['redirect_url'];
+                $html = $this->request_url($url, $options);
+
+                // 获取跳转后的地址扔到队列头部去，可以立刻采集
+                //$info = cls_curl::get_info();
+                //$link['url'] = $info['redirect_url'];
+                //$this->queue_rpush($link);
+                //$this->log("网页下载失败：{$url}\n", 'error');
+                //$this->log("HTTP CODE：{$http_code} 网页{$http_code}跳转\n", 'warn');
             }
             else 
             {
-                $this->log("网页下载失败：{$url}\n", 'error');
-                $this->log("HTTP CODE：{$http_code}\n", 'error');
+                if ($http_code == 404) 
+                {
+                    $this->log("网页下载失败：{$url}\n", 'error');
+                    $this->log("HTTP CODE：{$http_code} 网页不存在\n", 'error');
+                }
+                elseif ($http_code == 407) 
+                {
+                    // 扔到队列头部去，继续采集
+                    $this->queue_rpush($link);
+                    $this->log("网页下载失败：{$url}\n", 'error');
+                    $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'error');
+                }
+                elseif ($http_code == 502 || $http_code == 503 || $http_code == 0) 
+                {
+                    // 采集次数加一
+                    $link['collect_count']++;
+                    // 抓取次数 小于 允许抓取失败次数
+                    if ( $link['collect_count'] < $link['collect_fails'] ) 
+                    {
+                        // 扔到队列头部去，继续采集
+                        $this->queue_rpush($link);
+                    }
+                    $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'error');
+                    $this->log("HTTP CODE：{$http_code} 服务器过载\n", 'error');
+                }
+                else 
+                {
+                    $this->log("网页下载失败：{$url}\n", 'error');
+                    $this->log("HTTP CODE：{$http_code}\n", 'error');
+                }
+                return false;
             }
-            return false;
         }
+        //print_r(self::$domain_cookies);
 
         // 解析HTTP数据流
         if (!empty($html)) 
