@@ -319,9 +319,16 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function add_cookie($key, $value, $domain = '/')
+    public function add_cookie($key, $value, $domain = '')
     {
-        self::$cookies[$key] = $value;
+        if (!empty($domain)) 
+        {
+            self::$domain_cookies[$domain][$key] = $value;
+        }
+        else 
+        {
+            self::$cookies[$key] = $value;
+        }
     }
 
     /**
@@ -332,25 +339,33 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function add_cookies($cookies)
+    public function add_cookies($cookies, $domain = '')
     {
         $cookies_arr = explode(";", $cookies);
         foreach ($cookies_arr as $cookie) 
         {
             $cookie_arr = explode("=", $cookie);
-            $cookie_key = $cookie_value = "";
+            $key = $value = "";
             foreach ($cookie_arr as $k=>$v) 
             {
                 if ($k == 0) 
                 {
-                    $cookie_key = trim($v);
+                    $key = trim($v);
                 }
                 else 
                 {
-                    $cookie_value .= trim(str_replace('"', '', $v));
+                    $value .= trim(str_replace('"', '', $v));
                 }
             }
-            self::$cookies[$cookie_key] = $cookie_value;
+
+            if (!empty($domain)) 
+            {
+                self::$domain_cookies[$domain][$key] = $value;
+            }
+            else 
+            {
+                self::$cookies[$key] = $value;
+            }
         }
     }
 
@@ -431,6 +446,103 @@ class phpspider
         return $status;
     }
 
+        
+    /**
+     * 展示启动界面
+     * @return void
+     */
+    public function display_ui()
+    {
+        echo "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        echo 'PHPSpider version:' , self::VERSION , "          PHP version:",PHP_VERSION,"\n";
+        echo "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
+
+        $taskid_length = 6;
+        $pid_length = 6;
+        $cpu_length = 4;
+        $mem_length = 8;
+        $urls_length = 10;
+        $speed_length = 6;
+        echo "\033[47;30mtaskid\033[0m", str_pad('', $taskid_length+2-strlen('taskid')), 
+        "\033[47;30mpid\033[0m", str_pad('', $pid_length+2-strlen('pid')), 
+        "\033[47;30mcpu\033[0m", str_pad('', $cpu_length+2-strlen('cpu')), 
+        "\033[47;30mmem\033[0m", str_pad('', $mem_length+2-strlen('mem')), 
+        "\033[47;30murls\033[0m", str_pad('', $urls_length+2-strlen('urls')), 
+        "\033[47;30mspeed\033[0m", str_pad('', $speed_length+2-strlen('speed')), 
+        "\n";
+        //"\033[47;30m502\033[0m", str_pad('', $url_502_length+2-strlen('502')), 
+
+        $tasks = array(
+            array(
+                'id' => 1,
+                'pid' => 17313,
+                'cpu' => '80%',
+                'mem' => '7.9MB',
+                'urls' => 10000000,
+                'speed' => '0.1/s',
+                //'502' => 10000,
+            ),
+            array(
+                'id' => 20,
+                'pid' => 17314,
+                'cpu' => '70%',
+                'mem' => '8.9MB',
+                'urls' => 10000,
+                'speed' => '3/s',
+                //'502' => 10000,
+            ),
+            array(
+                'id' => 3,
+                'pid' => 17313,
+                'cpu' => '80%',
+                'mem' => '7.9MB',
+                'urls' => 10000000,
+                'speed' => '0.1/s',
+                //'502' => 10000,
+            ),
+            array(
+                'id' => 4,
+                'pid' => 17313,
+                'cpu' => '80%',
+                'mem' => '7.9MB',
+                'urls' => 10000000,
+                'speed' => '0.1/s',
+                //'502' => 10000,
+            ),
+            array(
+                'id' => 5,
+                'pid' => 17313,
+                'cpu' => '80%',
+                'mem' => '7.9MB',
+                'urls' => 10000000,
+                'speed' => '0.1/s',
+                //'502' => 10000,
+            )
+
+        );
+        foreach($tasks as $task)
+        {
+            echo str_pad($task['id'], $taskid_length+2),
+                str_pad($task['pid'], $pid_length+2),
+                str_pad($task['cpu'], $cpu_length+2), 
+                str_pad($task['mem'], $mem_length+2), 
+                str_pad($task['urls'], $urls_length+2), 
+                str_pad($task['speed'], $speed_length+2), 
+                "\n";
+        }
+        echo "---------------------------------------------------------------------\n";
+        //if(self::$daemonize)
+        //{
+            //global $argv;
+            //$start_file = $argv[0];
+            //echo "Input \"php $start_file stop\" to quit. Start success.\n";
+        //}
+        //else
+        //{
+            //echo "Press Ctrl-C to quit. Start success.\n";
+        //}
+    }
+
     public function start($taskmaster = true, $taskid = 1)
     {
         // 当前任务ID
@@ -454,6 +566,8 @@ class phpspider
         // 如果是主任务，单任务里面的任务也是这里
         if (self::$taskmaster) 
         {
+            //$this->display_ui();
+            //exit;
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
             echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
             echo util::colorize("爬虫任务数：".self::$tasknum."\n\n", "warn");
