@@ -291,7 +291,7 @@ class cls_curl
         self::$info = curl_getinfo(self::$ch);
         if ($data === false)
         {
-            echo date("Y-m-d H:i:s"), ' Curl error: ' . curl_error( self::$ch ), "\n";
+            //echo date("Y-m-d H:i:s"), ' Curl error: ' . curl_error( self::$ch ), "\n";
         }
 
         // 关闭句柄

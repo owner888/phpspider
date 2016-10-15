@@ -3,6 +3,49 @@
 class log
 {
     public static $log_show = false;
+    public static $log_file = false;
+
+    public static function info($msg)
+    {
+        $out_sta = "";
+        $out_end = "";
+        $msg = $out_sta.$msg.$out_end."\n";
+        self::msg($msg);
+    }
+
+    public static function warn($msg)
+    {
+        $out_sta = "\033[33m";
+        $out_end = "\033[0m";
+        $msg = $out_sta.$msg.$out_end."\n";
+        self::msg($msg);
+    }
+
+    public static function debug($msg)
+    {
+        $out_sta = "\033[36m";
+        $out_end = "\033[0m";
+        $msg = $out_sta.$msg.$out_end."\n";
+        self::msg($msg);
+    }
+
+    public static function error($msg)
+    {
+        $out_sta = "\033[31m";
+        $out_end = "\033[0m";
+        //$msg = $out_sta.date("H:i:s")." ".$msg.$out_end."\n";
+        $msg = $out_sta.$msg.$out_end."\n";
+        self::msg($msg);
+    }
+
+    public static function msg($msg)
+    {
+        if(self::$log_show)
+        {
+            echo $msg;
+        }
+        file_put_contents(self::$log_file, $msg, FILE_APPEND | LOCK_EX);
+    }
 
     /**
      * 记录日志

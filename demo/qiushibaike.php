@@ -7,6 +7,7 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '糗事百科',
+    'tasknum' => 1,
     //'save_running_state' => true,
     'domains' => array(
         'qiushibaike.com',
@@ -22,19 +23,20 @@ $configs = array(
         "http://www.qiushibaike.com/article/\d+",
     ),
     'collect_fails' => 5,
-    //'export' => array(
-        //'type' => 'csv',
-        //'file' => PATH_DATA.'/qiushibaike.csv',
-    //),
+    //'log_show' => true,
+    'export' => array(
+        'type' => 'csv',
+        'file' => PATH_DATA.'/qiushibaike.csv',
+    ),
     //'export' => array(
         //'type'  => 'sql',
         //'file'  => PATH_DATA.'/qiushibaike.sql',
         //'table' => 'content',
     //),
-    'export' => array(
-        'type' => 'db', 
-        'table' => 'content',
-    ),
+    //'export' => array(
+        //'type' => 'db', 
+        //'table' => 'content',
+    //),
     'fields' => array(
         array(
             'name' => "article_title",
@@ -126,4 +128,5 @@ $spider->on_extract_field = function($fieldname, $data, $page)
 };
 
 $spider->start();
+
 

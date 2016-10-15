@@ -27,6 +27,51 @@ class cls_redis
 
     public static $error  = "";
 
+    public static function check()
+    {
+        // 获取配置
+        if (empty($GLOBALS['config']['redis'])) 
+        {
+            self::$error = "You not set a config array for connect";
+            return false;
+        }
+
+        $configs = $GLOBALS['config']['redis'];
+
+        if (!extension_loaded("redis"))
+        {
+            self::$error = "Unable to load redis extension";
+            return false;
+        }
+
+        $redis = new Redis();
+        // 注意长连接在多进程环境下有问题，反正都是CLI环境，没必要用长连接
+        if (!$redis->connect($configs['host'], $configs['port'], $configs['timeout']))
+        {
+            self::$error = "Unable to connect to redis server";
+            return false;
+        }
+
+        // 验证
+        if ($configs['pass'])
+        {
+            if ( !$redis->auth($configs['pass']) ) 
+            {
+                self::$error = "Redis Server authentication failed";
+                return false;
+            }
+        }
+        $redis->close();
+        $redis = null;
+        return true;
+    }
+
+    public static function close()
+    {
+        self::$redis->close();
+        self::$redis = null;
+    }
+
     public static function init()
     {
         // 获取配置
@@ -46,14 +91,8 @@ class cls_redis
                 self::$redis->close();
             }
 
-            if (!extension_loaded("redis"))
-            {
-                self::$error = "Unable to load redis extension";
-                return false;
-            }
-
             self::$redis = new Redis();
-            if (!self::$redis->pconnect($configs['host'], $configs['port'], $configs['timeout']))
+            if (!self::$redis->connect($configs['host'], $configs['port'], $configs['timeout']))
             {
                 self::$error = "Unable to connect to redis server";
                 self::$redis = null;

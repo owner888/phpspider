@@ -44,9 +44,42 @@ class phpspider
     const AGENT_MOBILE = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36";
 
     /**
+     * pid文件的路径及名称
+     * @var string
+     */
+    public static $pid_file = '';
+
+    /**
+     * 日志目录，默认在data根目录下
+     * @var mixed
+     */
+    public static $log_file = '';
+
+    /**
+     * 运行 status 命令时用于保存结果的文件名
+     * @var string
+     */
+    public static $statistics_file = '';
+
+    /**
+     * 主任务进程ID 
+     */
+    public static $master_pid = 0;
+
+    /**
+     * 所有任务进程ID 
+     */
+    public static $taskpids = array();
+
+    /**
      * 当前任务ID 
      */
     public static $taskid = 1;
+
+    /**
+     * 当前任务进程ID 
+     */
+    public static $taskpid = 1;
 
     /**
      * 并发任务数
@@ -67,6 +100,11 @@ class phpspider
      * 是否保存爬虫运行状态 
      */
     public static $save_running_state = false;
+
+    /**
+     * 是否显示日志 
+     */
+    public static $log_show = false;
 
     /**
      * HTTP请求的Header 
@@ -126,8 +164,24 @@ class phpspider
     /**
      * 爬虫开始时间 
      */
-    public static $spider_time_start = 0;
+    public static $time_start = 0;
     
+    /**
+     * 当前进程采集成功数 
+     */
+    public static $collect_succ = 0;
+
+    /**
+     * 当前进程采集失败数 
+     */
+    public static $collect_fail = 0;
+
+    public static $taskid_length = 6;
+    public static $pid_length = 6;
+    public static $mem_length = 8;
+    public static $urls_length = 15;
+    public static $speed_length = 6;
+
     /**
      * 提取到的字段数 
      */
@@ -235,13 +289,23 @@ class phpspider
 
     function __construct($configs = array())
     {
-        //$files = debug_backtrace();
-        //$prev_file = $files[0]['file'];
+        // 爬虫开始时间
+        self::$time_start = time();
+        // 当前任务ID
+        self::$taskid = 1;
+        // 当前任务进程ID
+        self::$taskpid = function_exists('posix_getpid') ? posix_getpid() : 1;
+        // 当前任务是否主任务
+        self::$taskmaster = true;
+        // 先打开以显示验证报错内容
+        log::$log_show = true;
+
+        // 彩蛋
         $included_files = get_included_files();
         $content = file_get_contents($included_files[0]);
         if (!preg_match("#/\* Do NOT delete this comment \*/#", $content) || !preg_match("#/\* 不要删除这段注释 \*/#", $content))
         {
-            $this->log("未知错误；请参考文档或寻求技术支持。", 'error');
+            log::error("未知错误；请参考文档或寻求技术支持。");
             exit;
         }
 
@@ -260,6 +324,9 @@ class phpspider
         self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
         self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
 
+        self::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
+        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
+
         // 是否设置了并发任务数，并且大于1
         if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1) 
         {
@@ -269,6 +336,15 @@ class phpspider
         if (isset(self::$configs['save_running_state'])) 
         {
             self::$save_running_state = self::$configs['save_running_state'];
+        }
+
+        if (self::$tasknum > 1) 
+        {
+            if(!function_exists('pcntl_fork'))
+            {
+                log::error("When the task number greater than 1 need pnctl extension");
+                exit;
+            }
         }
     }
 
@@ -402,7 +478,7 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    $this->log("发现列表网页：{$url}", 'debug');
+                    log::debug(date("H:i:s")." 发现列表网页：{$url}");
                     $link['url_type'] = 'list_page';
                     $status = $this->queue_lpush($link);
                 }
@@ -415,7 +491,7 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    $this->log("发现内容网页：{$url}", 'debug');
+                    log::debug(date("H:i:s")." 发现内容网页：{$url}");
                     $link['url_type'] = 'content_page';
                     $status = $this->queue_lpush($link);
                 }
@@ -428,7 +504,7 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    $this->log("发现网页文件：{$url}", 'debug');
+                    log::debug(date("H:i:s")." 发现网页文件：{$url}");
                     $link['url_type'] = 'attachment_file';
                     $status = $this->queue_lpush($link);
                 }
@@ -453,84 +529,57 @@ class phpspider
      */
     public function display_ui()
     {
-        echo "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
-        echo 'PHPSpider version:' , self::VERSION , "          PHP version:",PHP_VERSION,"\n";
-        echo "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
-
-        $taskid_length = 6;
-        $pid_length = 6;
-        $cpu_length = 4;
-        $mem_length = 8;
-        $urls_length = 10;
-        $speed_length = 6;
-        echo "\033[47;30mtaskid\033[0m", str_pad('', $taskid_length+2-strlen('taskid')), 
-        "\033[47;30mpid\033[0m", str_pad('', $pid_length+2-strlen('pid')), 
-        "\033[47;30mcpu\033[0m", str_pad('', $cpu_length+2-strlen('cpu')), 
-        "\033[47;30mmem\033[0m", str_pad('', $mem_length+2-strlen('mem')), 
-        "\033[47;30murls\033[0m", str_pad('', $urls_length+2-strlen('urls')), 
-        "\033[47;30mspeed\033[0m", str_pad('', $speed_length+2-strlen('speed')), 
-        "\n";
-        //"\033[47;30m502\033[0m", str_pad('', $url_502_length+2-strlen('502')), 
-
-        $tasks = array(
-            array(
-                'id' => 1,
-                'pid' => 17313,
-                'cpu' => '80%',
-                'mem' => '7.9MB',
-                'urls' => 10000000,
-                'speed' => '0.1/s',
-                //'502' => 10000,
-            ),
-            array(
-                'id' => 20,
-                'pid' => 17314,
-                'cpu' => '70%',
-                'mem' => '8.9MB',
-                'urls' => 10000,
-                'speed' => '3/s',
-                //'502' => 10000,
-            ),
-            array(
-                'id' => 3,
-                'pid' => 17313,
-                'cpu' => '80%',
-                'mem' => '7.9MB',
-                'urls' => 10000000,
-                'speed' => '0.1/s',
-                //'502' => 10000,
-            ),
-            array(
-                'id' => 4,
-                'pid' => 17313,
-                'cpu' => '80%',
-                'mem' => '7.9MB',
-                'urls' => 10000000,
-                'speed' => '0.1/s',
-                //'502' => 10000,
-            ),
-            array(
-                'id' => 5,
-                'pid' => 17313,
-                'cpu' => '80%',
-                'mem' => '7.9MB',
-                'urls' => 10000000,
-                'speed' => '0.1/s',
-                //'502' => 10000,
-            )
-
-        );
-        foreach($tasks as $task)
+        $loadavg = sys_getloadavg();
+        foreach ($loadavg as $k=>$v) 
         {
-            echo str_pad($task['id'], $taskid_length+2),
-                str_pad($task['pid'], $pid_length+2),
-                str_pad($task['cpu'], $cpu_length+2), 
-                str_pad($task['mem'], $mem_length+2), 
-                str_pad($task['urls'], $urls_length+2), 
-                str_pad($task['speed'], $speed_length+2), 
-                "\n";
+            $loadavg[$k] = round($v, 2);
         }
-        echo "---------------------------------------------------------------------\n";
+        $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
+        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours   \n";
+        $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
+        $display_str .= "document: https://doc.phpspider.org\n";
+        $display_str .= "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
+
+        $display_str .= "\033[47;30mtaskid\033[0m". str_pad('', self::$taskid_length+2-strlen('taskid')). 
+        "\033[47;30mpid\033[0m". str_pad('', self::$pid_length+2-strlen('pid')). 
+        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length+2-strlen('collect succ')). 
+        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length+2-strlen('collect fail')). 
+        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+        "\n";
+
+        $display_str .= $this->display_process_ui();
+
+        $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
+
+        $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
+        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
+        "\033[47;30mcollected\033[0m". str_pad('', 14-strlen('collected')). 
+        "\033[47;30mremain\033[0m". str_pad('', 15-strlen('remain')). 
+        "\033[47;30mfields\033[0m". str_pad('', 12-strlen('fields')). 
+        "\n";
+
+        $collect   = $this->count_collect_url();
+        $queue     = $this->queue_lsize();
+        $collected = $this->count_collected_url();
+        $remain    = $queue - $collected;
+        $fields    = $this->get_fields_num();
+        $display_str .= str_pad($collect, 16);
+        $display_str .= str_pad($queue, 14);
+        $display_str .= str_pad($collected, 14);
+        $display_str .= str_pad($remain, 15);
+        $display_str .= str_pad($fields, 12);
+        $display_str .= "\n";
+
+        // 清屏
+        $this->clear_screen();
+        // 返回到第一行,第一列
+        //echo "\033[0;0H";
+        $display_str .= "---------------------------------------------------------------------\n";
+        $display_str .= "Press Ctrl-C to quit. Start success.\n";
+        echo $display_str;
+
         //if(self::$daemonize)
         //{
             //global $argv;
@@ -543,19 +592,111 @@ class phpspider
         //}
     }
 
-    public function start($taskmaster = true, $taskid = 1)
+    public function display_process_ui()
     {
-        // 当前任务ID
-        self::$taskid = $taskid;
-        // 当前任务是否主任务
-        self::$taskmaster = $taskmaster;
-        // 爬虫开始时间
-        self::$spider_time_start = time();
+        $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
+        $use_time = microtime(true) - self::$time_start; 
+        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
+        $task = array(
+            'id' => self::$taskid,
+            'pid' => self::$taskpid,
+            'mem' => $mem,
+            'collect_succ' => self::$collect_succ,
+            'collect_fail' => self::$collect_fail,
+            'speed' => $speed,
+            //'status' => true,
+        );
+        // "\033[32;40m [OK] \033[0m"
+        $display_str = str_pad($task['id'], self::$taskid_length+2).
+            str_pad($task['pid'], self::$pid_length+2).
+            str_pad($task['mem'], self::$mem_length+2). 
+            str_pad($task['collect_succ'], self::$urls_length+2). 
+            str_pad($task['collect_fail'], self::$urls_length+2). 
+            str_pad($task['speed'], self::$speed_length+2). 
+            "\n";
 
+        for ($i = 2; $i <= self::$tasknum; $i++) 
+        {
+            $json = util::get_file(PATH_DATA."/status/".$i);
+            if (empty($json)) 
+            {
+                continue;
+            }
+            $task = json_decode($json, true);
+            if (empty($task)) 
+            {
+                continue;
+            }
+            $display_str .= str_pad($task['id'], self::$taskid_length+2).
+                str_pad($task['pid'], self::$pid_length+2).
+                str_pad($task['mem'], self::$mem_length+2). 
+                str_pad($task['collect_succ'], self::$urls_length+2). 
+                str_pad($task['collect_fail'], self::$urls_length+2). 
+                str_pad($task['speed'], self::$speed_length+2). 
+                "\n";
+        }
+
+        //echo "\033[9;0H";
+        return $display_str;
+    }
+
+    public function clear_screen()
+    {
+        array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
+    }
+
+    public function start()
+    {
+        $this->parse_command();
         // 不同项目的采集以采集名称作为前缀区分
         if (isset($GLOBALS['config']['redis']['prefix'])) 
         {
             $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
+        }
+
+        //--------------------------------------------------------------------------------
+        // 运行前验证
+        //--------------------------------------------------------------------------------
+        // 保存运行状态需要Redis支持
+        if (self::$save_running_state && !cls_redis::check()) 
+        {
+            log::error("Save the running state need Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
+            exit;
+        }
+
+        // 多任务需要Redis支持
+        if(self::$tasknum > 1 && !cls_redis::check())
+        {
+            log::error("Multitasking need Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
+            exit;
+        }
+
+        // 验证导出
+        $this->auth_export();
+
+        // 检查 scan_urls 
+        if (empty(self::$configs['scan_urls'])) 
+        {
+            log::error("No scan url to start\n");
+            exit;
+        }
+
+        foreach ( self::$configs['scan_urls'] as $url ) 
+        {
+            $parse_url_arr = parse_url($url);
+            if (empty($parse_url_arr['host']) || !in_array($parse_url_arr['host'], self::$configs['domains'])) 
+            {
+                log::error("Domain of scan_urls (\"{$parse_url_arr['host']}\") does not match the domains of the domain name\n");
+                exit;
+            }
+        }
+
+        log::$log_show = self::$log_show;
+        if (self::$log_show)
+        {
+            echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
+            echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
+            echo util::colorize("爬虫任务数：".self::$tasknum."\n\n", "warn");
         }
 
         if ($this->on_start) 
@@ -563,159 +704,88 @@ class phpspider
             call_user_func($this->on_start, $this);
         }
 
-        // 如果是主任务，单任务里面的任务也是这里
-        if (self::$taskmaster) 
+        //--------------------------------------------------------------------------------
+        // 生成多任务
+        //--------------------------------------------------------------------------------
+        if(self::$tasknum > 1)
         {
-            //$this->display_ui();
-            //exit;
-            echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
-            echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
-            echo util::colorize("爬虫任务数：".self::$tasknum."\n\n", "warn");
-
-            // 多任务
-            if (self::$tasknum > 1) 
+            //task进程从1开始，0被master进程所使用
+            for ($i = 2; $i <= self::$tasknum; $i++) 
             {
-                // 设置主任务为未准备状态，堵塞子进程
-                $this->set_taskmaster_status(0);
-
-                // 验证redis
-                cls_redis::init();
-                if(cls_redis::$error)
-                {
-                    $this->log("多任务(即 tasknum 大于 1)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n\n请检查 config/inc_config.php 下的Redis配置 \$GLOBALS['config']['redis']\n", 'error');
-                    exit;
-                }
-
-                // 不保留运行状态
-                if (!self::$save_running_state) 
-                {
-                    // 清空redis里面的数据
-                    $this->clear_redis();
-                }
+                $this->fork_one_task($i);
             }
 
-            if (self::$save_running_state) 
+            // 不保留运行状态
+            if (!self::$save_running_state) 
             {
-                cls_redis::init();
-                if(cls_redis::$error)
-                {
-                    $this->log("保存爬虫运行状态(即 save_running_state 为 true)需要Redis支持，当前Redis无法连接，Error: ".cls_redis::$error."\n\n请检查 config/inc_config.php 下的Redis配置 \$GLOBALS['config']['redis']\n", 'error');
-                    exit;
-                }
-            }
-
-            // 验证导出
-            $this->auth_export();
-
-            if (empty(self::$configs['scan_urls'])) 
-            {
-                $this->log("No scan url to start\n", 'error');
-                // 多任务下设置主任务为就绪状态，让子任务进入采集循环
-                if (self::$tasknum > 1) 
-                {
-                    $this->set_taskmaster_status(1);
-                }
-                exit;
-            }
-
-            foreach ( self::$configs['scan_urls'] as $url ) 
-            {
-                $parse_url_arr = parse_url($url);
-                if (empty($parse_url_arr['host']) || !in_array($parse_url_arr['host'], self::$configs['domains'])) 
-                {
-                    $this->log("scan_urls中的域名(\"{$parse_url_arr['host']}\")不匹配domains中的域名\n", 'error');
-                    if (self::$tasknum > 1) 
-                    {
-                        $this->set_taskmaster_status(1);
-                    }
-                    exit;
-                }
-
-                $link = array(
-                    'url'           => $url,                            // 要抓取的URL
-                    'url_type'      => 'scan_page',                     // 要抓取的URL类型
-                    'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                    'headers'       => self::$headers,                  // 此url的Headers, 可以为空
-                    'params'        => array(),                         // 发送请求时需添加的参数, 可以为空
-                    'context_data'  => '',                              // 此url附加的数据, 可以为空
-                    'proxy'         => self::$configs['proxy'],         // 代理服务器
-                    'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
-                    'collect_count' => 0,                               // 抓取次数
-                    'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
-                );
-                $this->queue_lpush($link);
-            }
-
-            while( self::queue_lsize() )
-            { 
-                // 抓取页面
-                $this->collect_page();
-
-                // 多任务下主任务未准备就绪
-                if (self::$tasknum > 1 && !self::$taskmaster_status) 
-                {
-                    // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
-                    if ($this->queue_lsize() > self::$tasknum) 
-                    {
-                        $this->log("主任务准备就绪...\n", "warn");
-                        // 给主任务自己用的
-                        self::$taskmaster_status = true;
-                        // 给子任务判断用的
-                        $this->set_taskmaster_status(1);
-                    }
-                }
-            } 
-
-            $this->log("爬取完成\n");
-
-            $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
-            echo "爬虫运行时间：{$spider_time_run}\n";
-
-            $count_collected_url = $this->count_collected_url();
-            echo "总共抓取网页：{$count_collected_url} 个\n\n";
-
-            if (self::$tasknum > 1) 
-            {
-                $this->set_taskmaster_status(1);
-            }
-            // 最后:多任务下不保留运行状态，清空redis数据
-            if (self::$tasknum > 1 && !self::$save_running_state) 
-            {
+                // 清空redis里面的数据
                 $this->clear_redis();
             }
-        }
-        else 
-        {
-            // 子任务如果验证redis不成功就直接退出好了，主任务提示错误即可
-            cls_redis::init();
-            if(cls_redis::$error)
-            {
-                exit;
-            }
 
-            // sleep 1秒，等待主任务设置状态
-            sleep(1);
-            // 第一次先判断主进程准备好没有
-            while( !$this->get_taskmaster_status() )
+            // 设置主任务为未准备状态，堵塞子进程
+            $this->set_taskmaster_status(0);
+        }
+
+        foreach ( self::$configs['scan_urls'] as $url ) 
+        {
+            $link = array(
+                'url'           => $url,                            // 要抓取的URL
+                'url_type'      => 'scan_page',                     // 要抓取的URL类型
+                'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
+                'headers'       => self::$headers,                  // 此url的Headers, 可以为空
+                'params'        => array(),                         // 发送请求时需添加的参数, 可以为空
+                'context_data'  => '',                              // 此url附加的数据, 可以为空
+                'proxy'         => self::$configs['proxy'],         // 代理服务器
+                'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
+                'collect_count' => 0,                               // 抓取次数
+                'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
+            );
+            $this->queue_lpush($link);
+        }
+
+        while( $this->queue_lsize() )
+        { 
+            // 抓取页面
+            $this->collect_page();
+
+            // 多任务下主任务未准备就绪
+            if (self::$tasknum > 1 && !self::$taskmaster_status) 
             {
-                $this->log("任务".self::$taskid."等待中...\n", "warn");
-                sleep(1);
-            }
-            while( self::queue_lsize() )
-            { 
-                // 如果队列中的网页比任务数多，子任务可以采集
+                // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
                 if ($this->queue_lsize() > self::$tasknum) 
                 {
-                    // 抓取页面
-                    $this->collect_page();
+                    log::warn("主任务准备就绪...\n");
+                    // 给主任务自己用的
+                    self::$taskmaster_status = true;
+                    // 给子任务判断用的
+                    $this->set_taskmaster_status(1);
                 }
-                // 队列中网页太少，就都给主进程采集好了
-                else 
-                {
-                    $this->log("任务".self::$taskid."等待中...\n", "warn");
-                    sleep(1);
-                }
-            } 
+            }
+
+            // 如果不显示日志，就显示控制面板
+            if (!self::$log_show) 
+            {
+                $this->display_ui();
+            }
+        } 
+
+        log::info("爬取完成\n");
+
+        $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
+        echo "爬虫运行时间：{$spider_time_run}\n";
+
+        $count_collected_url = $this->count_collected_url();
+        echo "总共抓取网页：{$count_collected_url} 个\n\n";
+
+        if (self::$tasknum > 1) 
+        {
+            $this->set_taskmaster_status(1);
+        }
+
+        // 最后:多任务下不保留运行状态，清空redis数据
+        if (self::$tasknum > 1 && !self::$save_running_state) 
+        {
+            $this->clear_redis();
         }
     }
 
@@ -735,7 +805,7 @@ class phpspider
             {
                 if (empty(self::$export_file)) 
                 {
-                    $this->log("设置了导出类型为CSV的导出文件不能为空", 'error');
+                    log::error("设置了导出类型为CSV的导出文件不能为空");
                     exit;
                 }
             }
@@ -743,7 +813,7 @@ class phpspider
             {
                 if (empty(self::$export_file)) 
                 {
-                    $this->log("设置了导出类型为sql的导出文件不能为空", 'error');
+                    log::error("设置了导出类型为sql的导出文件不能为空");
                     exit;
                 }
             }
@@ -751,13 +821,13 @@ class phpspider
             {
                 if (!function_exists('mysqli_connect'))
                 {
-                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: Unable to load mysqli extension.\n", 'error');
+                    log::error("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: Unable to load mysqli extension.\n");
                     exit;
                 }
 
                 if (empty($GLOBALS['config']['db'])) 
                 {
-                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: You not set a config array for connect.\n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n", 'error');
+                    log::error("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: You not set a config array for connect.\n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n");
                     exit;
                 }
 
@@ -765,13 +835,13 @@ class phpspider
                 @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
                 if(mysqli_connect_errno())
                 {
-                    $this->log("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: ".mysqli_connect_error()." \n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n", 'error');
+                    log::error("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: ".mysqli_connect_error()." \n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n");
                     exit;
                 }
 
                 if (!db::table_exists(self::$export_table))
                 {
-                    $this->log("数据库表 ".self::$export_table." 不存在\n", 'error');
+                    log::error("数据库表 ".self::$export_table." 不存在\n");
                     exit;
                 }
             }
@@ -789,13 +859,13 @@ class phpspider
     public function collect_page() 
     {
         $count_collect_url = $this->count_collect_url();
-        $this->log("发现抓取网页：{$count_collect_url} 个\n");
+        log::info(date("H:i:s")." 发现抓取网页：{$count_collect_url} 个\n");
 
         $queue_lsize = $this->queue_lsize();
-        $this->log("等待抓取网页：{$queue_lsize} 个\n");
+        log::info("等待抓取网页：{$queue_lsize} 个\n");
 
         $count_collected_url = $this->count_collected_url();
-        $this->log("已经抓取网页：{$count_collected_url} 个\n");
+        log::info("已经抓取网页：{$count_collected_url} 个\n");
 
         // 先进先出
         $link = $this->queue_rpop();
@@ -805,7 +875,7 @@ class phpspider
         $this->set_collected_url($url);
 
         // 爬取页面开始时间
-        $time_start = microtime(true);
+        $page_time_start = microtime(true);
 
         if ($link['url_type'] == 'attachment_file') 
         {
@@ -888,15 +958,15 @@ class phpspider
         // 多任务的时候输出爬虫序号
         if (self::$tasknum > 1) 
         {
-            $this->log("当前任务序号：".self::$taskid."\n");
+            log::info("当前任务序号：".self::$taskid."\n");
         }
 
         // 爬取页面耗时时间
-        $time_run = round(microtime(true) - $time_start, 3);
-        $this->log("网页下载成功：{$url}\t耗时: {$time_run} 秒\n");
+        $time_run = round(microtime(true) - $page_time_start, 3);
+        log::info(date("H:i:s")." 网页下载成功：{$url}\t耗时: {$time_run} 秒\n");
 
-        $spider_time_run = util::time2second(intval(microtime(true) - self::$spider_time_start));
-        $this->log("爬虫运行时间：{$spider_time_run}\n");
+        $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
+        log::info("爬虫运行时间：{$spider_time_run}\n");
 
         // on_scan_page、on_list_pag、on_content_page 返回false表示不需要再从此网页中发现待爬url
         if ($is_find_url) 
@@ -940,7 +1010,7 @@ class phpspider
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if(!preg_match($pattern, $url))
         {
-            $this->log("你所请求的URL({$url})不是有效的HTTP地址", 'error');
+            log::error("你所请求的URL({$url})不是有效的HTTP地址");
             exit;
         }
 
@@ -967,7 +1037,7 @@ class phpspider
             // 如果不是html
             if (!empty($fileinfo)) 
             {
-                $this->log("发现{$fileinfo['fileext']}文件：{$url}", 'debug');
+                log::debug("发现{$fileinfo['fileext']}文件：{$url}");
                 call_user_func($this->on_attachment_file, $url, $fileinfo);
                 return false;
             }
@@ -1034,11 +1104,16 @@ class phpspider
             foreach ($cookies as $cookie) 
             {
                 $cookie_arr = explode("=", $cookie);
+                // 过滤 httponly、secure
                 if (count($cookie_arr) < 2) 
                 {
                     continue;
                 }
                 $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
+                if (empty($cookie_name)) 
+                {
+                    continue;
+                }
                 // 过滤掉domain路径
                 if (in_array(strtolower($cookie_name), array('path', 'domain', 'expires', 'max-age'))) 
                 {
@@ -1072,15 +1147,15 @@ class phpspider
             {
                 if ($http_code == 404) 
                 {
-                    $this->log("网页下载失败：{$url}\n", 'error');
-                    $this->log("HTTP CODE：{$http_code} 网页不存在\n", 'error');
+                    log::error(date("H:i:s")." 网页下载失败：{$url}\n");
+                    log::error(date("H:i:s")." HTTP CODE：{$http_code} 网页不存在\n");
                 }
                 elseif ($http_code == 407) 
                 {
                     // 扔到队列头部去，继续采集
                     $this->queue_rpush($link);
-                    $this->log("网页下载失败：{$url}\n", 'error');
-                    $this->log("代理服务器验证失败，请检查代理服务器设置\n", 'error');
+                    log::error(date("H:i:s")." 网页下载失败：{$url}\n");
+                    log::error(date("H:i:s")." 代理服务器验证失败，请检查代理服务器设置\n");
                 }
                 elseif ($http_code == 502 || $http_code == 503 || $http_code == 0) 
                 {
@@ -1092,17 +1167,19 @@ class phpspider
                         // 扔到队列头部去，继续采集
                         $this->queue_rpush($link);
                     }
-                    $this->log("网页下载失败：{$url} 失败次数：{$link['collect_count']}\n", 'error');
-                    $this->log("HTTP CODE：{$http_code} 服务器过载\n", 'error');
+                    log::error(date("H:i:s")." 网页下载失败：{$url} 失败次数：{$link['collect_count']}\n");
+                    log::error(date("H:i:s")." HTTP CODE：{$http_code} 服务器过载\n");
                 }
                 else 
                 {
-                    $this->log("网页下载失败：{$url}\n", 'error');
-                    $this->log("HTTP CODE：{$http_code}\n", 'error');
+                    log::error(date("H:i:s")." 网页下载失败：{$url}\n");
+                    log::error(date("H:i:s")." HTTP CODE：{$http_code}\n");
                 }
+                self::$collect_fail++;
                 return false;
             }
         }
+        self::$collect_succ++;
         //print_r(self::$domain_cookies);
 
         // 解析HTTP数据流
@@ -1230,7 +1307,6 @@ class phpspider
         {
             $this->add_url($url);
         }
-        echo "\n";
     }
 
     /**
@@ -1704,11 +1780,11 @@ class phpspider
                 $return_data = call_user_func($this->on_extract_page, $page, $fields);
                 if (!isset($return_data))
                 {
-                    $this->log("on_extract_page函数返回为空\n", 'warn');
+                    log::warn("on_extract_page函数返回为空\n");
                 }
                 elseif (!is_array($return_data))
                 {
-                    $this->log("on_extract_page函数返回值必须是数组\n", 'warn');
+                    log::warn("on_extract_page函数返回值必须是数组\n");
                 }
                 else 
                 {
@@ -1719,7 +1795,7 @@ class phpspider
             if (isset($fields) && is_array($fields)) 
             {
                 $fields_num = $this->incr_fields_num();
-                $this->log("结果{$fields_num}：".json_encode($fields, JSON_UNESCAPED_UNICODE)."\n");
+                log::info(date("H:i:s")." 结果{$fields_num}：".json_encode($fields, JSON_UNESCAPED_UNICODE)."\n");
 
                 // 如果设置了导出选项
                 if (!empty(self::$configs['export'])) 
@@ -1766,7 +1842,7 @@ class phpspider
 
             if (empty($conf['name'])) 
             {
-                $this->log("field的名字是空值, 请检查你的\"fields\"并添加field的名字\n", 'error');
+                log::error("field的名字是空值, 请检查你的\"fields\"并添加field的名字\n");
                 exit;
             }
 
@@ -1781,7 +1857,7 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
-                        $this->log("发现内容分页：{$url}", 'info');
+                        log::info(date("H:i:s")." 发现内容分页：{$url}");
                         $html = $this->request_url($collect_url);
                         // 请求获取完分页数据后把连接删除了 
                         unset($fields[$conf['attached_url']]);
@@ -1850,7 +1926,7 @@ class phpspider
                     $return = call_user_func($this->on_handle_img, $fieldname, $data);
                     if (!isset($return))
                     {
-                        $this->log("on_handle_img函数返回为空\n", 'warn');
+                        log::warn("on_handle_img函数返回为空\n");
                     }
                     else 
                     {
@@ -1865,7 +1941,7 @@ class phpspider
                     $return = call_user_func($this->on_extract_field, $fieldname, $data, $page, self::$taskid);
                     if (!isset($return))
                     {
-                        $this->log("on_extract_field函数返回为空\n", 'warn');
+                        log::warn("on_extract_field函数返回为空\n");
                     }
                     else 
                     {
@@ -1905,7 +1981,7 @@ class phpspider
         $elements = @$xpath->query($selector);
         if ($elements === false)
         {
-            $this->log("field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n", 'error');
+            log::error("field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n");
             exit;
         }
 
@@ -1955,7 +2031,7 @@ class phpspider
     {
         if(@preg_match_all($selector, $html, $out) === false)
         {
-            $this->log("field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n", 'error');
+            log::error("field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n");
             exit;
         }
 
@@ -1984,9 +2060,177 @@ class phpspider
     {
     }
 
-    public function log($msg, $status = '')
+    public function parse_command()
     {
-        echo util::colorize(date("H:i:s") . "  {$msg}\n", $status);
+        // 检查运行命令的参数
+        global $argv;
+        $start_file = $argv[0]; 
+        if(!isset($argv[1]))
+        {
+            exit("Usage: php yourfile.php {start|stop|status}\n");
+        }
+                
+        // 命令
+        $command = trim($argv[1]);
+        
+        // 子命令，目前只支持-d
+        $command2 = isset($argv[2]) ? $argv[2] : '';
+
+        // 检查主进程是否在运行
+        $master_pid = @file_get_contents(self::$pid_file);
+        $master_is_alive = $master_pid && @posix_kill($master_pid, 0);
+        if($master_is_alive)
+        {
+            if($command === 'start')
+            {
+                log::error("PHPSpider[$start_file] is running");
+                exit;
+            }
+        }
+        elseif($command !== 'start')
+        {
+            log::error("PHPSpider[$start_file] not run");
+            exit;
+        }
+
+        // 根据命令做相应处理
+        switch($command)
+        {
+            // 启动 workerman
+            case 'start':
+                //if($command2 === '-d')
+                //{
+                    //Worker::$daemonize = true;
+                //}
+                break;
+            // 显示 workerman 运行状态
+            case 'status':
+                // 尝试删除统计文件，避免脏数据
+                //if(is_file(self::$statistics_file))
+                //{
+                    //@unlink(self::$statistics_file);
+                //}
+                // 向主进程发送 SIGUSR2 信号 ，然后主进程会向所有子进程发送 SIGUSR2 信号
+                // 所有进程收到 SIGUSR2 信号后会向 $_statisticsFile 写入自己的状态
+                //posix_kill($master_pid, SIGUSR2);
+                // 睡眠100毫秒，等待子进程将自己的状态写入$_statisticsFile指定的文件
+                //usleep(100000);
+                // 展示状态
+                //readfile(self::$statistics_file);
+                exit(0);
+            case 'stop':
+                self::log("Workerman[$start_file] is stoping ...");
+                // 想主进程发送SIGINT信号，主进程会向所有子进程发送SIGINT信号
+                $master_pid && posix_kill($master_pid, SIGINT);
+                // 如果 $timeout 秒后主进程没有退出则展示失败界面
+                $timeout = 5;
+                $start_time = time();
+                while(1)
+                {
+                    // 检查主进程是否存活
+                    $master_is_alive = $master_pid && posix_kill($master_pid, 0);
+                    if($master_is_alive)
+                    {
+                        // 检查是否超过$timeout时间
+                        if(time() - $start_time >= $timeout)
+                        {
+                            self::log("Workerman[$start_file] stop fail");
+                            exit;
+                        }
+                        usleep(10000);
+                        continue;
+                    }
+                    self::log("Workerman[$start_file] stop success");
+                    // 是restart命令
+                    if($command === 'stop')
+                    {
+                        exit(0);
+                    }
+                    // -d 说明是以守护进程的方式启动
+                    if($command2 === '-d')
+                    {
+                        Worker::$daemonize = true;
+                    }
+                    break;
+                }
+                break;
+            // 未知命令
+            default :
+                 exit("Usage: php yourfile.php {start|stop|status}\n");
+        }
+    }
+
+    /**
+     * 创建一个子进程
+     * @param Worker $worker
+     * @throws Exception
+     */
+    public function fork_one_task($taskid)
+    {
+        $pid = pcntl_fork();
+
+        // 主进程记录子进程pid
+        if($pid > 0)
+        {
+            self::$taskpids[$taskid] = $pid;
+        }
+        // 子进程运行
+        elseif(0 === $pid)
+        {
+            self::$time_start = microtime(true);
+            self::$collect_succ = 0;
+            self::$collect_fail = 0;
+            self::$taskid = $taskid;
+            self::$taskmaster = false;
+            self::$taskpid = posix_getpid();
+
+            // sleep 1秒，等待主任务设置状态
+            sleep(1);
+            // 第一次先判断主进程准备好没有
+            while( !$this->get_taskmaster_status() )
+            {
+                log::warn("任务".self::$taskid."等待中...\n");
+                sleep(1);
+            }
+
+            while( $this->queue_lsize() )
+            { 
+                // 如果队列中的网页比任务数多，子任务可以采集
+                if ($this->queue_lsize() > self::$tasknum) 
+                {
+                    // 抓取页面
+                    $this->collect_page();
+                }
+                // 队列中网页太少，就都给主进程采集好了
+                else 
+                {
+                    log::warn("任务".self::$taskid."等待中...\n");
+                    sleep(1);
+                }
+
+                // 当前进程状态输出到文件，供主进程调用
+                $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
+                $use_time = microtime(true) - self::$time_start; 
+                $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
+                $status = array(
+                    'id' => self::$taskid,
+                    'pid' => self::$taskpid,
+                    'mem' => $mem,
+                    'collect_succ' => self::$collect_succ,
+                    'collect_fail' => self::$collect_fail,
+                    'speed' => $speed,
+                );
+                util::put_file(PATH_DATA."/status/".self::$taskid, json_encode($status));
+            } 
+
+            // 这里用0表示正常退出
+            exit(0);
+        }
+        else
+        {
+            log::error("fork one worker fail");
+            exit;
+        }
     }
 }
 
