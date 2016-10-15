@@ -535,21 +535,21 @@ class phpspider
         $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
 
         $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
-        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
         "\033[47;30mcollected\033[0m". str_pad('', 14-strlen('collected')). 
         "\033[47;30mremain\033[0m". str_pad('', 15-strlen('remain')). 
+        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
         "\033[47;30mfields\033[0m". str_pad('', 12-strlen('fields')). 
         "\n";
 
         $collect   = $this->count_collect_url();
-        $queue     = $this->queue_lsize();
         $collected = $this->count_collected_url();
-        $remain    = $queue - $collected;
+        $remain    = $collect - $collected;
+        $queue     = $this->queue_lsize();
         $fields    = $this->get_fields_num();
         $display_str .= str_pad($collect, 16);
-        $display_str .= str_pad($queue, 14);
         $display_str .= str_pad($collected, 14);
         $display_str .= str_pad($remain, 15);
+        $display_str .= str_pad($queue, 14);
         $display_str .= str_pad($fields, 12);
         $display_str .= "\n";
 
