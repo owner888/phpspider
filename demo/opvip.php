@@ -5,11 +5,6 @@ require dirname(__FILE__).'/../core/init.php';
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
-//var_dump(cls_redis::get("lock"));
-//var_dump(cls_redis::del("lock"));
-//var_dump(cls_redis::setnx("lock", "name"));
-//var_dump(cls_redis::setnx("lock", "name"));
-//exit;
 $configs = array(
     'name' => 'op_news',
     'tasknum' => 8,
@@ -75,22 +70,4 @@ $spider->on_extract_field = function($fieldname, $data, $page)
     return $data;
 };
 
-//$spider->start();
-
-$w = new worker();
-// 直接使用上面配置的任务数作为worker进程数
-$w->count = $configs['tasknum'];
-$w->on_worker_start = function($worker) use ($spider) {
-
-    $taskmaster = false;
-    // 把第一个worker进程当做主任务
-    if ($worker->worker_id == 1) 
-    {
-        $taskmaster = true;
-    }
-    $spider->start($taskmaster, $worker->worker_id);
-
-};
-
-$w->run();
-
+$spider->start();
