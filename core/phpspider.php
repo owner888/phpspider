@@ -102,11 +102,6 @@ class phpspider
     public static $save_running_state = false;
 
     /**
-     * 是否显示日志 
-     */
-    public static $log_show = false;
-
-    /**
      * HTTP请求的Header 
      */
     public static $headers = array();
@@ -694,7 +689,7 @@ class phpspider
         log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
         log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
 
-        if (self::$log_show)
+        if (log::$log_show)
         {
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
             echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
@@ -765,7 +760,7 @@ class phpspider
             }
 
             // 如果不显示日志，就显示控制面板
-            if (!self::$log_show) 
+            if (!log::$log_show) 
             {
                 $this->display_ui();
             }
