@@ -43,6 +43,10 @@ $spider->start();
 ```
 爬虫的整体框架就是这样, 首先定义了一个$configs数组, 里面设置了待爬网站的一些信息, 然后通过调用```$spider = new phpspider($configs);```和```$spider->start();```来配置并启动爬虫.
 
+#### 运行界面如下:      
+
+![](http://www.epooll.com/zhihu/log_show_false.png)
+
 更多详细内容，移步到：
 
 [开发文档](http://doc.phpspider.org)
