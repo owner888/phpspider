@@ -289,14 +289,6 @@ class phpspider
 
     function __construct($configs = array())
     {
-        // 爬虫开始时间
-        self::$time_start = time();
-        // 当前任务ID
-        self::$taskid = 1;
-        // 当前任务进程ID
-        self::$taskpid = function_exists('posix_getpid') ? posix_getpid() : 1;
-        // 当前任务是否主任务
-        self::$taskmaster = true;
         // 先打开以显示验证报错内容
         log::$log_show = true;
 
@@ -324,9 +316,6 @@ class phpspider
         self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
         self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
 
-        self::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
-        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
-
         // 是否设置了并发任务数，并且大于1
         if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1) 
         {
@@ -338,13 +327,10 @@ class phpspider
             self::$save_running_state = self::$configs['save_running_state'];
         }
 
-        if (self::$tasknum > 1) 
+        // 不同项目的采集以采集名称作为前缀区分
+        if (isset($GLOBALS['config']['redis']['prefix'])) 
         {
-            if(!function_exists('pcntl_fork'))
-            {
-                log::error("When the task number greater than 1 need pnctl extension");
-                exit;
-            }
+            $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
         }
     }
 
@@ -648,15 +634,29 @@ class phpspider
     public function start()
     {
         $this->parse_command();
-        // 不同项目的采集以采集名称作为前缀区分
-        if (isset($GLOBALS['config']['redis']['prefix'])) 
-        {
-            $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
-        }
+
+        // 爬虫开始时间
+        self::$time_start = time();
+        // 当前任务ID
+        self::$taskid = 1;
+        // 当前任务进程ID
+        self::$taskpid = function_exists('posix_getpid') ? posix_getpid() : 1;
+        // 当前任务是否主任务
+        self::$taskmaster = true;
 
         //--------------------------------------------------------------------------------
         // 运行前验证
         //--------------------------------------------------------------------------------
+        // 多任务需要pcntl扩展支持
+        if (self::$tasknum > 1) 
+        {
+            if(!function_exists('pcntl_fork'))
+            {
+                log::error("When the task number greater than 1 need pnctl extension");
+                exit;
+            }
+        }
+
         // 保存运行状态需要Redis支持
         if (self::$save_running_state && !cls_redis::check()) 
         {
@@ -691,7 +691,9 @@ class phpspider
             }
         }
 
-        log::$log_show = self::$log_show;
+        log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
+        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
+
         if (self::$log_show)
         {
             echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
@@ -2076,83 +2078,33 @@ class phpspider
         // 子命令，目前只支持-d
         $command2 = isset($argv[2]) ? $argv[2] : '';
 
-        // 检查主进程是否在运行
-        $master_pid = @file_get_contents(self::$pid_file);
-        $master_is_alive = $master_pid && @posix_kill($master_pid, 0);
-        if($master_is_alive)
-        {
-            if($command === 'start')
-            {
-                log::error("PHPSpider[$start_file] is running");
-                exit;
-            }
-        }
-        elseif($command !== 'start')
-        {
-            log::error("PHPSpider[$start_file] not run");
-            exit;
-        }
+        //// 检查主进程是否在运行
+        //$master_pid = @file_get_contents(self::$pid_file);
+        //$master_is_alive = $master_pid && @posix_kill($master_pid, 0);
+        //if($master_is_alive)
+        //{
+            //if($command === 'start')
+            //{
+                //log::error("PHPSpider[$start_file] is running");
+                //exit;
+            //}
+        //}
+        //elseif($command !== 'start')
+        //{
+            //log::error("PHPSpider[$start_file] not run");
+            //exit;
+        //}
 
         // 根据命令做相应处理
         switch($command)
         {
-            // 启动 workerman
+            // 启动 phpspider
             case 'start':
-                //if($command2 === '-d')
-                //{
-                    //Worker::$daemonize = true;
-                //}
                 break;
-            // 显示 workerman 运行状态
+            // 显示 phpspider 运行状态
             case 'status':
-                // 尝试删除统计文件，避免脏数据
-                //if(is_file(self::$statistics_file))
-                //{
-                    //@unlink(self::$statistics_file);
-                //}
-                // 向主进程发送 SIGUSR2 信号 ，然后主进程会向所有子进程发送 SIGUSR2 信号
-                // 所有进程收到 SIGUSR2 信号后会向 $_statisticsFile 写入自己的状态
-                //posix_kill($master_pid, SIGUSR2);
-                // 睡眠100毫秒，等待子进程将自己的状态写入$_statisticsFile指定的文件
-                //usleep(100000);
-                // 展示状态
-                //readfile(self::$statistics_file);
                 exit(0);
             case 'stop':
-                self::log("Workerman[$start_file] is stoping ...");
-                // 想主进程发送SIGINT信号，主进程会向所有子进程发送SIGINT信号
-                $master_pid && posix_kill($master_pid, SIGINT);
-                // 如果 $timeout 秒后主进程没有退出则展示失败界面
-                $timeout = 5;
-                $start_time = time();
-                while(1)
-                {
-                    // 检查主进程是否存活
-                    $master_is_alive = $master_pid && posix_kill($master_pid, 0);
-                    if($master_is_alive)
-                    {
-                        // 检查是否超过$timeout时间
-                        if(time() - $start_time >= $timeout)
-                        {
-                            self::log("Workerman[$start_file] stop fail");
-                            exit;
-                        }
-                        usleep(10000);
-                        continue;
-                    }
-                    self::log("Workerman[$start_file] stop success");
-                    // 是restart命令
-                    if($command === 'stop')
-                    {
-                        exit(0);
-                    }
-                    // -d 说明是以守护进程的方式启动
-                    if($command2 === '-d')
-                    {
-                        Worker::$daemonize = true;
-                    }
-                    break;
-                }
                 break;
             // 未知命令
             default :
