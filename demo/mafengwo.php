@@ -7,7 +7,7 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '马蜂窝',
-    'tasknum' => 1,
+    'tasknum' => 6,
     //'save_running_state' => true,
     'domains' => array(
         'www.mafengwo.cn'

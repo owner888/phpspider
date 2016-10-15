@@ -13,7 +13,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '2.0.0';
+    const VERSION = '2.1.0';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时，单位：秒
@@ -699,6 +699,18 @@ class phpspider
         if ($this->on_start) 
         {
             call_user_func($this->on_start, $this);
+        }
+
+        util::path_exists(PATH_DATA."/status");
+        $status_files = scandir(PATH_DATA."/status");
+        foreach ($status_files as $v) 
+        {
+            if ($v == '.' || $v == '..') 
+            {
+                continue;
+            }
+            $filepath = PATH_DATA."/status/".$v;
+            @unlink($filepath);
         }
 
         //--------------------------------------------------------------------------------
