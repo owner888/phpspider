@@ -691,9 +691,9 @@ class phpspider
 
         if (log::$log_show)
         {
-            echo "\n[".self::$configs['name']."爬虫] 开始爬行...\n\n";
-            echo util::colorize("!开发文档：\nhttps://doc.phpspider.org\n\n", "warn");
-            echo util::colorize("爬虫任务数：".self::$tasknum."\n\n", "warn");
+            log::info("\n[".self::$configs['name']."爬虫] 开始爬行...\n");
+            log::warn("!开发文档：\nhttps://doc.phpspider.org\n");
+            log::warn("爬虫任务数：".self::$tasknum."\n");
         }
 
         if ($this->on_start) 
@@ -701,7 +701,6 @@ class phpspider
             call_user_func($this->on_start, $this);
         }
 
-        util::path_exists(PATH_DATA."/status");
         $status_files = scandir(PATH_DATA."/status");
         foreach ($status_files as $v) 
         {
@@ -781,10 +780,10 @@ class phpspider
         log::info("爬取完成\n");
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        echo "爬虫运行时间：{$spider_time_run}\n";
+        log::info("爬虫运行时间：{$spider_time_run}\n");
 
         $count_collected_url = $this->count_collected_url();
-        echo "总共抓取网页：{$count_collected_url} 个\n\n";
+        log::info("总共抓取网页：{$count_collected_url} 个\n\n");
 
         if (self::$tasknum > 1) 
         {

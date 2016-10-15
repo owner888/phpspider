@@ -49,6 +49,7 @@ util::path_exists(PATH_DATA);
 util::path_exists(PATH_DATA."/lock");
 util::path_exists(PATH_DATA."/log");
 util::path_exists(PATH_DATA."/cache");
+util::path_exists(PATH_DATA."/status");
 
 require CORE."/worker.php"; 
 require CORE."/phpspider.php"; 
@@ -77,7 +78,7 @@ function __autoload( $classname )
     }
     catch ( Exception $e )
     {
-        log::add($e->getMessage().'|'.$classname, "Error");
+        log::error($e->getMessage().'|'.$classname);
         exit();
     }
 }
