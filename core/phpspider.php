@@ -813,7 +813,7 @@ class phpspider
             {
                 if (empty(self::$export_file)) 
                 {
-                    log::error("设置了导出类型为CSV的导出文件不能为空");
+                    log::error("Export data into CSV files need to Set the file path.");
                     exit;
                 }
             }
@@ -821,7 +821,7 @@ class phpspider
             {
                 if (empty(self::$export_file)) 
                 {
-                    log::error("设置了导出类型为sql的导出文件不能为空");
+                    log::error("Export data into SQL files need to Set the file path.");
                     exit;
                 }
             }
@@ -829,13 +829,13 @@ class phpspider
             {
                 if (!function_exists('mysqli_connect'))
                 {
-                    log::error("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: Unable to load mysqli extension.\n");
+                    log::error("Export data to a database need Mysql support，Error: Unable to load mysqli extension.\n");
                     exit;
                 }
 
                 if (empty($GLOBALS['config']['db'])) 
                 {
-                    log::error("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: You not set a config array for connect.\n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n");
+                    log::error("Export data to a database need Mysql support，Error: You not set a config array for connect.\n\nPlease check the configuration file config/inc_config.php");
                     exit;
                 }
 
@@ -843,13 +843,13 @@ class phpspider
                 @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
                 if(mysqli_connect_errno())
                 {
-                    log::error("导出数据到数据库表需要Mysql支持，当前Mysql无法连接，Error: ".mysqli_connect_error()." \n\n请检查 config/inc_config.php 下的Mysql配置 \$GLOBALS['config']['db']\n");
+                    log::error("Export data to a database need Mysql support，Error: ".mysqli_connect_error()." \n\nPlease check the configuration file config/inc_config.php");
                     exit;
                 }
 
                 if (!db::table_exists(self::$export_table))
                 {
-                    log::error("数据库表 ".self::$export_table." 不存在\n");
+                    log::error("Table ".self::$export_table." does not exist\n");
                     exit;
                 }
             }
