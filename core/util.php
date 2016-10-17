@@ -603,6 +603,37 @@ class util
         }
     }
 
+    public static function cn_substr($string, $length = 80, $etc = '...', $count_words = true)
+    {
+        mb_internal_encoding("UTF-8");
+        if ($length == 0) return '';
+        if (strlen($string) <= $length) return $string;
+        preg_match_all("/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]|[\xe1-\xef][\x80-\xbf][\x80-\xbf]|\xf0[\x90-\xbf][\x80-\xbf][\x80-\xbf]|[\xf1-\xf7][\x80-\xbf][\x80-\xbf][\x80-\xbf]/", $string, $info);
+        if ($count_words)
+        {
+            $j = 0;
+            $wordscut = "";
+            for ($i = 0; $i < count($info[0]); $i ++)
+            {
+                $wordscut .= $info[0][$i];
+                if (ord($info[0][$i]) >= 128)
+                {
+                    $j = $j + 2;
+                }
+                else
+                {
+                    $j = $j + 1;
+                }
+                if ($j >= $length)
+                {
+                    return $wordscut . $etc;
+                }
+            }
+            return join('', $info[0]);
+        }
+        return join("", array_slice($info[0], 0, $length)) . $etc;
+    }
+
     /**
      * 获取文件后缀名
      *
@@ -805,6 +836,10 @@ class util
         return $array; 
     }
 
+    public static function is_win()
+    {
+        return strtoupper(substr(PHP_OS,0,3))==="WIN";
+    }
 }
 
 

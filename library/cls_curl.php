@@ -24,7 +24,6 @@ class cls_curl
     protected static $referer = null;
     protected static $ip = null;
     protected static $proxy = null;
-    protected static $proxy_auth = null;
     protected static $headers = array();
     protected static $hosts = array();
     protected static $gzip = false;
@@ -45,15 +44,13 @@ class cls_curl
      * 设置代理
      * 
      * @param mixed $proxy
-     * @param string $proxy_auth
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public static function set_proxy($proxy, $proxy_auth = '')
+    public static function set_proxy($proxy)
     {
         self::$proxy = $proxy;
-        self::$proxy_auth = $proxy_auth;
     }
 
     /**
@@ -277,10 +274,6 @@ class cls_curl
         if (self::$proxy)
         {
             curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxy );
-            if (self::$proxy_auth) 
-            {
-                curl_setopt( self::$ch, CURLOPT_PROXYUSERPWD, self::$proxy_auth);
-            }
         }
         if (self::$http_raw)
         {

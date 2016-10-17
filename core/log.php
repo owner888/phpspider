@@ -7,33 +7,46 @@ class log
 
     public static function info($msg)
     {
-        $out_sta = "";
-        $out_end = "";
+        $out_sta = $out_end = "";
         $msg = $out_sta.$msg.$out_end."\n";
         self::msg($msg);
     }
 
     public static function warn($msg)
     {
-        $out_sta = "\033[33m";
-        $out_end = "\033[0m";
+        $out_sta = $out_end = "";
+        if (!util::is_win()) 
+        {
+            $out_sta = "\033[33m";
+            $out_end = "\033[0m";
+        }
+
         $msg = $out_sta.$msg.$out_end."\n";
         self::msg($msg);
     }
 
     public static function debug($msg)
     {
-        $out_sta = "\033[36m";
-        $out_end = "\033[0m";
+        $out_sta = $out_end = "";
+        if (!util::is_win()) 
+        {
+            $out_sta = "\033[36m";
+            $out_end = "\033[0m";
+        }
+
         $msg = $out_sta.$msg.$out_end."\n";
         self::msg($msg);
     }
 
     public static function error($msg)
     {
-        $out_sta = "\033[31m";
-        $out_end = "\033[0m";
-        //$msg = $out_sta.date("H:i:s")." ".$msg.$out_end."\n";
+        $out_sta = $out_end = "";
+        if (!util::is_win()) 
+        {
+            $out_sta = "\033[31m";
+            $out_end = "\033[0m";
+        }
+
         $msg = $out_sta.$msg.$out_end."\n";
         self::msg($msg);
     }
@@ -48,7 +61,7 @@ class log
     }
 
     /**
-     * 记录日志
+     * 记录日志 XXX
      * @param string $msg
      * @param string $log_type  Note|Warning|Error
      * @return void

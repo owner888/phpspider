@@ -21,7 +21,7 @@ $configs = array(
     'content_url_regexes' => array(
         "http://www.luofans.com/audios/\d+",
     ),
-    'collect_fails' => 5,
+    'max_try' => 5,
     'export' => array(
         'type' => 'db', 
         'table' => 'luojisiwei_content',

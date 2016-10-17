@@ -13,7 +13,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '2.1.0';
+    const VERSION = '2.2.0';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时，单位：秒
@@ -28,7 +28,7 @@ class phpspider
     /**
      * 爬取失败次数，不想失败重新爬取则设置为0 
      */
-    const COLLECT_FAILS = 0;
+    const MAX_TRY = 0;
 
     /**
      * 抽取规则的类型：xpath、jsonpath、regex 
@@ -130,16 +130,15 @@ class phpspider
     /**
      * 要抓取的URL队列 
      md5(url) => array(
-         'url'          => '',      // 要爬取的URL
-         'url_type'     => '',      // 要爬取的URL类型,scan_page、list_page、content_page
-         'method'       => 'get',   // 默认为"GET"请求, 也支持"POST"请求
-         'headers'      => array(), // 此url的Headers, 可以为空
-         'params'       => array(), // 发送请求时需添加的参数, 可以为空
-         'context_data' => '',      // 此url附加的数据, 可以为空
-         'proxy'        => false,   // 是否使用代理
-         'proxy_auth'   => '',      // 代理验证: {$USER}:{$PASS}
-         'collect_count'=> 0        // 抓取次数
-         'collect_fails'=> 0        // 允许抓取失败次数
+         'url'         => '',      // 要爬取的URL
+         'url_type'    => '',      // 要爬取的URL类型,scan_page、list_page、content_page
+         'method'      => 'get',   // 默认为"GET"请求, 也支持"POST"请求
+         'headers'     => array(), // 此url的Headers, 可以为空
+         'params'      => array(), // 发送请求时需添加的参数, 可以为空
+         'context_data'=> '',      // 此url附加的数据, 可以为空
+         'proxy'       => false,   // 是否使用代理
+         'try_num'     => 0        // 抓取次数
+         'max_try'     => 0              // 允许抓取失败次数
      ) 
      */
     public static $collect_queue = array();
@@ -286,6 +285,7 @@ class phpspider
     {
         // 先打开以显示验证报错内容
         log::$log_show = true;
+        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
 
         // 彩蛋
         $included_files = get_included_files();
@@ -297,14 +297,13 @@ class phpspider
         }
 
         self::$configs = $configs;
-        self::$configs['name']          = isset(self::$configs['name'])          ? self::$configs['name']          : 'phpspider';
-        self::$configs['proxy']         = isset(self::$configs['proxy'])         ? self::$configs['proxy']         : '';
-        self::$configs['proxy_auth']    = isset(self::$configs['proxy_auth'])    ? self::$configs['proxy_auth']    : '';
-        self::$configs['user_agent']    = isset(self::$configs['user_agent'])    ? self::$configs['user_agent']    : self::AGENT_PC;
-        self::$configs['interval']      = isset(self::$configs['interval'])      ? self::$configs['interval']      : self::INTERVAL;
-        self::$configs['timeout']       = isset(self::$configs['timeout'])       ? self::$configs['timeout']       : self::TIMEOUT;
-        self::$configs['collect_fails'] = isset(self::$configs['collect_fails']) ? self::$configs['collect_fails'] : self::COLLECT_FAILS;
-        self::$configs['export']        = isset(self::$configs['export'])        ? self::$configs['export']        : array();
+        self::$configs['name']       = isset(self::$configs['name'])       ? self::$configs['name']       : 'phpspider';
+        self::$configs['proxy']      = isset(self::$configs['proxy'])      ? self::$configs['proxy']      : '';
+        self::$configs['user_agent'] = isset(self::$configs['user_agent']) ? self::$configs['user_agent'] : self::AGENT_PC;
+        self::$configs['interval']   = isset(self::$configs['interval'])   ? self::$configs['interval']   : self::INTERVAL;
+        self::$configs['timeout']    = isset(self::$configs['timeout'])    ? self::$configs['timeout']    : self::TIMEOUT;
+        self::$configs['max_try']    = isset(self::$configs['max_try'])    ? self::$configs['max_try']    : self::MAX_TRY;
+        self::$configs['export']     = isset(self::$configs['export'])     ? self::$configs['export']     : array();
 
         // csv、sql、db
         self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
@@ -426,6 +425,31 @@ class phpspider
         }
     }
 
+    public function add_scan_url($url, $options = array())
+    {
+        if (!$this->is_scan_url($url))
+        {
+            log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
+            exit;
+        }
+
+        // 投递状态
+        $status = false;
+        $link = array(
+            'url'          => $url,            
+            'url_type'     => 'scan_page', 
+            'method'       => isset($options['method'])       ? $options['method']       : 'get',             
+            'headers'      => isset($options['headers'])      ? $options['headers']      : self::$headers,    
+            'params'       => isset($options['params'])       ? $options['params']       : array(),           
+            'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
+            'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
+            'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
+            'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
+        );
+        log::debug(date("H:i:s")." Found scan page: {$url}");
+        $status = $this->queue_lpush($link);
+    }
+
     /**
      * 一般在 on_scan_page 和 on_list_page 回调函数中调用，用来往待爬队列中添加url
      * 两个进程同时调用这个方法，传递相同url的时候，就会出现url重复进入队列
@@ -441,16 +465,15 @@ class phpspider
         // 投递状态
         $status = false;
         $link = array(
-            'url'           => $url,            
-            'url_type'      => '', 
-            'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-            'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-            'params'        => isset($options['params'])        ? $options['params']        : array(),           
-            'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
-            'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
-            'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-            'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
-            'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
+            'url'          => $url,            
+            'url_type'     => '', 
+            'method'       => isset($options['method'])       ? $options['method']       : 'get',             
+            'headers'      => isset($options['headers'])      ? $options['headers']      : self::$headers,    
+            'params'       => isset($options['params'])       ? $options['params']       : array(),           
+            'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
+            'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
+            'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
+            'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
         );
 
         if (!empty(self::$configs['list_url_regexes'])) 
@@ -459,7 +482,7 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    log::debug(date("H:i:s")." 发现列表网页：{$url}");
+                    log::debug(date("H:i:s")." Found list page: {$url}");
                     $link['url_type'] = 'list_page';
                     $status = $this->queue_lpush($link);
                 }
@@ -472,7 +495,7 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    log::debug(date("H:i:s")." 发现内容网页：{$url}");
+                    log::debug(date("H:i:s")." Found content page: {$url}");
                     $link['url_type'] = 'content_page';
                     $status = $this->queue_lpush($link);
                 }
@@ -485,27 +508,44 @@ class phpspider
             {
                 if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
                 {
-                    log::debug(date("H:i:s")." 发现网页文件：{$url}");
+                    log::debug(date("H:i:s")." Found attachment file: {$url}");
                     $link['url_type'] = 'attachment_file';
                     $status = $this->queue_lpush($link);
                 }
             }
         }
 
-        if ($status) 
-        {
-            $msg = "Success process page {$url}\n";
-        }
-        else 
-        {
-            $msg = "URL not match content_url_regexes and list_url_regexes, {$url}\n";
-        }
+        //if ($status) 
+        //{
+            //$msg = "Success process page {$url}\n";
+        //}
+        //else 
+        //{
+            //$msg = "URL not match content_url_regexes and list_url_regexes, {$url}\n";
+        //}
         return $status;
     }
 
+    /**
+     * 是否入口URL
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-12 19:06
+     */
+    public function is_scan_url($url)
+    {
+        $parse_url = parse_url($url);
+        if (empty($parse_url['host']) || !in_array($parse_url['host'], self::$configs['domains'])) 
+        {
+            return false;
+        }
+        return $parse_url['host'];
+    }
         
     /**
-     * 展示启动界面
+     * 展示启动界面，Windows 不会到这里来
      * @return void
      */
     public function display_ui()
@@ -675,30 +715,37 @@ class phpspider
             log::error("No scan url to start\n");
             exit;
         }
+        
+        // 放这个位置，可以添加入口URL
+        if ($this->on_start) 
+        {
+            call_user_func($this->on_start, $this);
+        }
 
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            $parse_url_arr = parse_url($url);
-            if (empty($parse_url_arr['host']) || !in_array($parse_url_arr['host'], self::$configs['domains'])) 
+            if (!$this->is_scan_url($url))
             {
-                log::error("Domain of scan_urls (\"{$parse_url_arr['host']}\") does not match the domains of the domain name\n");
+                log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
                 exit;
             }
         }
 
-        log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
-        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
+        // windows 下没法显示面板，强制显示日志
+        if (util::is_win()) 
+        {
+            log::$log_show = true;
+        }
+        else 
+        {
+            log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
+        }
 
         if (log::$log_show)
         {
-            log::info("\n[".self::$configs['name']."爬虫] 开始爬行...\n");
-            log::warn("!开发文档：\nhttps://doc.phpspider.org\n");
-            log::warn("爬虫任务数：".self::$tasknum."\n");
-        }
-
-        if ($this->on_start) 
-        {
-            call_user_func($this->on_start, $this);
+            log::info("\n[ ".self::$configs['name']." Spider ] is started...\n");
+            log::warn("Task Number：".self::$tasknum."\n");
+            log::warn("!Documentation：\nhttps://doc.phpspider.org\n");
         }
 
         $status_files = scandir(PATH_DATA."/status");
@@ -717,36 +764,26 @@ class phpspider
         //--------------------------------------------------------------------------------
         if(self::$tasknum > 1)
         {
-            //task进程从1开始，0被master进程所使用
-            for ($i = 2; $i <= self::$tasknum; $i++) 
-            {
-                $this->fork_one_task($i);
-            }
-
             // 不保留运行状态
             if (!self::$save_running_state) 
             {
                 // 清空redis里面的数据
                 $this->clear_redis();
             }
-
-            // 设置主任务为未准备状态，堵塞子进程
-            $this->set_taskmaster_status(0);
         }
 
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
             $link = array(
-                'url'           => $url,                            // 要抓取的URL
-                'url_type'      => 'scan_page',                     // 要抓取的URL类型
-                'method'        => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                'headers'       => self::$headers,                  // 此url的Headers, 可以为空
-                'params'        => array(),                         // 发送请求时需添加的参数, 可以为空
-                'context_data'  => '',                              // 此url附加的数据, 可以为空
-                'proxy'         => self::$configs['proxy'],         // 代理服务器
-                'proxy_auth'    => self::$configs['proxy_auth'],    // 代理验证
-                'collect_count' => 0,                               // 抓取次数
-                'collect_fails' => self::$configs['collect_fails'], // 允许抓取失败次数
+                'url'          => $url,                            // 要抓取的URL
+                'url_type'     => 'scan_page',                     // 要抓取的URL类型
+                'method'       => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
+                'headers'      => self::$headers,                  // 此url的Headers, 可以为空
+                'params'       => array(),                         // 发送请求时需添加的参数, 可以为空
+                'context_data' => '',                              // 此url附加的数据, 可以为空
+                'proxy'        => self::$configs['proxy'],         // 代理服务器
+                'try_num'      => 0,                               // 抓取次数
+                'max_try'      => self::$configs['max_try'],       // 抓取失败尝试次数
             );
             $this->queue_lpush($link);
         }
@@ -762,11 +799,16 @@ class phpspider
                 // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
                 if ($this->queue_lsize() > self::$tasknum) 
                 {
-                    log::warn("主任务准备就绪...\n");
                     // 给主任务自己用的
                     self::$taskmaster_status = true;
-                    // 给子任务判断用的
-                    $this->set_taskmaster_status(1);
+                    
+                    // fork 子进程前一定要先干掉redis连接fd，不然会存在进程互抢redis fd 问题
+                    cls_redis::close();
+                    //task进程从2开始，1被master进程所使用
+                    for ($i = 2; $i <= self::$tasknum; $i++) 
+                    {
+                        $this->fork_one_task($i);
+                    }
                 }
             }
 
@@ -777,13 +819,16 @@ class phpspider
             }
         } 
 
-        log::info("爬取完成\n");
+        // 显示最后结果
+        log::$log_show = true;
+
+        log::info("Spider is finished\n");
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info("爬虫运行时间：{$spider_time_run}\n");
+        log::info("Spider running time：{$spider_time_run}\n");
 
         $count_collected_url = $this->count_collected_url();
-        log::info("总共抓取网页：{$count_collected_url} 个\n\n");
+        log::info("Total pages：{$count_collected_url} \n\n");
 
         if (self::$tasknum > 1) 
         {
@@ -794,6 +839,73 @@ class phpspider
         if (self::$tasknum > 1 && !self::$save_running_state) 
         {
             $this->clear_redis();
+        }
+    }
+
+    /**
+     * 创建一个子进程
+     * @param Worker $worker
+     * @throws Exception
+     */
+    public function fork_one_task($taskid)
+    {
+        $pid = pcntl_fork();
+
+        // 主进程记录子进程pid
+        if($pid > 0)
+        {
+            // 暂时没用
+            self::$taskpids[$taskid] = $pid;
+        }
+        // 子进程运行
+        elseif(0 === $pid)
+        {
+            log::warn("Fork children task({$taskid}) successful...\n");
+
+            self::$time_start = microtime(true);
+            self::$collect_succ = 0;
+            self::$collect_fail = 0;
+            self::$taskid = $taskid;
+            self::$taskmaster = false;
+            self::$taskpid = posix_getpid();
+
+            while( $this->queue_lsize() )
+            { 
+                // 如果队列中的网页比任务数多，子任务可以采集
+                if ($this->queue_lsize() > self::$tasknum) 
+                {
+                    // 抓取页面
+                    $this->collect_page();
+                }
+                // 队列中网页太少，就都给主进程采集好了
+                else 
+                {
+                    log::warn("Task(".self::$taskid.") waiting...\n");
+                    sleep(1);
+                }
+
+                // 当前进程状态输出到文件，供主进程调用
+                $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
+                $use_time = microtime(true) - self::$time_start; 
+                $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
+                $status = array(
+                    'id' => self::$taskid,
+                    'pid' => self::$taskpid,
+                    'mem' => $mem,
+                    'collect_succ' => self::$collect_succ,
+                    'collect_fail' => self::$collect_fail,
+                    'speed' => $speed,
+                );
+                util::put_file(PATH_DATA."/status/".self::$taskid, json_encode($status));
+            } 
+
+            // 这里用0表示正常退出
+            exit(0);
+        }
+        else
+        {
+            log::error("Fork children task({$i}) fail...\n");
+            exit;
         }
     }
 
@@ -867,13 +979,13 @@ class phpspider
     public function collect_page() 
     {
         $count_collect_url = $this->count_collect_url();
-        log::info(date("H:i:s")." 发现抓取网页：{$count_collect_url} 个\n");
+        log::info(date("H:i:s")." Find pages: {$count_collect_url} \n");
 
         $queue_lsize = $this->queue_lsize();
-        log::info("等待抓取网页：{$queue_lsize} 个\n");
+        log::info(date("H:i:s")." Waiting for collect pages: {$queue_lsize} \n");
 
         $count_collected_url = $this->count_collected_url();
-        log::info("已经抓取网页：{$count_collected_url} 个\n");
+        log::info(date("H:i:s")." Collected pages: {$count_collected_url} \n");
 
         // 先进先出
         $link = $this->queue_rpop();
@@ -917,13 +1029,13 @@ class phpspider
             'url'     => $url,
             'raw'     => $html,
             'request' => array(
-                'url'           => $url,
-                'method'        => $link['method'],
-                'headers'       => $link['headers'],
-                'params'        => $link['params'],
-                'context_data'  => $link['context_data'],
-                'collect_count' => $link['collect_count'],
-                'collect_fails' => $link['collect_fails'],
+                'url'          => $url,
+                'method'       => $link['method'],
+                'headers'      => $link['headers'],
+                'params'       => $link['params'],
+                'context_data' => $link['context_data'],
+                'try_num'      => $link['try_num'],
+                'max_try'      => $link['max_try'],
             ),
         );
 
@@ -966,15 +1078,15 @@ class phpspider
         // 多任务的时候输出爬虫序号
         if (self::$tasknum > 1) 
         {
-            log::info("当前任务序号：".self::$taskid."\n");
+            log::info("Current task id: ".self::$taskid."\n");
         }
 
         // 爬取页面耗时时间
         $time_run = round(microtime(true) - $page_time_start, 3);
-        log::info(date("H:i:s")." 网页下载成功：{$url}\t耗时: {$time_run} 秒\n");
+        log::info(date("H:i:s")." Success process page: {$url}\tUse time: {$time_run} s\n");
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info("爬虫运行时间：{$spider_time_run}\n");
+        log::info(date("H:i:s")." Spider running time: {$spider_time_run}\n");
 
         // on_scan_page、on_list_pag、on_content_page 返回false表示不需要再从此网页中发现待爬url
         if ($is_find_url) 
@@ -1018,7 +1130,7 @@ class phpspider
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if(!preg_match($pattern, $url))
         {
-            log::error("你所请求的URL({$url})不是有效的HTTP地址");
+            log::error("You have requested URL ({$URL}) is not a valid HTTP address");
             exit;
         }
 
@@ -1026,30 +1138,29 @@ class phpspider
         $domain = $parse_url_arr['host'];
 
         $link = array(
-            'url'           => $url,
-            'url_type'      => isset($options['url_type'])      ? $options['url_type']      : '',             
-            'method'        => isset($options['method'])        ? $options['method']        : 'get',             
-            'headers'       => isset($options['headers'])       ? $options['headers']       : self::$headers,    
-            'params'        => isset($options['params'])        ? $options['params']        : array(),           
-            'context_data'  => isset($options['context_data'])  ? $options['context_data']  : '',                
-            'proxy'         => isset($options['proxy'])         ? $options['proxy']         : self::$configs['proxy'],             
-            'proxy_auth'    => isset($options['proxy_auth'])    ? $options['proxy_auth']    : self::$configs['proxy_auth'],             
-            'collect_count' => isset($options['collect_count']) ? $options['collect_count'] : 0,                 
-            'collect_fails' => isset($options['collect_fails']) ? $options['collect_fails'] : self::$configs['collect_fails'],
+            'url'          => $url,
+            'url_type'     => isset($options['url_type'])     ? $options['url_type']     : '',             
+            'method'       => isset($options['method'])       ? $options['method']       : 'get',             
+            'headers'      => isset($options['headers'])      ? $options['headers']      : self::$headers,    
+            'params'       => isset($options['params'])       ? $options['params']       : array(),           
+            'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
+            'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
+            'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
+            'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
         );
 
         // 如果定义了获取附件回调函数，直接拦截了
-        if ($this->on_attachment_file) 
-        {
-            $fileinfo = $this->is_attachment_file($url);
-            // 如果不是html
-            if (!empty($fileinfo)) 
-            {
-                log::debug("发现{$fileinfo['fileext']}文件：{$url}");
-                call_user_func($this->on_attachment_file, $url, $fileinfo);
-                return false;
-            }
-        }
+        //if ($this->on_attachment_file) 
+        //{
+            //$fileinfo = $this->is_attachment_file($url);
+            //// 如果不是html
+            //if (!empty($fileinfo)) 
+            //{
+                //log::debug("发现{$fileinfo['fileext']}文件：{$url}");
+                //call_user_func($this->on_attachment_file, $url, $fileinfo);
+                //return false;
+            //}
+        //}
 
         cls_curl::set_timeout(self::$configs['timeout']);
         cls_curl::set_useragent(self::$configs['user_agent']);
@@ -1076,7 +1187,7 @@ class phpspider
         // 是否设置了代理
         if (!empty($link['proxy'])) 
         {
-            cls_curl::set_proxy($link['proxy'], $link['proxy_auth']);
+            cls_curl::set_proxy($link['proxy']);
             // 自动切换IP
             cls_curl::set_headers(array('Proxy-Switch-Ip: yes'));
         }
@@ -1143,52 +1254,46 @@ class phpspider
                 $info = cls_curl::get_info();
                 $url = $info['redirect_url'];
                 $html = $this->request_url($url, $options);
-
-                // 获取跳转后的地址扔到队列头部去，可以立刻采集
-                //$info = cls_curl::get_info();
-                //$link['url'] = $info['redirect_url'];
-                //$this->queue_rpush($link);
-                //$this->log("网页下载失败：{$url}\n", 'error');
-                //$this->log("HTTP CODE：{$http_code} 网页{$http_code}跳转\n", 'warn');
             }
             else 
             {
                 if ($http_code == 404) 
                 {
-                    log::error(date("H:i:s")." 网页下载失败：{$url}\n");
-                    log::error(date("H:i:s")." HTTP CODE：{$http_code} 网页不存在\n");
+                    log::error(date("H:i:s")." Failed to download {$url}\n");
+                    //log::error(date("H:i:s")." Download page {$url} failed, Read timed out, will try again later\n");
+                    log::error(date("H:i:s")." HTTP CODE: {$http_code} Not Found\n");
                 }
                 elseif ($http_code == 407) 
                 {
                     // 扔到队列头部去，继续采集
                     $this->queue_rpush($link);
-                    log::error(date("H:i:s")." 网页下载失败：{$url}\n");
-                    log::error(date("H:i:s")." 代理服务器验证失败，请检查代理服务器设置\n");
+                    log::error(date("H:i:s")." Failed to download {$url}\n");
+                    log::error(date("H:i:s")." Proxy server authentication failed, please check the proxy server settings\n");
                 }
                 elseif ($http_code == 502 || $http_code == 503 || $http_code == 0) 
                 {
                     // 采集次数加一
-                    $link['collect_count']++;
+                    $link['try_num']++;
                     // 抓取次数 小于 允许抓取失败次数
-                    if ( $link['collect_count'] < $link['collect_fails'] ) 
+                    if ( $link['try_num'] <= $link['max_try'] ) 
                     {
                         // 扔到队列头部去，继续采集
                         $this->queue_rpush($link);
                     }
-                    log::error(date("H:i:s")." 网页下载失败：{$url} 失败次数：{$link['collect_count']}\n");
-                    log::error(date("H:i:s")." HTTP CODE：{$http_code} 服务器过载\n");
+                    log::error(date("H:i:s")." Download page {$url} failed, Read timed out, will try again later, retry({$link['try_num']})\n");
+                    log::error(date("H:i:s")." HTTP CODE: {$http_code} service unavailable\n");
                 }
                 else 
                 {
-                    log::error(date("H:i:s")." 网页下载失败：{$url}\n");
-                    log::error(date("H:i:s")." HTTP CODE：{$http_code}\n");
+                    log::error(date("H:i:s")." Failed to download {$url}\n");
+                    log::error(date("H:i:s")." HTTP CODE: {$http_code}\n");
                 }
                 self::$collect_fail++;
                 return false;
             }
         }
+
         self::$collect_succ++;
-        //print_r(self::$domain_cookies);
 
         // 解析HTTP数据流
         if (!empty($html)) 
@@ -1198,7 +1303,7 @@ class phpspider
             foreach ($html_arr as $k=>$html) 
             {
                 // post 方法会有两个http header：HTTP/1.1 100 Continue、HTTP/1.1 200 OK
-                if (preg_match("#HTTP/.*? 100 Continue#", $html) || preg_match("#HTTP/.*? 200 OK#", $html)) 
+                if (preg_match("#^HTTP/.*? 100 Continue#", $html) || preg_match("#^HTTP/.*? 200 OK#", $html)) 
                 {
                     unset($html_arr[$k]);
                 }
@@ -1788,11 +1893,11 @@ class phpspider
                 $return_data = call_user_func($this->on_extract_page, $page, $fields);
                 if (!isset($return_data))
                 {
-                    log::warn("on_extract_page函数返回为空\n");
+                    log::warn("on_extract_page function return value can't be empty\n");
                 }
                 elseif (!is_array($return_data))
                 {
-                    log::warn("on_extract_page函数返回值必须是数组\n");
+                    log::warn("on_extract_page function return value must be an array\n");
                 }
                 else 
                 {
@@ -1803,7 +1908,7 @@ class phpspider
             if (isset($fields) && is_array($fields)) 
             {
                 $fields_num = $this->incr_fields_num();
-                log::info(date("H:i:s")." 结果{$fields_num}：".json_encode($fields, JSON_UNESCAPED_UNICODE)."\n");
+                log::info(date("H:i:s")." Result[{$fields_num}]: ".json_encode($fields, JSON_UNESCAPED_UNICODE)."\n");
 
                 // 如果设置了导出选项
                 if (!empty(self::$configs['export'])) 
@@ -1850,7 +1955,7 @@ class phpspider
 
             if (empty($conf['name'])) 
             {
-                log::error("field的名字是空值, 请检查你的\"fields\"并添加field的名字\n");
+                log::error("The field name is null, please check your \"fields\" and add the name of the field\n");
                 exit;
             }
 
@@ -1865,7 +1970,7 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
-                        log::info(date("H:i:s")." 发现内容分页：{$url}");
+                        log::info(date("H:i:s")." Found content page: {$url}");
                         $html = $this->request_url($collect_url);
                         // 请求获取完分页数据后把连接删除了 
                         unset($fields[$conf['attached_url']]);
@@ -1934,7 +2039,7 @@ class phpspider
                     $return = call_user_func($this->on_handle_img, $fieldname, $data);
                     if (!isset($return))
                     {
-                        log::warn("on_handle_img函数返回为空\n");
+                        log::warn("on_handle_img function return value can't be empty\n");
                     }
                     else 
                     {
@@ -1949,7 +2054,7 @@ class phpspider
                     $return = call_user_func($this->on_extract_field, $fieldname, $data, $page, self::$taskid);
                     if (!isset($return))
                     {
-                        log::warn("on_extract_field函数返回为空\n");
+                        log::warn("on_extract_field function return value can't be empty\n");
                     }
                     else 
                     {
@@ -1989,7 +2094,7 @@ class phpspider
         $elements = @$xpath->query($selector);
         if ($elements === false)
         {
-            log::error("field(\"{$fieldname}\")中selector的xpath(\"{$selector}\")语法错误\n");
+            log::error("Field(\"{$fieldname}\") the selector in the xpath(\"{$selector}\") syntax errors\n");
             exit;
         }
 
@@ -2039,7 +2144,7 @@ class phpspider
     {
         if(@preg_match_all($selector, $html, $out) === false)
         {
-            log::error("field(\"{$fieldname}\")中selector的regex(\"{$selector}\")语法错误\n");
+            log::error("Field(\"{$fieldname}\") the selector in the regex(\"{$selector}\") syntax errors\n");
             exit;
         }
 
@@ -2118,77 +2223,5 @@ class phpspider
         }
     }
 
-    /**
-     * 创建一个子进程
-     * @param Worker $worker
-     * @throws Exception
-     */
-    public function fork_one_task($taskid)
-    {
-        $pid = pcntl_fork();
-
-        // 主进程记录子进程pid
-        if($pid > 0)
-        {
-            self::$taskpids[$taskid] = $pid;
-        }
-        // 子进程运行
-        elseif(0 === $pid)
-        {
-            self::$time_start = microtime(true);
-            self::$collect_succ = 0;
-            self::$collect_fail = 0;
-            self::$taskid = $taskid;
-            self::$taskmaster = false;
-            self::$taskpid = posix_getpid();
-
-            // sleep 1秒，等待主任务设置状态
-            sleep(1);
-            // 第一次先判断主进程准备好没有
-            while( !$this->get_taskmaster_status() )
-            {
-                log::warn("任务".self::$taskid."等待中...\n");
-                sleep(1);
-            }
-
-            while( $this->queue_lsize() )
-            { 
-                // 如果队列中的网页比任务数多，子任务可以采集
-                if ($this->queue_lsize() > self::$tasknum) 
-                {
-                    // 抓取页面
-                    $this->collect_page();
-                }
-                // 队列中网页太少，就都给主进程采集好了
-                else 
-                {
-                    log::warn("任务".self::$taskid."等待中...\n");
-                    sleep(1);
-                }
-
-                // 当前进程状态输出到文件，供主进程调用
-                $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
-                $use_time = microtime(true) - self::$time_start; 
-                $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
-                $status = array(
-                    'id' => self::$taskid,
-                    'pid' => self::$taskpid,
-                    'mem' => $mem,
-                    'collect_succ' => self::$collect_succ,
-                    'collect_fail' => self::$collect_fail,
-                    'speed' => $speed,
-                );
-                util::put_file(PATH_DATA."/status/".self::$taskid, json_encode($status));
-            } 
-
-            // 这里用0表示正常退出
-            exit(0);
-        }
-        else
-        {
-            log::error("fork one worker fail");
-            exit;
-        }
-    }
 }
 

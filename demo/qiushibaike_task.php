@@ -22,7 +22,7 @@ $configs = array(
     'content_url_regexes' => array(
         "http://www.qiushibaike.com/article/\d+",
     ),
-    'collect_fails' => 5,
+    'max_try' => 5,
     'export' => array(
         'type' => 'db', 
         'table' => 'content',

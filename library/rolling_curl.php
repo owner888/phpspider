@@ -94,13 +94,9 @@ class rolling_curl
      * set proxy
      *
      */
-    public function set_proxy($proxy, $proxy_auth = '')
+    public function set_proxy($proxy)
     {
         $this->options[CURLOPT_PROXY] = $proxy;
-        if ($proxy_auth) 
-        {
-            $this->options[CURLOPT_PROXYUSERPWD] = $proxy_auth;
-        }
     }
 
     /**

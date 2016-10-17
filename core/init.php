@@ -40,6 +40,7 @@ if( file_exists( PATH_ROOT."/config/inc_config.php" ) )
     require PATH_ROOT."/config/inc_config.php"; 
 }
 require CORE.'/log.php';
+require CORE.'/requests.php';
 require CORE.'/util.php';
 require CORE.'/db.php';
 require CORE.'/cache.php';
