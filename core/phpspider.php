@@ -754,7 +754,7 @@ class phpspider
             exit;
         }
         
-        // 放这个位置，可以添加入口URL
+        // 放这个位置，可以添加入口页面
         if ($this->on_start) 
         {
             call_user_func($this->on_start, $this);
@@ -834,10 +834,10 @@ class phpspider
             // 多任务下主任务未准备就绪
             if (self::$tasknum > 1 && !self::$taskmaster_status) 
             {
-                // 如果队列中的网页比任务数多，设置主进程为准备好状态，子任务开始采集
+                // 如果队列中的网页比任务数多，生成子任务一起采集
                 if ($this->queue_lsize() > self::$tasknum) 
                 {
-                    // 给主任务自己用的
+                    // 主任务状态
                     self::$taskmaster_status = true;
                     
                     // fork 子进程前一定要先干掉redis连接fd，不然会存在进程互抢redis fd 问题

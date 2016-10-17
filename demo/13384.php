@@ -112,13 +112,15 @@ $spider->on_extract_field = function($fieldname, $data, $page)
         foreach ($contents as $content) 
         {
             $url = $content['page_content'];
+            $array[] = $url;
+
             // 以纳秒为单位生成随机数
-            $filename = uniqid().".jpg";
+            //$filename = uniqid().".jpg";
             // 在data目录下生成图片
-            $filepath = PATH_ROOT."/images/{$filename}";
+            //$filepath = PATH_ROOT."/images/{$filename}";
             // 用系统自带的下载器wget下载
-            exec("wget {$url} -O {$filepath}");
-            $array[] = $filename;
+            //exec("wget {$url} -O {$filepath}");
+            //$array[] = $filename;
         }
         $data = implode(",", $array);
     }
