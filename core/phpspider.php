@@ -427,7 +427,7 @@ class phpspider
 
     public function add_scan_url($url, $options = array())
     {
-        if (!$this->is_scan_url($url))
+        if (!$this->is_scan_page($url))
         {
             log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
             exit;
@@ -476,44 +476,32 @@ class phpspider
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
         );
 
-        if (!empty(self::$configs['list_url_regexes'])) 
+        if ($this->is_list_page($url) && !$this->is_collect_url($url))
         {
-            foreach (self::$configs['list_url_regexes'] as $regex) 
-            {
-                if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
-                {
-                    log::debug(date("H:i:s")." Found list page: {$url}");
-                    $link['url_type'] = 'list_page';
-                    $status = $this->queue_lpush($link);
-                }
-            }
+            log::debug(date("H:i:s")." Found list page: {$url}");
+            $link['url_type'] = 'list_page';
+            $status = $this->queue_lpush($link);
         }
 
-        if (!empty(self::$configs['content_url_regexes'])) 
+        if ($this->is_content_page($url) && !$this->is_collect_url($url))
         {
-            foreach (self::$configs['content_url_regexes'] as $regex) 
-            {
-                if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
-                {
-                    log::debug(date("H:i:s")." Found content page: {$url}");
-                    $link['url_type'] = 'content_page';
-                    $status = $this->queue_lpush($link);
-                }
-            }
+            log::debug(date("H:i:s")." Found content page: {$url}");
+            $link['url_type'] = 'content_page';
+            $status = $this->queue_lpush($link);
         }
 
-        if (!empty(self::$configs['attachment_url_regexes'])) 
-        {
-            foreach (self::$configs['attachment_url_regexes'] as $regex) 
-            {
-                if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
-                {
-                    log::debug(date("H:i:s")." Found attachment file: {$url}");
-                    $link['url_type'] = 'attachment_file';
-                    $status = $this->queue_lpush($link);
-                }
-            }
-        }
+        //if (!empty(self::$configs['attachment_url_regexes'])) 
+        //{
+            //foreach (self::$configs['attachment_url_regexes'] as $regex) 
+            //{
+                //if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
+                //{
+                    //log::debug(date("H:i:s")." Found attachment file: {$url}");
+                    //$link['url_type'] = 'attachment_file';
+                    //$status = $this->queue_lpush($link);
+                //}
+            //}
+        //}
 
         //if ($status) 
         //{
@@ -527,23 +515,73 @@ class phpspider
     }
 
     /**
-     * 是否入口URL
+     * 是否入口页面
      * 
      * @param mixed $url
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-12 19:06
      */
-    public function is_scan_url($url)
+    public function is_scan_page($url)
     {
         $parse_url = parse_url($url);
         if (empty($parse_url['host']) || !in_array($parse_url['host'], self::$configs['domains'])) 
         {
             return false;
         }
-        return $parse_url['host'];
+        return true;
+    }
+
+    /**
+     * 是否列表页面
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-12 19:06
+     */
+    public function is_list_page($url)
+    {
+        $return = false;
+        if (!empty(self::$configs['list_url_regexes'])) 
+        {
+            foreach (self::$configs['list_url_regexes'] as $regex) 
+            {
+                if (preg_match("#{$regex}#i", $url))
+                {
+                    $return = true;
+                    break;
+                }
+            }
+        }
+        return $return;
     }
         
+    /**
+     * 是否内容页面
+     * 
+     * @param mixed $url
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-12 19:06
+     */
+    public function is_content_page($url)
+    {
+        $return = false;
+        if (!empty(self::$configs['content_url_regexes'])) 
+        {
+            foreach (self::$configs['content_url_regexes'] as $regex) 
+            {
+                if (preg_match("#{$regex}#i", $url))
+                {
+                    $return = true;
+                    break;
+                }
+            }
+        }
+        return $return;
+    }
+
     /**
      * 展示启动界面，Windows 不会到这里来
      * @return void
@@ -724,7 +762,7 @@ class phpspider
 
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            if (!$this->is_scan_url($url))
+            if (!$this->is_scan_page($url))
             {
                 log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
                 exit;
