@@ -716,6 +716,8 @@ class phpspider
         self::$taskpid = function_exists('posix_getpid') ? posix_getpid() : 1;
         // 当前任务是否主任务
         self::$taskmaster = true;
+        self::$collect_succ = 0;
+        self::$collect_fail = 0;
 
         //--------------------------------------------------------------------------------
         // 运行前验证
@@ -850,7 +852,7 @@ class phpspider
                 }
             }
 
-            // 如果不显示日志，就显示控制面板
+            // 每采集成功一次页面，就刷新一次面板
             if (!log::$log_show) 
             {
                 $this->display_ui();
@@ -896,11 +898,11 @@ class phpspider
             log::warn("Fork children task({$taskid}) successful...\n");
 
             self::$time_start = microtime(true);
+            self::$taskid = $taskid;
+            self::$taskpid = posix_getpid();
+            self::$taskmaster = false;
             self::$collect_succ = 0;
             self::$collect_fail = 0;
-            self::$taskid = $taskid;
-            self::$taskmaster = false;
-            self::$taskpid = posix_getpid();
 
             while( $this->queue_lsize() )
             { 
@@ -917,7 +919,7 @@ class phpspider
                     sleep(1);
                 }
 
-                // 当前进程状态输出到文件，供主进程调用
+                // 每采集成功一个页面，生成当前进程状态到文件，供主进程使用
                 $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
                 $use_time = microtime(true) - self::$time_start; 
                 $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
@@ -1030,16 +1032,16 @@ class phpspider
         // 爬取页面开始时间
         $page_time_start = microtime(true);
 
-        if ($link['url_type'] == 'attachment_file') 
-        {
-            if ($this->on_attachment_file) 
-            {
-                $pathinfo = pathinfo($url);
-                $filetype = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
-                call_user_func($this->on_attachment_file, $url, $filetype, $this);
-            }
-            return true;
-        }
+        //if ($link['url_type'] == 'attachment_file') 
+        //{
+            //if ($this->on_attachment_file) 
+            //{
+                //$pathinfo = pathinfo($url);
+                //$filetype = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
+                //call_user_func($this->on_attachment_file, $url, $filetype, $this);
+            //}
+            //return true;
+        //}
 
         $html = $this->request_url($url, $link);
         if (!$html) 
@@ -1121,7 +1123,7 @@ class phpspider
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
         log::info(date("H:i:s")." Spider running time: {$spider_time_run}\n");
 
-        // on_scan_page、on_list_pag、on_content_page 返回false表示不需要再从此网页中发现待爬url
+        // on_scan_page、on_list_page、on_content_page 返回false表示不需要再从此网页中发现待爬url
         if ($is_find_url) 
         {
             // 分析提取HTML页面中的URL
@@ -1453,31 +1455,6 @@ class phpspider
         {
             $this->add_url($url);
         }
-    }
-
-    /**
-     * 获得主进程准备状态
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function get_taskmaster_status()
-    {
-        return cls_redis::get("taskmaster_ready"); 
-    }
-
-    /**
-     * 设置主进程准备状态
-     * 
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function set_taskmaster_status($status)
-    {
-        cls_redis::set("taskmaster_ready", $status); 
     }
 
     /**
