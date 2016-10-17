@@ -774,7 +774,8 @@ class util
 
         $array = array(); 
         // Discard empty nodes
-        if( empty( trim( $node->localName ))) 
+        $localName = trim( $node->localName );
+        if( empty($localName)) 
         {
             return false;
         }
