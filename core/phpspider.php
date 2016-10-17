@@ -868,11 +868,6 @@ class phpspider
         $count_collected_url = $this->count_collected_url();
         log::info("Total pages：{$count_collected_url} \n\n");
 
-        if (self::$tasknum > 1) 
-        {
-            $this->set_taskmaster_status(1);
-        }
-
         // 最后:多任务下不保留运行状态，清空redis数据
         if (self::$tasknum > 1 && !self::$save_running_state) 
         {
