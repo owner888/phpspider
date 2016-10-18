@@ -715,7 +715,7 @@ class phpspider
             if (self::$tasknum > 1 && !self::$taskmaster_status) 
             {
                 // 如果队列中的网页比任务数多，生成子任务一起采集
-                if ($this->queue_lsize() > self::$tasknum) 
+                if ($this->queue_lsize() > self::$tasknum*2) 
                 {
                     // 主任务状态
                     self::$taskmaster_status = true;
@@ -785,7 +785,7 @@ class phpspider
             while( $this->queue_lsize() )
             { 
                 // 如果队列中的网页比任务数多，子任务可以采集
-                if ($this->queue_lsize() > self::$tasknum) 
+                if ($this->queue_lsize() > self::$tasknum*2) 
                 {
                     // 抓取页面
                     $this->collect_page();
@@ -2188,13 +2188,9 @@ class phpspider
         // 检查运行命令的参数
         global $argv;
         $start_file = $argv[0]; 
-        if(!isset($argv[1]))
-        {
-            exit("Usage: php yourfile.php {start|stop|status}\n");
-        }
                 
         // 命令
-        $command = trim($argv[1]);
+        $command = isset($argv[2]) ? trim($argv[1]) : 'start';
         
         // 子命令，目前只支持-d
         $command2 = isset($argv[2]) ? $argv[2] : '';
