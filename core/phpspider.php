@@ -310,8 +310,8 @@ class phpspider
         self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
         self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
 
-        // 是否设置了并发任务数，并且大于1
-        if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1) 
+        // 是否设置了并发任务数，并且大于1，而且不是windows环境
+        if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1 && !util::is_win()) 
         {
             self::$tasknum = self::$configs['tasknum'];
         }
