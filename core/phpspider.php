@@ -1043,7 +1043,7 @@ class phpspider
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if(!preg_match($pattern, $url))
         {
-            log::error("You have requested URL ({$URL}) is not a valid HTTP address");
+            log::error("You have requested URL ({$url}) is not a valid HTTP address");
             exit;
         }
 

@@ -8,7 +8,7 @@ require dirname(__FILE__).'/../core/init.php';
 $configs = array(
     'name' => '糗事百科',
     //'log_show' => true,
-    //'tasknum' => 4,
+    'tasknum' => 4,
     //'save_running_state' => true,
     'domains' => array(
         'qiushibaike.com',
