@@ -542,19 +542,19 @@ class phpspider
      */
     public function is_list_page($url)
     {
-        $return = false;
+        $result = false;
         if (!empty(self::$configs['list_url_regexes'])) 
         {
             foreach (self::$configs['list_url_regexes'] as $regex) 
             {
                 if (preg_match("#{$regex}#i", $url))
                 {
-                    $return = true;
+                    $result = true;
                     break;
                 }
             }
         }
-        return $return;
+        return $result;
     }
         
     /**
@@ -567,141 +567,19 @@ class phpspider
      */
     public function is_content_page($url)
     {
-        $return = false;
+        $result = false;
         if (!empty(self::$configs['content_url_regexes'])) 
         {
             foreach (self::$configs['content_url_regexes'] as $regex) 
             {
                 if (preg_match("#{$regex}#i", $url))
                 {
-                    $return = true;
+                    $result = true;
                     break;
                 }
             }
         }
-        return $return;
-    }
-
-    /**
-     * 展示启动界面，Windows 不会到这里来
-     * @return void
-     */
-    public function display_ui()
-    {
-        $loadavg = sys_getloadavg();
-        foreach ($loadavg as $k=>$v) 
-        {
-            $loadavg[$k] = round($v, 2);
-        }
-        $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
-        $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
-        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/60) . " minutes   \n";
-        $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
-        $display_str .= "document: https://doc.phpspider.org\n";
-        $display_str .= "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
-
-        $display_str .= "\033[47;30mtaskid\033[0m". str_pad('', self::$taskid_length+2-strlen('taskid')). 
-        "\033[47;30mpid\033[0m". str_pad('', self::$pid_length+2-strlen('pid')). 
-        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
-        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length+2-strlen('collect succ')). 
-        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length+2-strlen('collect fail')). 
-        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
-        "\n";
-
-        $display_str .= $this->display_process_ui();
-
-        $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
-
-        $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
-        "\033[47;30mcollected\033[0m". str_pad('', 14-strlen('collected')). 
-        "\033[47;30mremain\033[0m". str_pad('', 15-strlen('remain')). 
-        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
-        "\033[47;30mfields\033[0m". str_pad('', 12-strlen('fields')). 
-        "\n";
-
-        $collect   = $this->count_collect_url();
-        $collected = $this->count_collected_url();
-        $remain    = $collect - $collected;
-        $queue     = $this->queue_lsize();
-        $fields    = $this->get_fields_num();
-        $display_str .= str_pad($collect, 16);
-        $display_str .= str_pad($collected, 14);
-        $display_str .= str_pad($remain, 15);
-        $display_str .= str_pad($queue, 14);
-        $display_str .= str_pad($fields, 12);
-        $display_str .= "\n";
-
-        // 清屏
-        $this->clear_screen();
-        // 返回到第一行,第一列
-        //echo "\033[0;0H";
-        $display_str .= "---------------------------------------------------------------------\n";
-        $display_str .= "Press Ctrl-C to quit. Start success.\n";
-        echo $display_str;
-
-        //if(self::$daemonize)
-        //{
-            //global $argv;
-            //$start_file = $argv[0];
-            //echo "Input \"php $start_file stop\" to quit. Start success.\n";
-        //}
-        //else
-        //{
-            //echo "Press Ctrl-C to quit. Start success.\n";
-        //}
-    }
-
-    public function display_process_ui()
-    {
-        $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
-        $use_time = microtime(true) - self::$time_start; 
-        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
-        $task = array(
-            'id' => self::$taskid,
-            'pid' => self::$taskpid,
-            'mem' => $mem,
-            'collect_succ' => self::$collect_succ,
-            'collect_fail' => self::$collect_fail,
-            'speed' => $speed,
-            //'status' => true,
-        );
-        // "\033[32;40m [OK] \033[0m"
-        $display_str = str_pad($task['id'], self::$taskid_length+2).
-            str_pad($task['pid'], self::$pid_length+2).
-            str_pad($task['mem'], self::$mem_length+2). 
-            str_pad($task['collect_succ'], self::$urls_length+2). 
-            str_pad($task['collect_fail'], self::$urls_length+2). 
-            str_pad($task['speed'], self::$speed_length+2). 
-            "\n";
-
-        for ($i = 2; $i <= self::$tasknum; $i++) 
-        {
-            $json = util::get_file(PATH_DATA."/status/".$i);
-            if (empty($json)) 
-            {
-                continue;
-            }
-            $task = json_decode($json, true);
-            if (empty($task)) 
-            {
-                continue;
-            }
-            $display_str .= str_pad($task['id'], self::$taskid_length+2).
-                str_pad($task['pid'], self::$pid_length+2).
-                str_pad($task['mem'], self::$mem_length+2). 
-                str_pad($task['collect_succ'], self::$urls_length+2). 
-                str_pad($task['collect_fail'], self::$urls_length+2). 
-                str_pad($task['speed'], self::$speed_length+2). 
-                "\n";
-        }
-
-        //echo "\033[9;0H";
-        return $display_str;
-    }
-
-    public function clear_screen()
-    {
-        array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
+        return $result;
     }
 
     public function start()
@@ -808,7 +686,7 @@ class phpspider
             if (!self::$save_running_state) 
             {
                 // 清空redis里面的数据
-                $this->clear_redis();
+                $this->cache_clear();
             }
         }
 
@@ -873,7 +751,7 @@ class phpspider
         // 最后:多任务下不保留运行状态，清空redis数据
         if (self::$tasknum > 1 && !self::$save_running_state) 
         {
-            $this->clear_redis();
+            $this->cache_clear();
         }
     }
 
@@ -1464,7 +1342,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-29 13:00
      */
-    public function clear_redis()
+    public function cache_clear()
     {
         // 删除队列
         cls_redis::del("collect_queue");
@@ -2181,6 +2059,128 @@ class phpspider
      */
     public function get_fields_css($html, $selector, $fieldname) 
     {
+    }
+
+    public function shell_clear()
+    {
+        array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
+    }
+
+    /**
+     * 展示启动界面，Windows 不会到这里来
+     * @return void
+     */
+    public function display_ui()
+    {
+        $loadavg = sys_getloadavg();
+        foreach ($loadavg as $k=>$v) 
+        {
+            $loadavg[$k] = round($v, 2);
+        }
+        $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
+        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/60) . " minutes   \n";
+        $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
+        $display_str .= "document: https://doc.phpspider.org\n";
+        $display_str .= "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
+
+        $display_str .= "\033[47;30mtaskid\033[0m". str_pad('', self::$taskid_length+2-strlen('taskid')). 
+        "\033[47;30mpid\033[0m". str_pad('', self::$pid_length+2-strlen('pid')). 
+        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length+2-strlen('collect succ')). 
+        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length+2-strlen('collect fail')). 
+        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+        "\n";
+
+        $display_str .= $this->display_process_ui();
+
+        $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
+
+        $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
+        "\033[47;30mcollected\033[0m". str_pad('', 14-strlen('collected')). 
+        "\033[47;30mremain\033[0m". str_pad('', 15-strlen('remain')). 
+        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
+        "\033[47;30mfields\033[0m". str_pad('', 12-strlen('fields')). 
+        "\n";
+
+        $collect   = $this->count_collect_url();
+        $collected = $this->count_collected_url();
+        $remain    = $collect - $collected;
+        $queue     = $this->queue_lsize();
+        $fields    = $this->get_fields_num();
+        $display_str .= str_pad($collect, 16);
+        $display_str .= str_pad($collected, 14);
+        $display_str .= str_pad($remain, 15);
+        $display_str .= str_pad($queue, 14);
+        $display_str .= str_pad($fields, 12);
+        $display_str .= "\n";
+
+        // 清屏
+        $this->shell_clear();
+        // 返回到第一行,第一列
+        //echo "\033[0;0H";
+        $display_str .= "---------------------------------------------------------------------\n";
+        $display_str .= "Press Ctrl-C to quit. Start success.\n";
+        echo $display_str;
+
+        //if(self::$daemonize)
+        //{
+            //global $argv;
+            //$start_file = $argv[0];
+            //echo "Input \"php $start_file stop\" to quit. Start success.\n";
+        //}
+        //else
+        //{
+            //echo "Press Ctrl-C to quit. Start success.\n";
+        //}
+    }
+
+    public function display_process_ui()
+    {
+        $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
+        $use_time = microtime(true) - self::$time_start; 
+        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
+        $task = array(
+            'id' => self::$taskid,
+            'pid' => self::$taskpid,
+            'mem' => $mem,
+            'collect_succ' => self::$collect_succ,
+            'collect_fail' => self::$collect_fail,
+            'speed' => $speed,
+            //'status' => true,
+        );
+        // "\033[32;40m [OK] \033[0m"
+        $display_str = str_pad($task['id'], self::$taskid_length+2).
+            str_pad($task['pid'], self::$pid_length+2).
+            str_pad($task['mem'], self::$mem_length+2). 
+            str_pad($task['collect_succ'], self::$urls_length+2). 
+            str_pad($task['collect_fail'], self::$urls_length+2). 
+            str_pad($task['speed'], self::$speed_length+2). 
+            "\n";
+
+        for ($i = 2; $i <= self::$tasknum; $i++) 
+        {
+            $json = util::get_file(PATH_DATA."/status/".$i);
+            if (empty($json)) 
+            {
+                continue;
+            }
+            $task = json_decode($json, true);
+            if (empty($task)) 
+            {
+                continue;
+            }
+            $display_str .= str_pad($task['id'], self::$taskid_length+2).
+                str_pad($task['pid'], self::$pid_length+2).
+                str_pad($task['mem'], self::$mem_length+2). 
+                str_pad($task['collect_succ'], self::$urls_length+2). 
+                str_pad($task['collect_fail'], self::$urls_length+2). 
+                str_pad($task['speed'], self::$speed_length+2). 
+                "\n";
+        }
+
+        //echo "\033[9;0H";
+        return $display_str;
     }
 
     public function parse_command()
