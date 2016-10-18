@@ -7,8 +7,8 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '糗事百科',
-    'log_show' => true,
-    'tasknum' => 4,
+    //'log_show' => true,
+    //'tasknum' => 4,
     //'save_running_state' => true,
     'domains' => array(
         'qiushibaike.com',
@@ -72,15 +72,6 @@ $configs = array(
 );
 
 $spider = new phpspider($configs);
-
-$spider->on_start = function($phpspider) 
-{
-    //$phpspider->add_header("Referer", "http://buluo.qq.com/p/index.html");
-    for ($i = 0; $i < 10; $i++) 
-    {
-        $phpspider->add_scan_url("http://www.qiushibaike.com/page.php?page=".$i);
-    }
-};
 
 $spider->on_handle_img = function($fieldname, $img) 
 {
