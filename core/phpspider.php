@@ -625,7 +625,7 @@ class phpspider
         }
 
         // 验证导出
-        $this->auth_export();
+        $this->export_auth();
 
         // 检查 scan_urls 
         if (empty(self::$configs['scan_urls'])) 
@@ -829,7 +829,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-02 23:37
      */
-    public function auth_export()
+    public function export_auth()
     {
         // 如果设置了导出选项
         if (!empty(self::$configs['export'])) 
