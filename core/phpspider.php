@@ -102,21 +102,6 @@ class phpspider
     public static $save_running_state = false;
 
     /**
-     * HTTP请求的Header 
-     */
-    public static $headers = array();
-
-    /**
-     * HTTP请求的Cookie 
-     */
-    public static $cookies = array();
-
-    /**
-     * HTTP请求的Cookie，匹配domain 
-     */
-    public static $domain_cookies = array();
-
-    /**
      * 试运行
      * 试运行状态下，程序持续三分钟或抓取到30条数据后停止
      */
@@ -328,103 +313,6 @@ class phpspider
         }
     }
 
-    public function add_useragent($useragent)
-    {
-        cls_curl::set_useragent($useragent);
-    }
-
-    /**
-     * 一般在 on_start 回调函数中调用，用来添加一些HTTP请求的Header
-     * 
-     * @param mixed $url
-     * @param mixed $options
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-18 10:17
-     */
-    public function add_header($key, $value)
-    {
-        self::$headers[$key] = $value;
-    }
-
-    /**
-     * 一般在 on_start 回调函数中调用，用来得到某个域名所附带的某个Cookie
-     * 
-     * @param mixed $name
-     * @param mixed $domain
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-18 10:17
-     */
-    public function get_cookie($name, $domain = '')
-    {
-        $cookies = empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
-        return isset($cookies[$name]) ? $cookies[$name] : '';
-    }
-    
-    public function get_cookies($domain = '')
-    {
-        return empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
-    }
-
-    /**
-     * 一般在on_start回调函数中调用，用来添加一些HTTP请求的Cookie
-     * 
-     * @param mixed $cookies
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-18 10:17
-     */
-    public function add_cookie($key, $value, $domain = '')
-    {
-        if (!empty($domain)) 
-        {
-            self::$domain_cookies[$domain][$key] = $value;
-        }
-        else 
-        {
-            self::$cookies[$key] = $value;
-        }
-    }
-
-    /**
-     * 一般在on_start回调函数中调用，用来添加一些HTTP请求的Cookie
-     * 
-     * @param mixed $cookies
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-18 10:17
-     */
-    public function add_cookies($cookies, $domain = '')
-    {
-        $cookies_arr = explode(";", $cookies);
-        foreach ($cookies_arr as $cookie) 
-        {
-            $cookie_arr = explode("=", $cookie);
-            $key = $value = "";
-            foreach ($cookie_arr as $k=>$v) 
-            {
-                if ($k == 0) 
-                {
-                    $key = trim($v);
-                }
-                else 
-                {
-                    $value .= trim(str_replace('"', '', $v));
-                }
-            }
-
-            if (!empty($domain)) 
-            {
-                self::$domain_cookies[$domain][$key] = $value;
-            }
-            else 
-            {
-                self::$cookies[$key] = $value;
-            }
-        }
-    }
-
     public function add_scan_url($url, $options = array())
     {
         if (!$this->is_scan_page($url))
@@ -439,7 +327,7 @@ class phpspider
             'url'          => $url,            
             'url_type'     => 'scan_page', 
             'method'       => isset($options['method'])       ? $options['method']       : 'get',             
-            'headers'      => isset($options['headers'])      ? $options['headers']      : self::$headers,    
+            'headers'      => isset($options['headers'])      ? $options['headers']      : array(),    
             'params'       => isset($options['params'])       ? $options['params']       : array(),           
             'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
@@ -468,7 +356,7 @@ class phpspider
             'url'          => $url,            
             'url_type'     => '', 
             'method'       => isset($options['method'])       ? $options['method']       : 'get',             
-            'headers'      => isset($options['headers'])      ? $options['headers']      : self::$headers,    
+            'headers'      => isset($options['headers'])      ? $options['headers']      : array(),    
             'params'       => isset($options['params'])       ? $options['params']       : array(),           
             'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
@@ -490,27 +378,6 @@ class phpspider
             $status = $this->queue_lpush($link);
         }
 
-        //if (!empty(self::$configs['attachment_url_regexes'])) 
-        //{
-            //foreach (self::$configs['attachment_url_regexes'] as $regex) 
-            //{
-                //if (preg_match("#{$regex}#i", $url) && !$this->is_collect_url($url))
-                //{
-                    //log::debug(date("H:i:s")." Found attachment file: {$url}");
-                    //$link['url_type'] = 'attachment_file';
-                    //$status = $this->queue_lpush($link);
-                //}
-            //}
-        //}
-
-        //if ($status) 
-        //{
-            //$msg = "Success process page {$url}\n";
-        //}
-        //else 
-        //{
-            //$msg = "URL not match content_url_regexes and list_url_regexes, {$url}\n";
-        //}
         return $status;
     }
 
@@ -696,7 +563,7 @@ class phpspider
                 'url'          => $url,                            // 要抓取的URL
                 'url_type'     => 'scan_page',                     // 要抓取的URL类型
                 'method'       => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                'headers'      => self::$headers,                  // 此url的Headers, 可以为空
+                'headers'      => array(),                         // 此url的Headers, 可以为空
                 'params'       => array(),                         // 发送请求时需添加的参数, 可以为空
                 'context_data' => '',                              // 此url附加的数据, 可以为空
                 'proxy'        => self::$configs['proxy'],         // 代理服务器
@@ -910,17 +777,6 @@ class phpspider
         // 爬取页面开始时间
         $page_time_start = microtime(true);
 
-        //if ($link['url_type'] == 'attachment_file') 
-        //{
-            //if ($this->on_attachment_file) 
-            //{
-                //$pathinfo = pathinfo($url);
-                //$filetype = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
-                //call_user_func($this->on_attachment_file, $url, $filetype, $this);
-            //}
-            //return true;
-        //}
-
         $html = $this->request_url($url, $link);
         if (!$html) 
         {
@@ -1040,21 +896,11 @@ class phpspider
     {
         //$url = "http://www.qiushibaike.com/article/117568316";
 
-        $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
-        if(!preg_match($pattern, $url))
-        {
-            log::error("You have requested URL ({$url}) is not a valid HTTP address");
-            exit;
-        }
-
-        $parse_url_arr = parse_url($url);
-        $domain = $parse_url_arr['host'];
-
         $link = array(
             'url'          => $url,
             'url_type'     => isset($options['url_type'])     ? $options['url_type']     : '',             
             'method'       => isset($options['method'])       ? $options['method']       : 'get',             
-            'headers'      => isset($options['headers'])      ? $options['headers']      : self::$headers,    
+            'headers'      => isset($options['headers'])      ? $options['headers']      : array(),    
             'params'       => isset($options['params'])       ? $options['params']       : array(),           
             'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
@@ -1062,109 +908,40 @@ class phpspider
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
         );
 
-        // 如果定义了获取附件回调函数，直接拦截了
-        //if ($this->on_attachment_file) 
-        //{
-            //$fileinfo = $this->is_attachment_file($url);
-            //// 如果不是html
-            //if (!empty($fileinfo)) 
-            //{
-                //log::debug("发现{$fileinfo['fileext']}文件：{$url}");
-                //call_user_func($this->on_attachment_file, $url, $fileinfo);
-                //return false;
-            //}
-        //}
-
-        cls_curl::set_timeout(self::$configs['timeout']);
-        cls_curl::set_useragent(self::$configs['user_agent']);
+        requests::set_timeout(self::$configs['timeout']);
+        requests::set_useragent(self::$configs['user_agent']);
         
-        // 全局Cookie + 域名下的Cookie
-        $cookies = self::$cookies;
-        if (isset(self::$domain_cookies[$domain]) && is_array(self::$domain_cookies[$domain])) 
-        {
-            // 键名为字符时，＋把最先出现的值作为最终结果返回，array_merge()则会覆盖掉前面相同键名的值
-            $cookies =  array_merge($cookies, self::$domain_cookies[$domain]);
-        }
-
-        // 是否设置了cookie
-        if (!empty($cookies)) 
-        {
-            foreach ($cookies as $key=>$value) 
-            {
-                $cookie_arr[] = $key."=".$value;
-            }
-            $cookies = implode("; ", $cookie_arr);
-            cls_curl::set_cookie($cookies);
-        }
-
         // 是否设置了代理
         if (!empty($link['proxy'])) 
         {
-            cls_curl::set_proxy($link['proxy']);
+            requests::set_proxy($link['proxy']);
             // 自动切换IP
-            cls_curl::set_headers(array('Proxy-Switch-Ip: yes'));
+            requests::set_header('Proxy-Switch-Ip', 'yes');
         }
 
         // 如何设置了 HTTP Headers
         if (!empty($link['headers'])) 
         {
-            cls_curl::set_headers($link['headers']);
+            foreach ($link['headers'] as $k=>$v) 
+            {
+                requests::set_header($k, $v);
+            }
         }
-
-        // 不能通过 curl_setopt($ch, CURLOPT_NOBODY, 1) 只获取HTTP Header
-        // 因为POST数据会失效
-        // 即想POST过去，返回的http又只想取header部分是不行的
-        cls_curl::set_http_raw(true);
 
         // 如果设置了附加的数据，如json和xml，就直接发附加的数据,php端可以用 file_get_contents("php://input"); 获取
         $params = empty($link['context_data']) ? $link['params'] : $link['context_data'];
         $method = strtolower($link['method']);
-        $html = cls_curl::$method($url, $params);
+        $html = requests::$method($url, $params);
         //var_dump($html);exit;
 
-        // 对于登录成功后302跳转的，Cookie实际上存在body而不在header，header只有一句：HTTP/1.1 100 Continue
-        // 为了兼容301和301这些乱七八糟的，还是header+body一起匹配吧
-        // 解析Cookie并存入 self::$cookies 方便调用
-        preg_match_all("/.*?Set\-Cookie: ([^\r\n]*)/i", $html, $matches);
-        $cookies = empty($matches[1]) ? array() : $matches[1];
-
-        // 解析到Cookie
-        if (!empty($cookies)) 
-        {
-            $cookies = implode(";", $cookies);
-            $cookies = explode(";", $cookies);
-            foreach ($cookies as $cookie) 
-            {
-                $cookie_arr = explode("=", $cookie);
-                // 过滤 httponly、secure
-                if (count($cookie_arr) < 2) 
-                {
-                    continue;
-                }
-                $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
-                if (empty($cookie_name)) 
-                {
-                    continue;
-                }
-                // 过滤掉domain路径
-                if (in_array(strtolower($cookie_name), array('path', 'domain', 'expires', 'max-age'))) 
-                {
-                    continue;
-                }
-                // 从URL得到的Cookie不要放入全局，放到对应的域名下即可
-                //self::$cookies[trim($cookie_arr[0])] = trim($cookie_arr[1]);
-                self::$domain_cookies[$domain][trim($cookie_arr[0])] = trim($cookie_arr[1]);
-            }
-        }
-
-        $http_code = cls_curl::get_http_code();
+        $http_code = requests::$status_code;
 
         if ($http_code != 200)
         {
             // 如果是301、302跳转，抓取跳转后的网页内容
             if ($http_code == 301 || $http_code == 302) 
             {
-                $info = cls_curl::get_info();
+                $info = requests::$info;
                 $url = $info['redirect_url'];
                 $html = $this->request_url($url, $options);
             }
@@ -1208,21 +985,6 @@ class phpspider
 
         self::$collect_succ++;
 
-        // 解析HTTP数据流
-        if (!empty($html)) 
-        {
-            // body里面可能有 \r\n\r\n，但是第一个一定是HTTP Header，去掉后剩下的就是body
-            $html_arr = explode("\r\n\r\n", $html);
-            foreach ($html_arr as $k=>$html) 
-            {
-                // post 方法会有两个http header：HTTP/1.1 100 Continue、HTTP/1.1 200 OK
-                if (preg_match("#^HTTP/.*? 100 Continue#", $html) || preg_match("#^HTTP/.*? 200 OK#", $html)) 
-                {
-                    unset($html_arr[$k]);
-                }
-            }
-            $html = implode("\r\n\r\n", $html_arr);
-        }
         return $html;
     }
 

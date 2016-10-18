@@ -7,6 +7,7 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '糗事百科',
+    'log_show' => true,
     'tasknum' => 5,
     'save_running_state' => true,
     'domains' => array(
@@ -62,6 +63,12 @@ $configs = array(
 );
 
 $spider = new phpspider($configs);
+
+$spider->on_start = function($phpspider) 
+{
+    //requests::add_header("Referer", "http://buluo.qq.com/p/index.html");
+    requests::add_cookie("name", "yangzetao");
+};
 
 $spider->on_handle_img = function($fieldname, $img) 
 {

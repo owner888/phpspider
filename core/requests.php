@@ -17,16 +17,22 @@ class requests
 
     protected static $ch = null;
     protected static $timeout = 10;
-    protected static $headers = array();
-    protected static $proxies = array();
+    //protected static $request = array(
+        //'headers' => array()
+    //);
     protected static $cookies = array();
+    protected static $domain_cookies = array();
     protected static $hosts = array();
+    public static $headers = array();
+    public static $proxies = array();
     public static $url = null;
-    public static $text = null;
+    public static $domain = null;
     public static $raw = null;
+    public static $content = null;
     public static $encoding = 'utf-8';
     public static $info = array();
     public static $status_code = 0;
+    public static $error = null;
 
     /**
      * set timeout
@@ -73,7 +79,7 @@ class requests
      * @param string $cookie
      * @return void
      */
-    public function add_cookie($key, $value, $domain = '')
+    public static function add_cookie($key, $value, $domain = '')
     {
         if (empty($key) || empty($value)) 
         {
@@ -81,7 +87,7 @@ class requests
         }
         if (!empty($domain)) 
         {
-            self::$cookies[$domain][$key] = $value;
+            self::$domain_cookies[$domain][$key] = $value;
         }
         else 
         {
@@ -90,13 +96,14 @@ class requests
         return true;
     }
 
-    public function add_cookies($cookies, $domain = '')
+    public static function add_cookies($cookies, $domain = '')
     {
         $cookies_arr = explode(";", $cookies);
-        if (empty($cookie_arr)) 
+        if (empty($cookies_arr)) 
         {
             return false;
         }
+
         foreach ($cookies_arr as $cookie) 
         {
             $cookie_arr = explode("=", $cookie);
@@ -115,7 +122,7 @@ class requests
 
             if (!empty($domain)) 
             {
-                self::$cookies[$domain][$key] = $value;
+                self::$domain_cookies[$domain][$key] = $value;
             }
             else 
             {
@@ -125,23 +132,23 @@ class requests
         return true;
     }
 
-    public function get_cookie($name, $domain = '')
+    public static function get_cookie($name, $domain = '')
     {
-        if (!empty($domain) && !isset(self::$cookies[$domain])) 
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) 
         {
-            return false;
+            return '';
         }
-        $cookies = empty($domain) ? self::$cookies : self::$cookies[$domain];
+        $cookies = empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
         return isset($cookies[$name]) ? $cookies[$name] : '';
     }
     
-    public function get_cookies($domain = '')
+    public static function get_cookies($domain = '')
     {
-        if (!empty($domain) && !isset(self::$cookies[$domain])) 
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) 
         {
-            return false;
+            return array();
         }
-        return empty($domain) ? self::$cookies : self::$cookies[$domain];
+        return empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
     }
 
     /**
@@ -187,6 +194,101 @@ class requests
         self::$hosts = $hosts;
     }
 
+    public static function get_response_body($domain)
+    {
+        $headers = array();
+        $body = '';
+        // 解析HTTP数据流
+        if (!empty(self::$raw)) 
+        {
+            self::get_response_cookies($domain);
+            // body里面可能有 \r\n\r\n，但是第一个一定是HTTP Header，去掉后剩下的就是body
+            $array = explode("\r\n\r\n", self::$raw);
+            foreach ($array as $k=>$v) 
+            {
+                // post 方法会有两个http header：HTTP/1.1 100 Continue、HTTP/1.1 200 OK
+                if (preg_match("#^HTTP/.*? 100 Continue#", $v)) 
+                {
+                    unset($array[$k]);
+                }
+                elseif (preg_match("#^HTTP/.*? 200 OK#", $v)) 
+                {
+                    unset($array[$k]);
+                    self::get_response_headers($v);
+                }
+            }
+            $body = implode("\r\n\r\n", $array);
+        }
+
+        return $body;
+    }
+
+    public static function get_response_cookies($domain)
+    {
+        // 解析Cookie并存入 self::$cookies 方便调用
+        preg_match_all("/.*?Set\-Cookie: ([^\r\n]*)/i", self::$raw, $matches);
+        $cookies = empty($matches[1]) ? array() : $matches[1];
+
+        // 解析到Cookie
+        if (!empty($cookies)) 
+        {
+            $cookies = implode(";", $cookies);
+            $cookies = explode(";", $cookies);
+            foreach ($cookies as $cookie) 
+            {
+                $cookie_arr = explode("=", $cookie);
+                // 过滤 httponly、secure
+                if (count($cookie_arr) < 2) 
+                {
+                    continue;
+                }
+                $cookie_name = !empty($cookie_arr[0]) ? trim($cookie_arr[0]) : '';
+                if (empty($cookie_name)) 
+                {
+                    continue;
+                }
+                // 过滤掉domain路径
+                if (in_array(strtolower($cookie_name), array('path', 'domain', 'expires', 'max-age'))) 
+                {
+                    continue;
+                }
+                self::$domain_cookies[$domain][trim($cookie_arr[0])] = trim($cookie_arr[1]);
+            }
+        }
+    }
+
+    public static function get_response_headers($html)
+    {
+        $header_lines = explode("\n", $html);
+        if (!empty($header_lines)) 
+        {
+            foreach ($header_lines as $line) 
+            {
+                $header_arr = explode(":", $line);
+                $key = empty($header_arr[0]) ? '' : trim($header_arr[0]);
+                $val = empty($header_arr[1]) ? '' : trim($header_arr[1]);
+                if (empty($key) || empty($val)) 
+                {
+                    continue;
+                }
+                if (strtolower($key) == 'content-type') 
+                {
+                    self::get_response_encoding($val);
+                }
+                $headers[$key] = $val;
+            }
+        }
+    }
+
+    public static function get_response_encoding($html)
+    {
+        $charset_arr = explode('charset=', $html);
+        if (!empty($charset_arr[1])) 
+        {
+            self::$encoding = strtolower(trim($charset_arr[1]));
+        }
+    }
+
     /**
      * 初始化 CURL
      *
@@ -215,7 +317,7 @@ class requests
     public static function get($url, $fields = array())
     {
         self::init ();
-        return self::http_request($url, 'get', $fields);
+        return self::http_client($url, 'get', $fields);
     }
 
     /**
@@ -234,7 +336,7 @@ class requests
     public static function post($url, $fields = array())
     {
         self::init ();
-        return self::http_request($url, 'post', $fields);
+        return self::http_client($url, 'post', $fields);
     }
 
     public static function put($url, $fields = array())
@@ -253,19 +355,29 @@ class requests
     {
     }
 
-    public static function http_request($url, $type = 'get', $fields)
+    public static function http_client($url, $type = 'get', $fields)
     {
+        $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
+        if(!preg_match($pattern, $url))
+        {
+            self::$error = "You have requested URL ({$url}) is not a valid HTTP address";
+            return false;
+        }
+
         // 如果是 get 方式，直接拼凑一个 url 出来
         if (strtolower($type) == 'get' && !empty($fields)) 
         {
-            self::$url = $url . (strpos($url,"?")===false ? "?" : "&") . http_build_query($fields);
+            $url = $url . (strpos($url,"?")===false ? "?" : "&") . http_build_query($fields);
         }
+
         $parse_url = parse_url($url);
-        if (empty($parse_url) || !in_array($parse_url['scheme'], array('http', 'https'))) 
+        if (empty($parse_url) || empty($parse_url['host']) || !in_array($parse_url['scheme'], array('http', 'https'))) 
         {
-            exit("No connection adapters were found for '{$url}'\n");
+            self::$error = "No connection adapters were found for '{$url}'";
+            return false;
         }
         $scheme = $parse_url['scheme'];
+        $domain = $parse_url['host'];
 
         // 随机绑定 hosts，做负载均衡
         //if (self::$hosts) 
@@ -277,7 +389,8 @@ class requests
             //self::$headers['Host'] = $host;
         //}
 
-        curl_setopt( self::$ch, CURLOPT_URL, self::$url );
+        curl_setopt( self::$ch, CURLOPT_URL, $url );
+        //curl_setopt( self::$ch, CURLOPT_REFERER, "http://www.baidu.com" );
 
         // 如果是 post 方式
         if (strtolower($type) == 'post')
@@ -285,13 +398,30 @@ class requests
             curl_setopt( self::$ch, CURLOPT_POST, true );
             curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
         }
-        if (self::$cookies)
+
+        $cookies = self::get_cookies();
+        $domain_cookies = self::get_cookies($domain);
+        $cookies =  array_merge($cookies, $domain_cookies);
+
+        // 是否设置了cookie
+        if (!empty($cookies)) 
         {
-            curl_setopt( self::$ch, CURLOPT_COOKIE, self::$cookies );
+            foreach ($cookies as $key=>$value) 
+            {
+                $cookie_arr[] = $key."=".$value;
+            }
+            $cookies = implode("; ", $cookie_arr);
+            curl_setopt( self::$ch, CURLOPT_COOKIE, $cookies );
         }
+
         if (self::$headers)
         {
-            curl_setopt( self::$ch, CURLOPT_HTTPHEADER, self::$headers );
+            $headers = array();
+            foreach (self::$headers as $k=>$v) 
+            {
+                $headers[] = $k.": ".$v;
+            }
+            curl_setopt( self::$ch, CURLOPT_HTTPHEADER, $headers );
         }
 
         //curl_setopt( self::$ch, CURLOPT_ENCODING, 'gzip' );
@@ -304,23 +434,29 @@ class requests
             }
         }
 
-        // 为了取cookie
+        //curl_setopt( self::$ch, CURLOPT_USERAGENT, "fsfsf" );
+
+        // header + body，header 里面有 cookie
         curl_setopt( self::$ch, CURLOPT_HEADER, true );
 
-        $data = curl_exec ( self::$ch );
+        self::$raw = curl_exec ( self::$ch );
         //var_dump($data);
-        self::$info = curl_getinfo(self::$ch);
+        self::$info = curl_getinfo( self::$ch );
         self::$status_code = self::$info['http_code'];
-        if ($data === false)
+        if (self::$raw === false)
         {
-            //echo date("Y-m-d H:i:s"), ' Curl error: ' . curl_error( self::$ch ), "\n";
+            self::$error = ' Curl error: ' . curl_error( self::$ch );
         }
 
         // 关闭句柄
         curl_close( self::$ch );
+
+        // 请求成功之后才把URL存起来
+        self::$url = $url;
+        self::$content = self::get_response_body($domain);
         //$data = substr($data, 10);
         //$data = gzinflate($data);
-        return $data;
+        return self::$content;
     }
 
 }
