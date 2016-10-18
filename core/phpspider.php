@@ -611,14 +611,14 @@ class phpspider
         }
 
         // 保存运行状态需要Redis支持
-        if (self::$save_running_state && !cls_redis::check()) 
+        if (self::$save_running_state && !cls_redis::init()) 
         {
             log::error("Save the running state need Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
             exit;
         }
 
         // 多任务需要Redis支持
-        if(self::$tasknum > 1 && !cls_redis::check())
+        if(self::$tasknum > 1 && !cls_redis::init())
         {
             log::error("Multitasking need Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
             exit;
