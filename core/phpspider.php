@@ -334,7 +334,7 @@ class phpspider
             'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
         );
-        log::debug(date("H:i:s")." Found scan page: {$url}");
+        log::debug(date("H:i:s")." Find scan page: {$url}");
         $status = $this->queue_lpush($link);
     }
 
@@ -366,14 +366,14 @@ class phpspider
 
         if ($this->is_list_page($url) && !$this->is_collect_url($url))
         {
-            log::debug(date("H:i:s")." Found list page: {$url}");
+            log::debug(date("H:i:s")." Find list page: {$url}");
             $link['url_type'] = 'list_page';
             $status = $this->queue_lpush($link);
         }
 
         if ($this->is_content_page($url) && !$this->is_collect_url($url))
         {
-            log::debug(date("H:i:s")." Found content page: {$url}");
+            log::debug(date("H:i:s")." Find content page: {$url}");
             $link['url_type'] = 'content_page';
             $status = $this->queue_lpush($link);
         }
@@ -1620,7 +1620,7 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
-                        log::info(date("H:i:s")." Found content page: {$url}");
+                        log::info(date("H:i:s")." Find content page: {$url}");
                         $html = $this->request_url($collect_url);
                         // 请求获取完分页数据后把连接删除了 
                         unset($fields[$conf['attached_url']]);
