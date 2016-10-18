@@ -30,6 +30,7 @@ class requests
     public static $raw = null;
     public static $content = null;
     public static $encoding = 'utf-8';
+    public static $response_encoding = 'utf-8';
     public static $info = array();
     public static $status_code = 0;
     public static $error = null;
@@ -210,8 +211,9 @@ class requests
                 if (preg_match("#^HTTP/.*? 100 Continue#", $v)) 
                 {
                     unset($array[$k]);
+                    continue;
                 }
-                elseif (preg_match("#^HTTP/.*? 200 OK#", $v)) 
+                if (preg_match("#^HTTP/.*? \d+ #", $v)) 
                 {
                     unset($array[$k]);
                     self::get_response_headers($v);
@@ -220,6 +222,11 @@ class requests
             $body = implode("\r\n\r\n", $array);
         }
 
+        // 如果编码不同，转码
+        if (self::$response_encoding != self::$encoding) 
+        {
+            //$body = mb_convert_encoding($body, self::$encoding, self::$response_encoding);
+        }
         return $body;
     }
 
@@ -285,7 +292,7 @@ class requests
         $charset_arr = explode('charset=', $html);
         if (!empty($charset_arr[1])) 
         {
-            self::$encoding = strtolower(trim($charset_arr[1]));
+            self::$response_encoding = strtolower(trim($charset_arr[1]));
         }
     }
 
