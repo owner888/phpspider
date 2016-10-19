@@ -807,6 +807,7 @@ class phpspider
                 'max_try'      => $link['max_try'],
             ),
         );
+        unset($html);
 
         // 在一个网页下载完成之后调用. 主要用来对下载的网页进行处理.
         if ($this->on_download_page) 
@@ -861,14 +862,14 @@ class phpspider
         if ($is_find_url) 
         {
             // 分析提取HTML页面中的URL
-            $this->get_html_urls($html, $url);
+            $this->get_html_urls($page['raw'], $url);
         }
 
         // 如果是内容页，分析提取HTML页面中的字段
         // 列表页也可以提取数据的，source_type: urlcontext，未实现
         if ($link['url_type'] == 'content_page') 
         {
-            $this->get_html_fields($html, $url, $page);
+            $this->get_html_fields($page['raw'], $url, $page);
         }
 
         // 爬虫爬取每个网页的时间间隔，单位：秒
