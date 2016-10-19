@@ -29,8 +29,8 @@ class requests
     public static $domain = null;
     public static $raw = null;
     public static $content = null;
-    public static $encoding = 'utf-8';
-    public static $response_encoding = 'utf-8';
+    public static $input_encoding = null;
+    public static $output_encoding = null;
     public static $info = array();
     public static $status_code = 0;
     public static $error = null;
@@ -197,8 +197,7 @@ class requests
 
     public static function get_response_body($domain)
     {
-        $headers = array();
-        $body = '';
+        $header = $body = '';
         // 解析HTTP数据流
         if (!empty(self::$raw)) 
         {
@@ -215,6 +214,7 @@ class requests
                 }
                 if (preg_match("#^HTTP/.*? \d+ #", $v)) 
                 {
+                    $header = $v;
                     unset($array[$k]);
                     self::get_response_headers($v);
                 }
@@ -222,10 +222,33 @@ class requests
             $body = implode("\r\n\r\n", $array);
         }
 
-        // 如果编码不同，转码
-        if (self::$response_encoding != self::$encoding) 
+        // 如果用户没有明确指定输入的页面编码格式(utf-8, gb2312)，通过程序去判断
+        if(self::$input_encoding == null)
         {
-            //$body = mb_convert_encoding($body, self::$encoding, self::$response_encoding);
+            // 从头部获取
+            preg_match("/;\s*charset=(.*?)/iU", $header, $out);
+            $encode = empty($out[1]) ? '' : str_replace(array('"', '\''), '', trim($out[1]));
+            if (empty($encode)) 
+            {
+                // 在某些情况下,无法再 response header 中获取 html 的编码格式
+                // 则需要根据 html 的文本格式获取
+                $encode = mb_detect_encoding($body);
+                $encode = strtolower($encode);
+                if($encode == false || $encode == "ascii")
+                {
+                    $encode = 'gbk';
+                }
+            }
+            self::$input_encoding = $encode;
+        }
+
+        // 如果不是utf-8编码，转码成utf-8，因为xpath只支持utf-8
+        if (self::$input_encoding != 'utf-8') 
+        {
+            //先将非utf8编码,转化为utf8编码
+            $body = mb_convert_encoding($body, 'utf-8', self::$input_encoding);
+            //将页面中的指定的编码方式修改为utf8
+            $body = preg_replace("/;\s*charset=(.*?)/iU", '; charset="UTF-8"', $body);
         }
         return $body;
     }
@@ -278,21 +301,8 @@ class requests
                 {
                     continue;
                 }
-                if (strtolower($key) == 'content-type') 
-                {
-                    self::get_response_encoding($val);
-                }
                 $headers[$key] = $val;
             }
-        }
-    }
-
-    public static function get_response_encoding($html)
-    {
-        $charset_arr = explode('charset=', $html);
-        if (!empty($charset_arr[1])) 
-        {
-            self::$response_encoding = strtolower(trim($charset_arr[1]));
         }
     }
 
