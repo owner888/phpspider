@@ -242,11 +242,11 @@ class requests
             self::$input_encoding = $encode;
         }
 
-        // 如果不是utf-8编码，转码成utf-8，因为xpath只支持utf-8
-        if (self::$input_encoding != 'utf-8') 
+        // 设置了输出编码的转码，注意: xpath只支持utf-8
+        if (self::$output_encoding && self::$input_encoding != self::$output_encoding) 
         {
             // 先将非utf8编码,转化为utf8编码
-            $body = mb_convert_encoding($body, 'utf-8', self::$input_encoding);
+            $body = mb_convert_encoding($body, self::$output_encoding, self::$input_encoding);
             // 将页面中的指定的编码方式修改为utf8
             //$body = preg_replace("/;\s*charset=(.*?)/iU", '; charset="UTF-8"', $body);
             // 直接干掉头部吧，省得麻烦

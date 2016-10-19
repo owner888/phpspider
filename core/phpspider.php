@@ -909,6 +909,13 @@ class phpspider
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
         );
 
+        // 设置了编码就不要让requests去判断了
+        if (isset(self::$configs['input_encoding'])) 
+        {
+            requests::$input_encoding = self::$configs['input_encoding'];
+        }
+        // 得到的编码如果不是utf-8的要转成utf-8，因为xpath只支持utf-8
+        requests::$output_encoding = 'utf-8';
         requests::set_timeout(self::$configs['timeout']);
         requests::set_useragent(self::$configs['user_agent']);
         
@@ -1559,7 +1566,12 @@ class phpspider
             if (isset($fields) && is_array($fields)) 
             {
                 $fields_num = $this->incr_fields_num();
-                log::info(date("H:i:s")." Result[{$fields_num}]: ".json_encode($fields, JSON_UNESCAPED_UNICODE)."\n");
+                $fields_str = json_encode($fields, JSON_UNESCAPED_UNICODE);
+                if (isset(self::$configs['show_encoding']) && strtolower(self::$configs['show_encoding']) != 'utf-8') 
+                {
+                    $fields_str = mb_convert_encoding($fields_str, self::$configs['show_encoding'], 'utf-8');
+                }
+                log::info(date("H:i:s")." Result[{$fields_num}]: ".$fields_str."\n");
 
                 // 如果设置了导出选项
                 if (!empty(self::$configs['export'])) 
@@ -1717,6 +1729,19 @@ class phpspider
         }
 
         return $fields;
+    }
+
+    /**
+     * 转换数组值的编码格式
+     * @param  array $arr           
+     * @param  string $toEncoding   
+     * @param  string $fromEncoding 
+     * @return array                
+     */
+    private function _array_convert_encoding($arr, $to_encoding, $from_encoding)
+    {
+        eval('$arr = '.iconv($from_encoding, $to_encoding.'//IGNORE', var_export($arr,TRUE)).';');
+        return $arr;
     }
 
     /**
