@@ -922,7 +922,7 @@ class phpspider
         // 是否设置了代理
         if (!empty($link['proxy'])) 
         {
-            requests::set_proxy($link['proxy']);
+            requests::set_proxies(array('http'=>$link['proxy']));
             // 自动切换IP
             requests::set_header('Proxy-Switch-Ip', 'yes');
         }
