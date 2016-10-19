@@ -343,27 +343,36 @@ class requests
     public static function post($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'post', $fields);
+        return self::http_client($url, 'POST', $fields);
     }
 
     public static function put($url, $fields = array())
     {
+        self::init ();
+        return self::http_client($url, 'PUT', $fields);
     }
 
     public static function delete($url, $fields = array())
     {
+        self::init ();
+        return self::http_client($url, 'DELETE', $fields);
     }
 
     public static function head($url, $fields = array())
     {
+        self::init ();
+        return self::http_client($url, 'HEAD', $fields);
     }
 
     public static function options($url, $fields = array())
     {
+        self::init ();
+        return self::http_client($url, 'OPTIONS', $fields);
     }
 
-    public static function http_client($url, $type = 'get', $fields)
+    public static function http_client($url, $method = 'GET', $fields)
     {
+        $method = strtoupper($method);
         $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
         if(!preg_match($pattern, $url))
         {
@@ -372,7 +381,7 @@ class requests
         }
 
         // 如果是 get 方式，直接拼凑一个 url 出来
-        if (strtolower($type) == 'get' && !empty($fields)) 
+        if ($method == 'GET' && !empty($fields)) 
         {
             $url = $url . (strpos($url,"?")===false ? "?" : "&") . http_build_query($fields);
         }
@@ -399,10 +408,18 @@ class requests
         curl_setopt( self::$ch, CURLOPT_URL, $url );
         //curl_setopt( self::$ch, CURLOPT_REFERER, "http://www.baidu.com" );
 
-        // 如果是 post 方式
-        if (strtolower($type) == 'post')
+        if ($method != 'GET')
         {
-            curl_setopt( self::$ch, CURLOPT_POST, true );
+            // 如果是 post 方式
+            if ($method == 'POST')
+            {
+                curl_setopt( self::$ch, CURLOPT_POST, true );
+            }
+            else
+            {
+                self::$headers['X-HTTP-Method-Override'] = $method;
+                curl_setopt( self::$ch, CURLOPT_CUSTOMREQUEST, $method ); 
+            }
             curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
         }
 
