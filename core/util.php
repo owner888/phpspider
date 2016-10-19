@@ -65,9 +65,9 @@ class util
             }
             $hours = intval($seconds/3600);
             $minutes = $seconds%3600;//取余下秒数
-            $time = $days_num.$hours."hour".gmstrftime('%Mminutes%Sseconds', $minutes);
+            $time = $days_num.$hours."hour ".gmstrftime('%M minutes %S seconds', $minutes);
         }else{
-            $time = gmstrftime('%Hhour%Mminutes%Sseconds', $seconds);
+            $time = gmstrftime('%H hour %M minutes %S seconds', $seconds);
         }
         return $time;
     }
