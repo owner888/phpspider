@@ -60,12 +60,12 @@ class util
             if( $seconds > 24*3600 )
             {
                 $days	  = (int)($seconds/86400);
-                $days_num = $days."day";
+                $days_num = $days." day";
                 $seconds  = $seconds%86400;//取余
             }
             $hours = intval($seconds/3600);
             $minutes = $seconds%3600;//取余下秒数
-            $time = $days_num.$hours."hour ".gmstrftime('%M minutes %S seconds', $minutes);
+            $time = $days_num.$hours." hour ".gmstrftime('%M minutes %S seconds', $minutes);
         }else{
             $time = gmstrftime('%H hour %M minutes %S seconds', $seconds);
         }
