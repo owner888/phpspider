@@ -1567,9 +1567,13 @@ class phpspider
             {
                 $fields_num = $this->incr_fields_num();
                 $fields_str = json_encode($fields, JSON_UNESCAPED_UNICODE);
-                if (isset(self::$configs['show_encoding']) && strtolower(self::$configs['show_encoding']) != 'utf-8') 
+                //if (isset(self::$configs['show_encoding']) && strtolower(self::$configs['show_encoding']) != 'utf-8') 
+                //{
+                    //$fields_str = mb_convert_encoding($fields_str, self::$configs['show_encoding'], 'utf-8');
+                //}
+                if (util::is_win()) 
                 {
-                    $fields_str = mb_convert_encoding($fields_str, self::$configs['show_encoding'], 'utf-8');
+                    $fields_str = mb_convert_encoding($fields_str, 'gb2312', 'utf-8');
                 }
                 log::info(date("H:i:s")." Result[{$fields_num}]: ".$fields_str."\n");
 
