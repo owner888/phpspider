@@ -227,12 +227,12 @@ class requests
         {
             // 从头部获取
             preg_match("/;\s*charset=(.*?)/iU", $header, $out);
-            $encode = empty($out[1]) ? '' : str_replace(array('"', '\''), '', trim($out[1]));
+            $encode = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
             if (empty($encode)) 
             {
                 // 在某些情况下,无法再 response header 中获取 html 的编码格式
                 // 则需要根据 html 的文本格式获取
-                $encode = mb_detect_encoding($body);
+                $encode = self::_get_encode($body);
                 $encode = strtolower($encode);
                 if($encode == false || $encode == "ascii")
                 {
@@ -245,10 +245,12 @@ class requests
         // 如果不是utf-8编码，转码成utf-8，因为xpath只支持utf-8
         if (self::$input_encoding != 'utf-8') 
         {
-            //先将非utf8编码,转化为utf8编码
+            // 先将非utf8编码,转化为utf8编码
             $body = mb_convert_encoding($body, 'utf-8', self::$input_encoding);
-            //将页面中的指定的编码方式修改为utf8
-            $body = preg_replace("/;\s*charset=(.*?)/iU", '; charset="UTF-8"', $body);
+            // 将页面中的指定的编码方式修改为utf8
+            //$body = preg_replace("/;\s*charset=(.*?)/iU", '; charset="UTF-8"', $body);
+            // 直接干掉头部吧，省得麻烦
+            $body = self::_remove_head($body);
         }
         return $body;
     }
@@ -304,6 +306,43 @@ class requests
                 $headers[$key] = $val;
             }
         }
+    }
+
+
+    /**
+     * 获取文件编码
+     * @param $string
+     * @return string
+     */
+    private static function _get_encode($string)
+    {
+        return mb_detect_encoding($string, array('ASCII', 'GB2312', 'GBK', 'UTF-8'));
+    }
+
+    /**
+     * 移除页面head区域代码
+     * @param $html
+     * @return mixed
+     */
+    private static function _remove_head($html)
+    {
+        return preg_replace('/<head.+?>.+<\/head>/is', '<head></head>', $html);
+    }
+    
+    /**
+     * 简单的判断一下参数是否为一个URL链接
+     * @param  string  $str 
+     * @return boolean      
+     */
+    private static function _is_url($url)
+    {
+        //$pattern = '/^http(s)?:\\/\\/.+/';
+        $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
+        if (preg_match($pattern, $url)) 
+        {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -383,8 +422,7 @@ class requests
     public static function http_client($url, $method = 'GET', $fields)
     {
         $method = strtoupper($method);
-        $pattern = "/\b(([\w-]+:\/\/?|www[.])[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/)))/";
-        if(!preg_match($pattern, $url))
+        if(!self::_is_url($url))
         {
             self::$error = "You have requested URL ({$url}) is not a valid HTTP address";
             return false;
