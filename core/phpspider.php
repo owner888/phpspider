@@ -206,6 +206,14 @@ class phpspider
     public $on_download_page = null;
 
     /**
+     * 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理 
+     * 
+     * @var mixed
+     * @access public
+     */
+    public $on_attached_download_page = null;
+
+    /**
      * URL属于入口页 
      * 在爬取到入口url的内容之后, 添加新的url到待爬队列之前调用 
      * 主要用来发现新的待爬url, 并且能给新发现的url附加数据
@@ -1015,58 +1023,58 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function is_attachment_file($url)
-    {
-        $mime_types = $GLOBALS['config']['mimetype'];
-        $mime_types_flip = array_flip($mime_types);
+    //public function is_attachment_file($url)
+    //{
+        //$mime_types = $GLOBALS['config']['mimetype'];
+        //$mime_types_flip = array_flip($mime_types);
 
-        $pathinfo = pathinfo($url);
-        $fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
+        //$pathinfo = pathinfo($url);
+        //$fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
 
-        $fileinfo = array();
-        // 存在文件后缀并且是配置里面的后缀
-        if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
-        {
-            stream_context_set_default(
-                array(
-                    'http' => array(
-                        'method' => 'HEAD'
-                    )
-                )
-            );
-            // 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
-            $headers = get_headers($url, 1);
-            if (strpos($headers[0], '302')) 
-            {
-                $url = $headers['Location'];
-                $headers = get_headers($url, 1);
-            }
-            //print_r($headers);
-            $fileinfo = array(
-                'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
-                'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
-                'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
-                'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
-                'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
-                'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
-            );
+        //$fileinfo = array();
+        //// 存在文件后缀并且是配置里面的后缀
+        //if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
+        //{
+            //stream_context_set_default(
+                //array(
+                    //'http' => array(
+                        //'method' => 'HEAD'
+                    //)
+                //)
+            //);
+            //// 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
+            //$headers = get_headers($url, 1);
+            //if (strpos($headers[0], '302')) 
+            //{
+                //$url = $headers['Location'];
+                //$headers = get_headers($url, 1);
+            //}
+            ////print_r($headers);
+            //$fileinfo = array(
+                //'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
+                //'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
+                //'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
+                //'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
+                //'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
+                //'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
+            //);
 
-            $mime_type = 'html';
-            $content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
-            if (!empty($content_type)) 
-            {
-                $mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
-            }
-            $mime_types_flip = array_flip($mime_types);
-            // 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
-            if (!isset($mime_types_flip[$fileinfo['fileext']]))
-            {
-                $fileinfo['fileext'] = $mime_type;
-                $fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
-            }
-        }
-        return $fileinfo;
-    }
+            //$mime_type = 'html';
+            //$content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
+            //if (!empty($content_type)) 
+            //{
+                //$mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
+            //}
+            //$mime_types_flip = array_flip($mime_types);
+            //// 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
+            //if (!isset($mime_types_flip[$fileinfo['fileext']]))
+            //{
+                //$fileinfo['fileext'] = $mime_type;
+                //$fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
+            //}
+        //}
+        //return $fileinfo;
+    //}
 
     /**
      * 分析提取HTML页面中的URL
@@ -1649,8 +1657,18 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
-                        log::info(date("H:i:s")." Find content page: {$url}");
+                        log::info(date("H:i:s")." Find attached content page: {$url}");
                         $html = $this->request_url($collect_url);
+                        // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
+                        if ($this->on_attached_download_page) 
+                        {
+                            $return = call_user_func($this->on_attached_download_page, $html, $this);
+                            if (isset($return)) 
+                            {
+                                $html = $return;
+                            }
+                        }
+
                         // 请求获取完分页数据后把连接删除了 
                         unset($fields[$conf['attached_url']]);
                     }
