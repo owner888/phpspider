@@ -948,22 +948,7 @@ class phpspider
 
         if ($this->on_status_code) 
         {
-            // 当前正在爬取的网页页面的对象
-            $page = array(
-                'url'     => $url,
-                'raw'     => $html,
-                'request' => array(
-                    'url'          => $url,
-                    'method'       => $link['method'],
-                    'headers'      => $link['headers'],
-                    'params'       => $link['params'],
-                    'context_data' => $link['context_data'],
-                    'try_num'      => $link['try_num'],
-                    'max_try'      => $link['max_try'],
-                ),
-            );
-
-            $return = call_user_func($this->on_status_code, $http_code, $page, $this);
+            $return = call_user_func($this->on_status_code, $http_code, $url, $html, $this);
             if (isset($return)) 
             {
                 $html = $return;
