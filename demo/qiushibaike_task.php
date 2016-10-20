@@ -11,6 +11,8 @@ $configs = array(
     'tasknum' => 5,
     //'save_running_state' => true,
     //'input_encoding' => 'utf-8',
+    //'max_depth' => 2,
+    //'max_fields' => 10,
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
@@ -60,6 +62,12 @@ $configs = array(
             'selector' => "//div[contains(@class,'author')]//h2",   // 这里随便设置，on_extract_field回调里面会替换
             'required' => true,
         ),
+        array(
+            'name' => "depth",
+            'selector' => "//div[contains(@class,'author')]//h2",   // 这里随便设置，on_extract_field回调里面会替换
+            'required' => true,
+        ),
+
     ),
 );
 
@@ -69,6 +77,12 @@ $spider->on_start = function($phpspider)
 {
     //requests::add_header("Referer", "http://buluo.qq.com/p/index.html");
     requests::add_cookie("name", "yangzetao");
+};
+
+$spider->on_download_page = function($page, $phpspider) 
+{
+    var_dump($page['request']['depth']);
+    return $page;
 };
 
 $spider->on_handle_img = function($fieldname, $img) 
@@ -121,6 +135,10 @@ $spider->on_extract_field = function($fieldname, $data, $page)
     elseif ($fieldname == 'url') 
     {
         $data = $page['url'];
+    }
+    elseif ($fieldname == 'depth') 
+    {
+        $data = $page['request']['depth'];
     }
     return $data;
 };
