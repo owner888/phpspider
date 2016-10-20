@@ -187,6 +187,8 @@ class phpspider
      */
     public $on_change_proxy = null;
 
+    public $on_status_code = null;
+
     /**
      * 判断当前网页是否被反爬虫，需要开发者实现 
      * 
@@ -944,6 +946,34 @@ class phpspider
 
         $http_code = requests::$status_code;
 
+        if ($this->on_status_code) 
+        {
+            // 当前正在爬取的网页页面的对象
+            $page = array(
+                'url'     => $url,
+                'raw'     => $html,
+                'request' => array(
+                    'url'          => $url,
+                    'method'       => $link['method'],
+                    'headers'      => $link['headers'],
+                    'params'       => $link['params'],
+                    'context_data' => $link['context_data'],
+                    'try_num'      => $link['try_num'],
+                    'max_try'      => $link['max_try'],
+                ),
+            );
+
+            $return = call_user_func($this->on_status_code, $http_code, $page, $this);
+            if (isset($return)) 
+            {
+                $html = $return;
+            }
+            if (!$html) 
+            {
+                return false;
+            }
+        }
+
         if ($http_code != 200)
         {
             // 如果是301、302跳转，抓取跳转后的网页内容
@@ -968,7 +998,7 @@ class phpspider
                     log::error(date("H:i:s")." Failed to download {$url}\n");
                     log::error(date("H:i:s")." Proxy server authentication failed, please check the proxy server settings\n");
                 }
-                elseif ($http_code == 502 || $http_code == 503 || $http_code == 0) 
+                elseif (in_array($http_code, array('0','502','503','429'))) 
                 {
                     // 采集次数加一
                     $link['try_num']++;
