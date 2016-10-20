@@ -248,9 +248,9 @@ class requests
             // 先将非utf8编码,转化为utf8编码
             $body = mb_convert_encoding($body, self::$output_encoding, self::$input_encoding);
             // 将页面中的指定的编码方式修改为utf8
-            //$body = preg_replace("/;\s*charset=(.*?)/iU", '; charset="UTF-8"', $body);
-            // 直接干掉头部吧，省得麻烦
-            $body = self::_remove_head($body);
+            $body = preg_replace("/<meta(.*)charset=(.*)>/isU", '<meta charset="UTF-8">', $body);
+            // 直接干掉头部，国外很多信息是在头部的
+            //$body = self::_remove_head($body);
         }
         return $body;
     }
