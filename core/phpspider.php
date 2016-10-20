@@ -298,6 +298,8 @@ class phpspider
         self::$configs['interval']   = isset(self::$configs['interval'])   ? self::$configs['interval']   : self::INTERVAL;
         self::$configs['timeout']    = isset(self::$configs['timeout'])    ? self::$configs['timeout']    : self::TIMEOUT;
         self::$configs['max_try']    = isset(self::$configs['max_try'])    ? self::$configs['max_try']    : self::MAX_TRY;
+        self::$configs['max_depth']  = isset(self::$configs['max_depth'])  ? self::$configs['max_depth']  : 0;
+        self::$configs['max_fields'] = isset(self::$configs['max_fields']) ? self::$configs['max_fields'] : 0;
         self::$configs['export']     = isset(self::$configs['export'])     ? self::$configs['export']     : array();
 
         // csv、sql、db
@@ -343,9 +345,10 @@ class phpspider
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
             'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
+            'depth'        => 1,
         );
-        log::debug(date("H:i:s")." Find scan page: {$url}");
         $status = $this->queue_lpush($link);
+        log::debug(date("H:i:s")." Find scan page: {$url}");
     }
 
     /**
@@ -358,7 +361,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function add_url($url, $options = array())
+    public function add_url($url, $options = array(), $depth = 1)
     {
         // 投递状态
         $status = false;
@@ -372,6 +375,7 @@ class phpspider
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
             'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
+            'depth'        => $depth,
         );
 
         if ($this->is_list_page($url) && !$this->is_collect_url($url))
@@ -567,20 +571,10 @@ class phpspider
             }
         }
 
+        // 添加入口URL到队列
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            $link = array(
-                'url'          => $url,                            // 要抓取的URL
-                'url_type'     => 'scan_page',                     // 要抓取的URL类型
-                'method'       => 'get',                           // 默认为"GET"请求, 也支持"POST"请求
-                'headers'      => array(),                         // 此url的Headers, 可以为空
-                'params'       => array(),                         // 发送请求时需添加的参数, 可以为空
-                'context_data' => '',                              // 此url附加的数据, 可以为空
-                'proxy'        => self::$configs['proxy'],         // 代理服务器
-                'try_num'      => 0,                               // 抓取次数
-                'max_try'      => self::$configs['max_try'],       // 抓取失败尝试次数
-            );
-            $this->queue_lpush($link);
+            $this->add_scan_url($url);
         }
 
         while( $this->queue_lsize() )
@@ -815,6 +809,7 @@ class phpspider
                 'context_data' => $link['context_data'],
                 'try_num'      => $link['try_num'],
                 'max_try'      => $link['max_try'],
+                'depth'        => $link['depth'],
             ),
         );
         unset($html);
@@ -871,8 +866,14 @@ class phpspider
         // on_scan_page、on_list_page、on_content_page 返回false表示不需要再从此网页中发现待爬url
         if ($is_find_url) 
         {
-            // 分析提取HTML页面中的URL
-            $this->get_html_urls($page['raw'], $url);
+            // 深度+1
+            $depth = $link['depth'] + 1;
+            // 如果深度没有超过最大深度，获取下一级URL
+            if (self::$configs['max_depth'] == 0 || $depth <= self::$configs['max_depth']) 
+            {
+                // 分析提取HTML页面中的URL
+                $this->get_html_urls($page['raw'], $url, $depth);
+            }
         }
 
         // 如果是内容页，分析提取HTML页面中的字段
@@ -914,6 +915,7 @@ class phpspider
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
             'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
+            'depth'        => isset($options['depth'])        ? $options['depth']        : 1,             
         );
 
         // 设置了编码就不要让requests去判断了
@@ -1017,66 +1019,6 @@ class phpspider
     }
 
     /**
-     * 判断是否附件文件
-     * 
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    //public function is_attachment_file($url)
-    //{
-        //$mime_types = $GLOBALS['config']['mimetype'];
-        //$mime_types_flip = array_flip($mime_types);
-
-        //$pathinfo = pathinfo($url);
-        //$fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
-
-        //$fileinfo = array();
-        //// 存在文件后缀并且是配置里面的后缀
-        //if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
-        //{
-            //stream_context_set_default(
-                //array(
-                    //'http' => array(
-                        //'method' => 'HEAD'
-                    //)
-                //)
-            //);
-            //// 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
-            //$headers = get_headers($url, 1);
-            //if (strpos($headers[0], '302')) 
-            //{
-                //$url = $headers['Location'];
-                //$headers = get_headers($url, 1);
-            //}
-            ////print_r($headers);
-            //$fileinfo = array(
-                //'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
-                //'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
-                //'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
-                //'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
-                //'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
-                //'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
-            //);
-
-            //$mime_type = 'html';
-            //$content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
-            //if (!empty($content_type)) 
-            //{
-                //$mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
-            //}
-            //$mime_types_flip = array_flip($mime_types);
-            //// 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
-            //if (!isset($mime_types_flip[$fileinfo['fileext']]))
-            //{
-                //$fileinfo['fileext'] = $mime_type;
-                //$fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
-            //}
-        //}
-        //return $fileinfo;
-    //}
-
-    /**
      * 分析提取HTML页面中的URL
      * 
      * @param mixed $html           HTML内容
@@ -1085,7 +1027,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function get_html_urls($html, $collect_url) 
+    public function get_html_urls($html, $collect_url, $depth = 1) 
     { 
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
@@ -1121,7 +1063,13 @@ class phpspider
         //--------------------------------------------------------------------------------
         foreach ($urls as $url) 
         {
-            $this->add_url($url);
+            // 把当前页当做找到的url的Referer页
+            $options = array(
+                'headers' => array(
+                    'Referer' => $collect_url,
+                )
+            );
+            $this->add_url($url, $options, $depth);
         }
     }
 
@@ -1586,6 +1534,11 @@ class phpspider
             if (isset($fields) && is_array($fields)) 
             {
                 $fields_num = $this->incr_fields_num();
+                if (self::$configs['max_fields'] != 0 && $fields_num > self::$configs['max_fields']) 
+                {
+                    exit(0);
+                }
+
                 $fields_str = json_encode($fields, JSON_UNESCAPED_UNICODE);
                 //if (isset(self::$configs['show_encoding']) && strtolower(self::$configs['show_encoding']) != 'utf-8') 
                 //{
@@ -2050,6 +2003,66 @@ class phpspider
                  exit("Usage: php yourfile.php {start|stop|status}\n");
         }
     }
+
+    /**
+     * 判断是否附件文件
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    //public function is_attachment_file($url)
+    //{
+        //$mime_types = $GLOBALS['config']['mimetype'];
+        //$mime_types_flip = array_flip($mime_types);
+
+        //$pathinfo = pathinfo($url);
+        //$fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
+
+        //$fileinfo = array();
+        //// 存在文件后缀并且是配置里面的后缀
+        //if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
+        //{
+            //stream_context_set_default(
+                //array(
+                    //'http' => array(
+                        //'method' => 'HEAD'
+                    //)
+                //)
+            //);
+            //// 代理和Cookie以后实现，方法和 file_get_contents 一样 使用 stream_context_create 设置
+            //$headers = get_headers($url, 1);
+            //if (strpos($headers[0], '302')) 
+            //{
+                //$url = $headers['Location'];
+                //$headers = get_headers($url, 1);
+            //}
+            ////print_r($headers);
+            //$fileinfo = array(
+                //'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
+                //'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
+                //'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
+                //'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
+                //'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
+                //'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
+            //);
+
+            //$mime_type = 'html';
+            //$content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
+            //if (!empty($content_type)) 
+            //{
+                //$mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
+            //}
+            //$mime_types_flip = array_flip($mime_types);
+            //// 判断一下是不是文件名被加什么后缀了，比如 http://www.xxxx.com/test.jpg?token=xxxxx
+            //if (!isset($mime_types_flip[$fileinfo['fileext']]))
+            //{
+                //$fileinfo['fileext'] = $mime_type;
+                //$fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
+            //}
+        //}
+        //return $fileinfo;
+    //}
 
 }
 
