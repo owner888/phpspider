@@ -198,6 +198,7 @@ class requests
     public static function get_response_body($domain)
     {
         $header = $body = '';
+        $http_headers = array();
         // 解析HTTP数据流
         if (!empty(self::$raw)) 
         {
@@ -216,7 +217,7 @@ class requests
                 {
                     $header = $v;
                     unset($array[$k]);
-                    self::get_response_headers($v);
+                    $http_headers = self::get_response_headers($v);
                 }
             }
             $body = implode("\r\n\r\n", $array);
@@ -226,7 +227,7 @@ class requests
         if(self::$input_encoding == null)
         {
             // 从头部获取
-            preg_match("/;\s*charset=(.*?)/iU", $header, $out);
+            preg_match("/charset=([^\s]*)/is", $header, $out);
             $encode = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
             if (empty($encode)) 
             {
@@ -316,7 +317,8 @@ class requests
      */
     private static function _get_encode($string)
     {
-        return mb_detect_encoding($string, array('ASCII', 'GB2312', 'GBK', 'UTF-8'));
+        $encode = mb_detect_encoding($string, array('ASCII', 'GB2312', 'GBK', 'UTF-8'));
+        return strtolower($encode);
     }
 
     /**
