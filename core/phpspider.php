@@ -924,7 +924,7 @@ class phpspider
         {
             requests::set_proxies(array('http'=>$link['proxy'], 'https'=>$link['proxy']));
             // 自动切换IP
-            requests::set_header('Proxy-Switch-Ip', 'yes');
+            requests::add_header('Proxy-Switch-Ip', 'yes');
         }
 
         // 如何设置了 HTTP Headers
@@ -932,7 +932,7 @@ class phpspider
         {
             foreach ($link['headers'] as $k=>$v) 
             {
-                requests::set_header($k, $v);
+                requests::add_header($k, $v);
             }
         }
 
