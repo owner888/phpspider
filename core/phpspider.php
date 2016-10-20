@@ -874,16 +874,13 @@ class phpspider
             $this->get_html_fields($page['raw'], $url, $page);
         }
 
-        // 爬虫爬取每个网页的时间间隔，单位：秒
-        if (!empty(self::$configs['interval'])) 
+        // 爬虫爬取每个网页的时间间隔，单位：毫秒
+        if (!isset(self::$configs['interval'])) 
         {
-            sleep(self::$configs['interval']);
+            // 默认睡眠100毫秒，太快了会被认为是ddos
+            self::$configs['interval'] = 100;
         }
-        // 默认睡眠100毫秒，太快了会被认为是ddos
-        else 
-        {
-            usleep(100000);
-        }
+        usleep(self::$configs['interval'] * 1000);
     }
 
     /**
