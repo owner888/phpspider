@@ -454,7 +454,6 @@ class requests
         //}
 
         curl_setopt( self::$ch, CURLOPT_URL, $url );
-        //curl_setopt( self::$ch, CURLOPT_REFERER, "http://www.baidu.com" );
 
         if ($method != 'GET')
         {
@@ -474,7 +473,6 @@ class requests
         $cookies = self::get_cookies();
         $domain_cookies = self::get_cookies($domain);
         $cookies =  array_merge($cookies, $domain_cookies);
-
         // 是否设置了cookie
         if (!empty($cookies)) 
         {
@@ -496,7 +494,7 @@ class requests
             curl_setopt( self::$ch, CURLOPT_HTTPHEADER, $headers );
         }
 
-        //curl_setopt( self::$ch, CURLOPT_ENCODING, 'gzip' );
+        curl_setopt( self::$ch, CURLOPT_ENCODING, 'gzip' );
 
         if (self::$proxies)
         {
@@ -505,8 +503,6 @@ class requests
                 curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxies[$scheme] );
             }
         }
-
-        //curl_setopt( self::$ch, CURLOPT_USERAGENT, "fsfsf" );
 
         // header + body，header 里面有 cookie
         curl_setopt( self::$ch, CURLOPT_HEADER, true );
