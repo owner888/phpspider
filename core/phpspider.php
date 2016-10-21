@@ -555,14 +555,11 @@ class phpspider
         }
 
         //--------------------------------------------------------------------------------
-        // 如果是多进程或者保留运行状态下的清空一下redis中的状态
-        //--------------------------------------------------------------------------------
-
-        //--------------------------------------------------------------------------------
         // 生成多任务
         //--------------------------------------------------------------------------------
         if(self::$tasknum > 1)
         {
+            // 多任务和分布式都要清掉，当然分布式只清自己的
             $this->del_task_status();
             // 不保留运行状态
             if (!self::$save_running_state) 
@@ -586,7 +583,7 @@ class phpspider
             // 多任务下主任务未准备就绪
             if (self::$tasknum > 1 && !self::$taskmaster_status) 
             {
-                // 如果队列中的网页比任务数多，生成子任务一起采集
+                // 主进程采集到两倍于任务数时，生成子任务一起采集
                 if ($this->queue_lsize() > self::$tasknum*2) 
                 {
                     // 主任务状态
@@ -594,7 +591,7 @@ class phpspider
                     
                     // fork 子进程前一定要先干掉redis连接fd，不然会存在进程互抢redis fd 问题
                     cls_redis::close();
-                    //task进程从2开始，1被master进程所使用
+                    // task进程从2开始，1被master进程所使用
                     for ($i = 2; $i <= self::$tasknum; $i++) 
                     {
                         $this->fork_one_task($i);
@@ -614,13 +611,11 @@ class phpspider
         // 显示最后结果
         log::$log_show = true;
 
-        log::info("Spider is finished\n");
-
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info("Spider running time：{$spider_time_run}\n");
+        log::info("Spider finished in {$spider_time_run}\n");
 
         $count_collected_url = $this->count_collected_url();
-        log::info("Total pages：{$count_collected_url} \n\n");
+        log::info("Total pages: {$count_collected_url} \n\n");
 
         // 最后:多任务下不保留运行状态，清空redis数据
         if (self::$tasknum > 1 && !self::$save_running_state) 
@@ -642,7 +637,7 @@ class phpspider
         if($pid > 0)
         {
             // 暂时没用
-            self::$taskpids[$taskid] = $pid;
+            //self::$taskpids[$taskid] = $pid;
         }
         // 子进程运行
         elseif(0 === $pid)
@@ -658,13 +653,12 @@ class phpspider
 
             while( $this->queue_lsize() )
             { 
-                // 如果队列中的网页比任务数多，子任务可以采集
+                // 如果队列中的网页比任务数2倍多，子任务可以采集，否则等待...
                 if ($this->queue_lsize() > self::$tasknum*2) 
                 {
                     // 抓取页面
                     $this->collect_page();
                 }
-                // 队列中网页太少，就都给主进程采集好了
                 else 
                 {
                     log::warn("Task(".self::$taskid.") waiting...\n");
@@ -777,17 +771,6 @@ class phpspider
         {
             return false;
         }
-
-        if ($this->is_anti_spider) 
-        {
-            $is_anti_spider = call_user_func($this->is_anti_spider, $url, $html, $this);
-            // 如果在回调函数里面判断被反爬虫并且返回true
-            if ($is_anti_spider) 
-            {
-                return false;
-            }
-        }
-
         // 当前正在爬取的网页页面的对象
         $page = array(
             'url'     => $url,
@@ -805,41 +788,78 @@ class phpspider
         );
         unset($html);
 
+        //--------------------------------------------------------------------------------
+        // 处理回调函数
+        //--------------------------------------------------------------------------------
+
+        // 判断当前网页是否被反爬虫了, 需要开发者实现 
+        if ($this->is_anti_spider) 
+        {
+            $is_anti_spider = call_user_func($this->is_anti_spider, $url, $html, $this);
+            // 如果在回调函数里面判断被反爬虫并且返回true
+            if ($is_anti_spider) 
+            {
+                return false;
+            }
+        }
+
         // 在一个网页下载完成之后调用. 主要用来对下载的网页进行处理.
+        // 比如下载了某个网页，希望向网页的body中添加html标签
         if ($this->on_download_page) 
         {
-            // 在一个网页下载完成之后调用. 主要用来对下载的网页进行处理
-            // 比如下载了某个网页，希望向网页的body中添加html标签
-            // 回调函数记得无论如何最后一定要 return $page，因为下面的 入口、列表、内容页回调都用的 $page['raw']
-            $page = call_user_func($this->on_download_page, $page, $this);
+            $return = call_user_func($this->on_download_page, $page, $this);
+            // 针对那些老是忘记return的人
+            if (isset($return)) $page = $return;
         }
 
         // 是否从当前页面分析提取URL
+        // 回调函数如果返回false表示不需要再从此网页中发现待爬url
         $is_find_url = true;
         if ($link['url_type'] == 'scan_page') 
         {
             if ($this->on_scan_page) 
             {
-                // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_find_url = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
+                $return = call_user_func($this->on_scan_page, $page, $page['raw'], $this);
+                if (isset($return)) $is_find_url = $return;
             }
         }
         elseif ($link['url_type'] == 'list_page') 
         {
             if ($this->on_list_page) 
             {
-                // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_find_url = call_user_func($this->on_list_page, $page, $page['raw'], $this);
+                $return = call_user_func($this->on_list_page, $page, $page['raw'], $this);
+                if (isset($return)) $is_find_url = $return;
             }
         }
         elseif ($link['url_type'] == 'content_page') 
         {
             if ($this->on_content_page) 
             {
-                // 回调函数如果返回false表示不需要再从此网页中发现待爬url
-                $is_find_url = call_user_func($this->on_content_page, $page, $page['raw'], $this);
+                $return = call_user_func($this->on_content_page, $page, $page['raw'], $this);
+                if (isset($return)) $is_find_url = $return;
             }
         }
+
+        // on_scan_page、on_list_page、on_content_page 返回false表示不需要再从此网页中发现待爬url
+        if ($is_find_url) 
+        {
+            // 如果深度没有超过最大深度，获取下一级URL
+            if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) 
+            {
+                // 分析提取HTML页面中的URL，需要优化 XXX
+                $this->get_html_urls($page['raw'], $url, $link['depth'] + 1);
+            }
+        }
+
+        // 如果是内容页，分析提取HTML页面中的字段
+        // 列表页也可以提取数据的，source_type: urlcontext，未实现
+        if ($link['url_type'] == 'content_page') 
+        {
+            $this->get_html_fields($page['raw'], $url, $page);
+        }
+
+        // 如果当前深度大于缓存的，更新缓存
+        $this->incr_depth_num($link['depth']);
 
         // 多任务的时候输出爬虫序号
         if (self::$tasknum > 1) 
@@ -853,26 +873,6 @@ class phpspider
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
         log::info(date("H:i:s")." Spider running time: {$spider_time_run}\n");
-
-        $this->incr_depth_num($link['depth']);
-
-        // on_scan_page、on_list_page、on_content_page 返回false表示不需要再从此网页中发现待爬url
-        if ($is_find_url) 
-        {
-            // 如果深度没有超过最大深度，获取下一级URL
-            if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) 
-            {
-                // 分析提取HTML页面中的URL
-                $this->get_html_urls($page['raw'], $url, $link['depth'] + 1);
-            }
-        }
-
-        // 如果是内容页，分析提取HTML页面中的字段
-        // 列表页也可以提取数据的，source_type: urlcontext，未实现
-        if ($link['url_type'] == 'content_page') 
-        {
-            $this->get_html_fields($page['raw'], $url, $page);
-        }
 
         // 爬虫爬取每个网页的时间间隔，单位：毫秒
         if (!isset(self::$configs['interval'])) 
@@ -1179,8 +1179,9 @@ class phpspider
             else 
             {
                 // 删除锁然后判断一下这个连接是不是已经在队列里面了
+                $exists = cls_redis::exists("collect_urls-".md5($url)); 
                 cls_redis::del($lock);
-                return cls_redis::exists("collect_urls-".md5($url)); 
+                return $exists;
             }
         }
         else 
