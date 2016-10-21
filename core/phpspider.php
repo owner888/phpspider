@@ -166,6 +166,11 @@ class phpspider
      */
     public static $fields_num = 0;
 
+    /**
+     * 采集深度 
+     */
+    public static $depth_num = 0;
+
     public static $export_type = '';
     public static $export_file = '';
     public static $export_conf = '';
@@ -345,7 +350,7 @@ class phpspider
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
             'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
-            'depth'        => 1,
+            'depth'        => 0,
         );
         $status = $this->queue_lpush($link);
         log::debug(date("H:i:s")." Find scan page: {$url}");
@@ -361,7 +366,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function add_url($url, $options = array(), $depth = 1)
+    public function add_url($url, $options = array(), $depth = 0)
     {
         // 投递状态
         $status = false;
@@ -863,16 +868,16 @@ class phpspider
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
         log::info(date("H:i:s")." Spider running time: {$spider_time_run}\n");
 
+        $this->incr_depth_num($link['depth']);
+
         // on_scan_page、on_list_page、on_content_page 返回false表示不需要再从此网页中发现待爬url
         if ($is_find_url) 
         {
-            // 深度+1
-            $depth = $link['depth'] + 1;
             // 如果深度没有超过最大深度，获取下一级URL
-            if (self::$configs['max_depth'] == 0 || $depth <= self::$configs['max_depth']) 
+            if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) 
             {
                 // 分析提取HTML页面中的URL
-                $this->get_html_urls($page['raw'], $url, $depth);
+                $this->get_html_urls($page['raw'], $url, $link['depth'] + 1);
             }
         }
 
@@ -915,7 +920,7 @@ class phpspider
             'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
             'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
-            'depth'        => isset($options['depth'])        ? $options['depth']        : 1,             
+            'depth'        => isset($options['depth'])        ? $options['depth']        : 0,             
         );
 
         // 设置了编码就不要让requests去判断了
@@ -945,10 +950,13 @@ class phpspider
             }
         }
 
-        // 如果设置了附加的数据，如json和xml，就直接发附加的数据,php端可以用 file_get_contents("php://input"); 获取
-        $params = empty($link['context_data']) ? $link['params'] : $link['context_data'];
         $method = strtolower($link['method']);
-        $html = requests::$method($url, $params);
+        $html = requests::$method($url, $link['params']);
+        // 此url附加的数据不为空, 比如内容页需要列表页一些数据，拼接到后面去
+        if ($html && !empty($link['context_data'])) 
+        {
+            $html .= $link['context_data'];
+        }
         //var_dump($html);exit;
 
         $http_code = requests::$status_code;
@@ -974,6 +982,10 @@ class phpspider
                 $info = requests::$info;
                 $url = $info['redirect_url'];
                 $html = $this->request_url($url, $options);
+                if ($html && !empty($link['context_data'])) 
+                {
+                    $html .= $link['context_data'];
+                }
             }
             else 
             {
@@ -1027,7 +1039,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function get_html_urls($html, $collect_url, $depth = 1) 
+    public function get_html_urls($html, $collect_url, $depth = 0) 
     { 
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
@@ -1086,6 +1098,7 @@ class phpspider
         cls_redis::del("collect_queue");
         // 删除采集到的field数量
         cls_redis::del("fields_num");
+        cls_redis::del("depth_num");
         // 删除等待采集网页缓存
         $keys = cls_redis::keys("collect_urls-*"); 
         foreach ($keys as $key) 
@@ -1359,7 +1372,6 @@ class phpspider
      */
     public function queue_lpop()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = cls_redis::lpop("collect_queue"); 
@@ -1381,7 +1393,6 @@ class phpspider
      */
     public function queue_rpop()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = cls_redis::rpop("collect_queue"); 
@@ -1403,7 +1414,6 @@ class phpspider
      */
     public function queue_lsize()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $lsize = cls_redis::lsize("collect_queue"); 
@@ -1416,6 +1426,57 @@ class phpspider
     }
 
     /**
+     * 采集深度加一
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function incr_depth_num($depth)
+    {
+        if (self::$tasknum > 1 || self::$save_running_state)
+        {
+            $lock = "lock-depth_num";
+            // 一个一个任务执行
+            while (cls_redis::setnx($lock, "lock"))
+            {
+                if (cls_redis::get("depth_num") < $depth) 
+                {
+                    cls_redis::set("depth_num", $depth); 
+                }
+                cls_redis::del($lock);
+                break;
+            }
+        }
+        else 
+        {
+            if (self::$depth_num < $depth) 
+            {
+                self::$depth_num = $depth;
+            }
+        }
+    }
+
+    /**
+     * 获得采集深度
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-09-23 17:13
+     */
+    public function get_depth_num()
+    {
+        if (self::$tasknum > 1 || self::$save_running_state)
+        {
+            return cls_redis::get("depth_num"); 
+        }
+        else 
+        {
+            return self::$depth_num;
+        }
+    }
+
+    /**
      * 提取到的field数目加一
      * 
      * @return void
@@ -1424,7 +1485,6 @@ class phpspider
      */
     public function incr_fields_num()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $fields_num = cls_redis::incr("fields_num"); 
@@ -1446,7 +1506,6 @@ class phpspider
      */
     public function get_fields_num()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $fields_num = cls_redis::get("fields_num"); 
@@ -1469,34 +1528,104 @@ class phpspider
      */
     public function get_complete_url($url, $collect_url)
     {
-        $collect_parse_url = parse_url($collect_url);
-
-        // 排除JavaScript的连接
-        if (strpos($url, "javascript:") !== false) 
+        $parse_url = @parse_url($collect_url);
+        if (empty($parse_url['scheme']) || empty($parse_url['host'])) 
         {
             return false;
         }
+        $scheme = $parse_url['scheme'];
+        $domain = $parse_url['host'];
+        $base_url_path = $domain.$parse_url['path'];
+        $base_url_path = preg_replace("/\/([^\/]*)\.(.*)$/","/",$base_url_path);
+        $base_url_path = preg_replace("/\/$/",'',$base_url_path);
 
-        $cur_parse_url = parse_url($url);
-
-        if (empty($cur_parse_url['path'])) 
+        $parse_url = @parse_url($url);
+        if (empty($parse_url['path'])) 
         {
             return false;
         }
+        $domain = empty($parse_url['host']) ? $domain : $parse_url['host'];
 
         // 如果host不为空，判断是不是要爬取的域名
-        if (!empty($cur_parse_url['host'])) 
+        if (!empty($parse_url['host'])) 
         {
-            // 排除非域名下的url以提高爬取速度
-            if (!in_array($cur_parse_url['host'], self::$configs['domains'])) 
+            //排除非域名下的url以提高爬取速度
+            if (!in_array($parse_url['host'], self::$configs['domains'])) 
             {
                 return false;
             }
         }
-        else
+
+        $i = $path_step = 0;
+        $dstr = $pstr = '';
+        // 去掉 #
+        $pos = strpos($url,'#');
+        if($pos > 0)
         {
-            $url = $collect_parse_url['scheme'].'://'.str_replace("//", "/", $collect_parse_url['host']."/".$url);
+            $url = substr($url, 0, $pos);
         }
+
+        // /1234.html
+        if($url[0] == '/')
+        {
+            $url = $domain.$url;
+        }
+        // ./1234.html、../1234.html 这种类型的
+        elseif($url[0] == '.')
+        {
+            if(!isset($url[2]))
+            {
+                return false;
+            }
+            else
+            {
+                $urls = explode('/',$url);
+                foreach($urls as $u)
+                {
+                    if( $u == '..' )
+                    {
+                        $path_step++;
+                    }
+                    // 遇到 .，不知道为什么不直接写$u == '.'，貌似一样的
+                    else if( $i < count($urls)-1 )
+                    {
+                        //$dstr .= $urls[$i].'/';
+                    }
+                    else
+                    {
+                        $dstr .= $urls[$i];
+                    }
+                    $i++;
+                }
+                $urls = explode('/',$base_url_path);
+                if(count($urls) <= $path_step)
+                {
+                    return '';
+                }
+                else
+                {
+                    $pstr = '';
+                    for($i=0;$i<count($urls)-$path_step;$i++){ $pstr .= $urls[$i].'/'; }
+                    $url = $pstr.$dstr;
+                }
+            }
+        }
+        else 
+        {
+            if( strlen($url) < 7 )
+            {
+                $url = $base_url_path.'/'.$url;
+            }
+            else if( strtolower(substr($url, 0, 7))=='http://' )
+            {
+                $url = preg_replace('#^http://#i','',$url);
+            }
+            else
+            {
+                $url = $base_url_path.'/'.$url;
+            }
+        }
+        $url = $scheme.'://'.$url;
         return $url;
     }
 
@@ -1872,22 +2001,22 @@ class phpspider
         $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
 
         $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
-        "\033[47;30mcollected\033[0m". str_pad('', 14-strlen('collected')). 
-        "\033[47;30mremain\033[0m". str_pad('', 15-strlen('remain')). 
+        "\033[47;30mcollected\033[0m". str_pad('', 15-strlen('collected')). 
         "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
-        "\033[47;30mfields\033[0m". str_pad('', 12-strlen('fields')). 
+        "\033[47;30mfields\033[0m". str_pad('', 14-strlen('fields')). 
+        "\033[47;30mdepth\033[0m". str_pad('', 12-strlen('depth')). 
         "\n";
 
         $collect   = $this->count_collect_url();
         $collected = $this->count_collected_url();
-        $remain    = $collect - $collected;
         $queue     = $this->queue_lsize();
         $fields    = $this->get_fields_num();
+        $depth     = $this->get_depth_num();
         $display_str .= str_pad($collect, 16);
-        $display_str .= str_pad($collected, 14);
-        $display_str .= str_pad($remain, 15);
+        $display_str .= str_pad($collected, 15);
         $display_str .= str_pad($queue, 14);
-        $display_str .= str_pad($fields, 12);
+        $display_str .= str_pad($fields, 14);
+        $display_str .= str_pad($depth, 12);
         $display_str .= "\n";
 
         // 清屏

@@ -7,11 +7,11 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '糗事百科',
-    'log_show' => true,
+    //'log_show' => true,
     'tasknum' => 5,
     //'save_running_state' => true,
     //'input_encoding' => 'utf-8',
-    //'max_depth' => 2,
+    'max_depth' => 2,
     //'max_fields' => 10,
     'domains' => array(
         'qiushibaike.com',
