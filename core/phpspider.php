@@ -171,6 +171,8 @@ class phpspider
      */
     public static $depth_num = 0;
 
+    public static $task_status = array();
+
     public static $export_type = '';
     public static $export_file = '';
     public static $export_conf = '';
@@ -552,22 +554,16 @@ class phpspider
             log::warn("!Documentation：\nhttps://doc.phpspider.org\n");
         }
 
-        $status_files = scandir(PATH_DATA."/status");
-        foreach ($status_files as $v) 
-        {
-            if ($v == '.' || $v == '..') 
-            {
-                continue;
-            }
-            $filepath = PATH_DATA."/status/".$v;
-            @unlink($filepath);
-        }
+        //--------------------------------------------------------------------------------
+        // 如果是多进程或者保留运行状态下的清空一下redis中的状态
+        //--------------------------------------------------------------------------------
 
         //--------------------------------------------------------------------------------
         // 生成多任务
         //--------------------------------------------------------------------------------
         if(self::$tasknum > 1)
         {
+            $this->del_task_status();
             // 不保留运行状态
             if (!self::$save_running_state) 
             {
@@ -605,6 +601,8 @@ class phpspider
                     }
                 }
             }
+
+            $this->set_task_status();
 
             // 每采集成功一次页面，就刷新一次面板
             if (!log::$log_show) 
@@ -673,19 +671,7 @@ class phpspider
                     sleep(1);
                 }
 
-                // 每采集成功一个页面，生成当前进程状态到文件，供主进程使用
-                $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
-                $use_time = microtime(true) - self::$time_start; 
-                $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
-                $status = array(
-                    'id' => self::$taskid,
-                    'pid' => self::$taskpid,
-                    'mem' => $mem,
-                    'collect_succ' => self::$collect_succ,
-                    'collect_fail' => self::$collect_fail,
-                    'speed' => $speed,
-                );
-                util::put_file(PATH_DATA."/status/".self::$taskid, json_encode($status));
+                $this->set_task_status();
             } 
 
             // 这里用0表示正常退出
@@ -1115,6 +1101,61 @@ class phpspider
         }
     }
 
+    public function set_task_status()
+    {
+        // 每采集成功一个页面，生成当前进程状态到文件，供主进程使用
+        $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
+        $use_time = microtime(true) - self::$time_start; 
+        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
+        $status = array(
+            'id' => self::$taskid,
+            'pid' => self::$taskpid,
+            'mem' => $mem,
+            'collect_succ' => self::$collect_succ,
+            'collect_fail' => self::$collect_fail,
+            'speed' => $speed,
+        );
+        $task_status = json_encode($status);
+
+        if (self::$tasknum > 1)
+        {
+            cls_redis::set("task_status-".self::$taskid, $task_status); 
+        }
+        else 
+        {
+            self::$task_status = array($task_status);
+        }
+    }
+
+    public function get_task_status()
+    {
+        $task_status = array();
+        if (self::$tasknum > 1)
+        {
+            $keys = cls_redis::keys("task_status-*"); 
+            foreach ($keys as $key) 
+            {
+                $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                $task_status[] = cls_redis::get($key);
+            }
+        }
+        else 
+        {
+            $task_status = self::$task_status;
+        }
+        return $task_status;
+    }
+
+    public function del_task_status()
+    {
+        $keys = cls_redis::keys("task_status-*"); 
+        foreach ($keys as $key) 
+        {
+            $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+            cls_redis::del($key);
+        }
+    }
+
     /**
      * 是否待爬取网页
      * 
@@ -1158,7 +1199,6 @@ class phpspider
      */
     public function set_collect_url($url)
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::set("collect_urls-".md5($url), time()); 
@@ -1180,7 +1220,6 @@ class phpspider
      */
     public function del_collect_url($url)
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::del("collect_urls-".md5($url)); 
@@ -1201,7 +1240,6 @@ class phpspider
      */
     public function count_collect_url()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $keys = cls_redis::keys("collect_urls-*"); 
@@ -1224,7 +1262,6 @@ class phpspider
      */
     public function count_collected_url()
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $keys = cls_redis::keys("collected_urls-*"); 
@@ -1247,7 +1284,6 @@ class phpspider
      */
     public function is_collected_url($url)
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             return cls_redis::exists("collected_urls-".md5($url)); 
@@ -1268,7 +1304,6 @@ class phpspider
      */
     public function set_collected_url($url)
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::set("collected_urls-".md5($url), time()); 
@@ -1289,7 +1324,6 @@ class phpspider
      */
     public function del_collected_url($url)
     {
-        // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::del("collected_urls-".md5($url)); 
@@ -1317,7 +1351,7 @@ class phpspider
         $url = $link['url'];
         // 先标记为待爬取网页，再入爬取队列
         $this->set_collect_url($url);
-        // 多任务 或者 单任务但是从上次继续执行
+
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = json_encode($link);
@@ -1347,7 +1381,7 @@ class phpspider
         $url = $link['url'];
         // 先标记为待爬取网页，再入爬取队列
         $this->set_collect_url($url);
-        // 多任务 或者 单任务但是从上次继续执行
+
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $link = json_encode($link);
@@ -2041,34 +2075,12 @@ class phpspider
 
     public function display_process_ui()
     {
-        $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
-        $use_time = microtime(true) - self::$time_start; 
-        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
-        $task = array(
-            'id' => self::$taskid,
-            'pid' => self::$taskpid,
-            'mem' => $mem,
-            'collect_succ' => self::$collect_succ,
-            'collect_fail' => self::$collect_fail,
-            'speed' => $speed,
-            //'status' => true,
-        );
         // "\033[32;40m [OK] \033[0m"
-        $display_str = str_pad($task['id'], self::$taskid_length+2).
-            str_pad($task['pid'], self::$pid_length+2).
-            str_pad($task['mem'], self::$mem_length+2). 
-            str_pad($task['collect_succ'], self::$urls_length+2). 
-            str_pad($task['collect_fail'], self::$urls_length+2). 
-            str_pad($task['speed'], self::$speed_length+2). 
-            "\n";
-
-        for ($i = 2; $i <= self::$tasknum; $i++) 
+        $task_status = $this->get_task_status();
+        $display_str = '';
+        foreach ($task_status as $json) 
         {
-            $json = util::get_file(PATH_DATA."/status/".$i);
-            if (empty($json)) 
-            {
-                continue;
-            }
+            //$json = util::get_file(PATH_DATA."/status/".$i);
             $task = json_decode($json, true);
             if (empty($task)) 
             {
