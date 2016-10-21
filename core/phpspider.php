@@ -1054,7 +1054,7 @@ class phpspider
         $urls = array_unique($urls);
         foreach ($urls as $k=>$url) 
         {
-            $val = $this->get_complete_url($url, $collect_url);
+            $val = $this->fill_url($url, $collect_url);
             if ($val) 
             {
                 $urls[$k] = $val;
@@ -1526,7 +1526,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function get_complete_url($url, $collect_url)
+    public function fill_url($url, $collect_url)
     {
         $parse_url = @parse_url($collect_url);
         if (empty($parse_url['scheme']) || empty($parse_url['host'])) 
@@ -1738,7 +1738,7 @@ class phpspider
                     // 取出上个field的内容作为连接，内容分页是不进队列直接下载网页的
                     if (!empty($fields[$conf['attached_url']])) 
                     {
-                        $collect_url = $this->get_complete_url($url, $fields[$conf['attached_url']]);
+                        $collect_url = $this->fill_url($url, $fields[$conf['attached_url']]);
                         log::info(date("H:i:s")." Find attached content page: {$url}");
                         $html = $this->request_url($collect_url);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
