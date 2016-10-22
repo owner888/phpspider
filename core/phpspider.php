@@ -1608,15 +1608,15 @@ class phpspider
 
         $i = $path_step = 0;
         $dstr = $pstr = '';
-        // 去掉 #
         $pos = strpos($url,'#');
-        // 这样的连接也有，日 #;
+        // href="#;" 这样的连接也有，日
         if($pos === 0)
         {
             return false;
         }
         elseif($pos > 0)
         {
+            // 去掉 #
             $url = substr($url, 0, $pos);
         }
 
