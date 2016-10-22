@@ -1663,6 +1663,10 @@ class phpspider
             {
                 $url = preg_replace('#^http://#i','',$url);
             }
+            else if( strtolower(substr($url, 0, 8))=='https://' )
+            {
+                $url = preg_replace('#^https://#i','',$url);
+            }
             else
             {
                 $url = $base_url_path.'/'.$url;
