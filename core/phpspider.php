@@ -1040,6 +1040,13 @@ class phpspider
         $urls = array_unique($urls);
         foreach ($urls as $k=>$url) 
         {
+            // 排除JavaScript的连接
+            if (strpos($v, "javascript:") !== false) 
+            {
+                unset($urls[$k]);
+                continue;
+            }
+
             $val = $this->fill_url($url, $collect_url);
             if ($val) 
             {
@@ -1635,7 +1642,7 @@ class phpspider
                 $urls = explode('/',$base_url_path);
                 if(count($urls) <= $path_step)
                 {
-                    return '';
+                    return false;
                 }
                 else
                 {
