@@ -1591,6 +1591,9 @@ class phpspider
      */
     public function fill_url($url, $collect_url)
     {
+        $url = trim($url);
+        $collect_url = trim($collect_url);
+
         $parse_url = @parse_url($collect_url);
         if (empty($parse_url['scheme']) || empty($parse_url['host'])) 
         {
