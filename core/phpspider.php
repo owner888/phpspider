@@ -796,7 +796,7 @@ class phpspider
         // 判断当前网页是否被反爬虫了, 需要开发者实现 
         if ($this->is_anti_spider) 
         {
-            $is_anti_spider = call_user_func($this->is_anti_spider, $url, $html, $this);
+            $is_anti_spider = call_user_func($this->is_anti_spider, $url, $page['raw'], $this);
             // 如果在回调函数里面判断被反爬虫并且返回true
             if ($is_anti_spider) 
             {
