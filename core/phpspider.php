@@ -1610,7 +1610,12 @@ class phpspider
         $dstr = $pstr = '';
         // 去掉 #
         $pos = strpos($url,'#');
-        if($pos > 0)
+        // 这样的连接也有，日 #;
+        if($pos === 0)
+        {
+            return false;
+        }
+        elseif($pos > 0)
         {
             $url = substr($url, 0, $pos);
         }
@@ -1695,6 +1700,11 @@ class phpspider
                 return false;
             }
         }
+        //var_dump($url);
+        //if (strpos($url,'#') !== false) 
+        //{
+            //echo $url;exit;
+        //}
 
         return $url;
     }
