@@ -554,13 +554,14 @@ class phpspider
             log::warn("!Documentation：\nhttps://doc.phpspider.org\n");
         }
 
+        // 多任务和分布式都要清掉，当然分布式只清自己的
+        $this->del_task_status();
+
         //--------------------------------------------------------------------------------
         // 生成多任务
         //--------------------------------------------------------------------------------
         if(self::$tasknum > 1)
         {
-            // 多任务和分布式都要清掉，当然分布式只清自己的
-            $this->del_task_status();
             // 不保留运行状态
             if (!self::$save_running_state) 
             {
@@ -1011,6 +1012,7 @@ class phpspider
             }
         }
 
+        log::debug(date("H:i:s")." Download page {$url} successful\n");
         self::$collect_succ++;
 
         return $html;
@@ -1155,11 +1157,15 @@ class phpspider
 
     public function del_task_status()
     {
-        $keys = cls_redis::keys("task_status-*"); 
-        foreach ($keys as $key) 
+        if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-            cls_redis::del($key);
+            cls_redis::del("lock-depth_num");
+            $keys = cls_redis::keys("task_status-*"); 
+            foreach ($keys as $key) 
+            {
+                $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                cls_redis::del($key);
+            }
         }
     }
 
@@ -2024,9 +2030,9 @@ class phpspider
             $loadavg[$k] = round($v, 2);
         }
         $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
-        //$display_str .= 'PHPSpider:' . self::$configs['name'] . "\n";
         $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
         $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/60) . " minutes   \n";
+        $display_str .= 'spider name: ' . self::$configs['name'] . "\n";
         $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
         $display_str .= "document: https://doc.phpspider.org\n";
         $display_str .= "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
