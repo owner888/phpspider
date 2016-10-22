@@ -1583,26 +1583,10 @@ class phpspider
         }
         $scheme = $parse_url['scheme'];
         $domain = $parse_url['host'];
-        $base_url_path = $domain.$parse_url['path'];
+        $path = empty($parse_url['path']) ? '' : $parse_url['path'];
+        $base_url_path = $domain.$path;
         $base_url_path = preg_replace("/\/([^\/]*)\.(.*)$/","/",$base_url_path);
         $base_url_path = preg_replace("/\/$/",'',$base_url_path);
-
-        $parse_url = @parse_url($url);
-        if (empty($parse_url['path'])) 
-        {
-            return false;
-        }
-        $domain = empty($parse_url['host']) ? $domain : $parse_url['host'];
-
-        // 如果host不为空，判断是不是要爬取的域名
-        if (!empty($parse_url['host'])) 
-        {
-            //排除非域名下的url以提高爬取速度
-            if (!in_array($parse_url['host'], self::$configs['domains'])) 
-            {
-                return false;
-            }
-        }
 
         $i = $path_step = 0;
         $dstr = $pstr = '';
@@ -1613,8 +1597,13 @@ class phpspider
             $url = substr($url, 0, $pos);
         }
 
+        // 京东变态的都是 //www.jd.com/111.html
+        if(substr($url, 0, 2) == '//')
+        {
+            $url = str_replace("//", "", $url);
+        }
         // /1234.html
-        if($url[0] == '/')
+        elseif($url[0] == '/')
         {
             $url = $domain.$url;
         }
@@ -1674,6 +1663,19 @@ class phpspider
             }
         }
         $url = $scheme.'://'.$url;
+
+        $parse_url = @parse_url($url);
+        $domain = empty($parse_url['host']) ? $domain : $parse_url['host'];
+        // 如果host不为空，判断是不是要爬取的域名
+        if (!empty($parse_url['host'])) 
+        {
+            //排除非域名下的url以提高爬取速度
+            if (!in_array($parse_url['host'], self::$configs['domains'])) 
+            {
+                return false;
+            }
+        }
+
         return $url;
     }
 
