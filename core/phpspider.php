@@ -1042,6 +1042,12 @@ class phpspider
         $urls = array_unique($urls);
         foreach ($urls as $k=>$url) 
         {
+            $url = trim($url);
+            if (empty($url)) 
+            {
+                continue;
+            }
+
             // 排除JavaScript的连接
             if (strpos($url, "javascript:") !== false) 
             {
