@@ -1667,13 +1667,10 @@ class phpspider
         }
         else 
         {
-            if( strlen($url) < 7 )
-            {
-                $url = $base_url_path.'/'.$url;
-            }
-            else if( strtolower(substr($url, 0, 7))=='http://' )
+            if( strtolower(substr($url, 0, 7))=='http://' )
             {
                 $url = preg_replace('#^http://#i','',$url);
+                $scheme = "http";
             }
             else if( strtolower(substr($url, 0, 8))=='https://' )
             {
