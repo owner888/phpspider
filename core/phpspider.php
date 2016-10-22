@@ -102,6 +102,11 @@ class phpspider
     public static $save_running_state = false;
 
     /**
+     * 是否清空上次爬虫运行状态 
+     */
+    public static $clean_last_state = false;
+
+    /**
      * 试运行
      * 试运行状态下，程序持续三分钟或抓取到30条数据后停止
      */
@@ -323,6 +328,10 @@ class phpspider
         if (isset(self::$configs['save_running_state'])) 
         {
             self::$save_running_state = self::$configs['save_running_state'];
+        }
+        if (isset(self::$configs['clean_last_state'])) 
+        {
+            self::$clean_last_state = self::$configs['clean_last_state'];
         }
 
         // 不同项目的采集以采集名称作为前缀区分
@@ -1666,6 +1675,7 @@ class phpspider
             else if( strtolower(substr($url, 0, 8))=='https://' )
             {
                 $url = preg_replace('#^https://#i','',$url);
+                $scheme = "https";
             }
             else
             {
