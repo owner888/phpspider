@@ -154,7 +154,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -197,7 +197,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -230,7 +230,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -263,7 +263,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -307,7 +307,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -348,7 +348,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -389,7 +389,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -423,7 +423,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -458,7 +458,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -491,7 +491,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -524,7 +524,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -556,7 +556,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -588,7 +588,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -628,7 +628,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -660,7 +660,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -699,7 +699,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -731,7 +731,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -765,7 +765,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -799,7 +799,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -832,7 +832,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -865,7 +865,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -898,7 +898,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -932,7 +932,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -967,7 +967,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -1043,7 +1043,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -1078,7 +1078,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -1112,7 +1112,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
@@ -1145,7 +1145,7 @@ class cls_redis
         catch (Exception $e)
         {
             $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
-            log::error($msg);
+            log::warn($msg);
             if ($e->getCode() == 0) 
             {
                 self::$redis->close();
