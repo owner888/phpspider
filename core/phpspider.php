@@ -549,6 +549,7 @@ class phpspider
         // windows 下没法显示面板，强制显示日志
         if (util::is_win()) 
         {
+            self::$configs['name'] = mb_convert_encoding(self::$configs['name'], "gbk", "utf-8");
             log::$log_show = true;
         }
         else 
@@ -559,8 +560,9 @@ class phpspider
         if (log::$log_show)
         {
             log::info("\n[ ".self::$configs['name']." Spider ] is started...\n");
-            log::warn("Task Number：".self::$tasknum."\n");
-            log::warn("!Documentation：\nhttps://doc.phpspider.org\n");
+            log::warn("PHPSpider Version: ".self::VERSION."\n");
+            log::warn("Task Number: ".self::$tasknum."\n");
+            log::warn("!Documentation: \nhttps://doc.phpspider.org\n");
         }
 
         // 多任务和分布式都要清掉，当然分布式只清自己的
@@ -777,6 +779,11 @@ class phpspider
         $page_time_start = microtime(true);
 
         $html = $this->request_url($url, $link);
+
+        // 爬取页面耗时时间
+        $time_run = round(microtime(true) - $page_time_start, 3);
+        log::info(date("H:i:s")." Success download page {$url} in {$time_run} s\n");
+
         if (!$html) 
         {
             return false;
@@ -877,12 +884,12 @@ class phpspider
             log::info("Current task id: ".self::$taskid."\n");
         }
 
-        // 爬取页面耗时时间
+        // 处理页面耗时时间
         $time_run = round(microtime(true) - $page_time_start, 3);
-        log::info(date("H:i:s")." Success process page: {$url}\tUse time: {$time_run} s\n");
+        log::info(date("H:i:s")." Success process page {$url} in {$time_run} s\n");
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info(date("H:i:s")." Spider running time: {$spider_time_run}\n");
+        log::info(date("H:i:s")." Spider running in {$spider_time_run}\n");
 
         // 爬虫爬取每个网页的时间间隔，单位：毫秒
         if (!isset(self::$configs['interval'])) 
