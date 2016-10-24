@@ -998,18 +998,11 @@ class phpspider
             }
             else 
             {
-                if ($http_code == 404) 
-                {
-                    log::error(date("H:i:s")." Failed to download page {$url}\n");
-                    //log::error(date("H:i:s")." Download page {$url} failed, Read timed out, will try again later\n");
-                    log::error(date("H:i:s")." HTTP CODE: {$http_code} Not Found\n");
-                }
-                elseif ($http_code == 407) 
+                if ($http_code == 407) 
                 {
                     // 扔到队列头部去，继续采集
                     $this->queue_rpush($link);
                     log::error(date("H:i:s")." Failed to download page {$url}\n");
-                    log::error(date("H:i:s")." Proxy server authentication failed, please check the proxy server settings\n");
                 }
                 elseif (in_array($http_code, array('0','502','503','429'))) 
                 {
@@ -1022,13 +1015,12 @@ class phpspider
                         $this->queue_rpush($link);
                     }
                     log::error(date("H:i:s")." Failed to download page {$url}, retry({$link['try_num']})\n");
-                    log::error(date("H:i:s")." HTTP CODE: {$http_code} service unavailable\n");
                 }
                 else 
                 {
                     log::error(date("H:i:s")." Failed to download page {$url}\n");
-                    log::error(date("H:i:s")." HTTP CODE: {$http_code}\n");
                 }
+                log::error(date("H:i:s")." HTTP CODE: {$http_code}\n");
                 self::$collect_fail++;
                 return false;
             }
