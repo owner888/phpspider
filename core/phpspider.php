@@ -882,7 +882,7 @@ class phpspider
 
         // 处理页面耗时时间
         $time_run = round(microtime(true) - $page_time_start, 3);
-        log::info(date("H:i:s")." Success process page {$url} in {$time_run} s\n");
+        log::debug(date("H:i:s")." Success process page {$url} in {$time_run} s\n");
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
         log::info(date("H:i:s")." Spider running in {$spider_time_run}\n");
