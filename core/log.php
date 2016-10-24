@@ -3,7 +3,7 @@
 class log
 {
     public static $log_show = false;
-    public static $log_file = false;
+    public static $log_file = "data/phpspider.log";
 
     public static function info($msg)
     {
