@@ -975,6 +975,7 @@ class phpspider
             // 如果是301、302跳转，抓取跳转后的网页内容
             if ($http_code == 301 || $http_code == 302) 
             {
+                requests::$input_encoding = null;
                 $info = requests::$info;
                 $url = $info['redirect_url'];
                 $html = $this->request_url($url, $options);
