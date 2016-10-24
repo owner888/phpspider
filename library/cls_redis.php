@@ -143,11 +143,11 @@ class cls_redis
             {
                 if ($expire > 0)
                 {
-                    return $redis->setex($key, $expire, $value);
+                    return self::$redis->setex($key, $expire, $value);
                 }
                 else
                 {
-                    return $redis->set($key, $value);
+                    return self::$redis->set($key, $value);
                 }
             }
         }
@@ -186,11 +186,11 @@ class cls_redis
             {
                 if ($expire > 0)
                 {
-                    return $redis->setnx($key, $expire, $value);
+                    return self::$redis->setnx($key, $expire, $value);
                 }
                 else
                 {
-                    return $redis->setnx($key, $value);
+                    return self::$redis->setnx($key, $value);
                 }
             }
         }
