@@ -780,10 +780,6 @@ class phpspider
 
         $html = $this->request_url($url, $link);
 
-        // 爬取页面耗时时间
-        $time_run = round(microtime(true) - $page_time_start, 3);
-        log::info(date("H:i:s")." Success download page {$url} in {$time_run} s\n");
-
         if (!$html) 
         {
             return false;
@@ -911,6 +907,8 @@ class phpspider
      */
     public function request_url($url, $options = array())
     {
+        $time_start = microtime(true);
+
         //$url = "http://www.qiushibaike.com/article/117568316";
 
         $link = array(
@@ -1036,7 +1034,9 @@ class phpspider
             }
         }
 
-        log::debug(date("H:i:s")." Download page {$url} successful\n");
+        // 爬取页面耗时时间
+        $time_run = round(microtime(true) - $time_start, 3);
+        log::debug(date("H:i:s")." Success download page {$url} in {$time_run} s\n");
         self::$collect_succ++;
 
         return $html;
