@@ -982,13 +982,20 @@ class phpspider
             // 如果是301、302跳转，抓取跳转后的网页内容
             if ($http_code == 301 || $http_code == 302) 
             {
-                requests::$input_encoding = null;
                 $info = requests::$info;
-                $url = $info['redirect_url'];
-                $html = $this->request_url($url, $options);
-                if ($html && !empty($link['context_data'])) 
+                if (isset($info['redirect_url'])) 
                 {
-                    $html .= $link['context_data'];
+                    $url = $info['redirect_url'];
+                    requests::$input_encoding = null;
+                    $html = $this->request_url($url, $options);
+                    if ($html && !empty($link['context_data'])) 
+                    {
+                        $html .= $link['context_data'];
+                    }
+                }
+                else 
+                {
+                    return false;
                 }
             }
             else 
@@ -1828,6 +1835,7 @@ class phpspider
                     {
                         $collect_url = $this->fill_url($url, $fields[$conf['attached_url']]);
                         log::info(date("H:i:s")." Find attached content page: {$url}");
+                        requests::$input_encoding = null;
                         $html = $this->request_url($collect_url);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
                         if ($this->on_attached_download_page) 
