@@ -299,7 +299,12 @@ class phpspider
         $content = file_get_contents($included_files[0]);
         if (!preg_match("#/\* Do NOT delete this comment \*/#", $content) || !preg_match("#/\* 不要删除这段注释 \*/#", $content))
         {
-            log::error("未知错误；请参考文档或寻求技术支持。");
+            $msg = "未知错误；请参考文档或寻求技术支持。";
+            if (util::is_win()) 
+            {
+                $msg = mb_convert_encoding($msg, "gbk", "utf-8");
+            }
+            log::error($msg);
             exit;
         }
 
