@@ -69,7 +69,7 @@ class phpspider
     /**
      * 所有任务进程ID 
      */
-    public static $taskpids = array();
+    //public static $taskpids = array();
 
     /**
      * 当前任务ID 
@@ -144,6 +144,16 @@ class phpspider
      * md5($url) => time()
      */
     public static $collected_urls = array();
+
+    /**
+     * 要抓取的URL数量
+     */
+    public static $collect_urls_num = 0;
+
+    /**
+     * 已经抓取的URL数量
+     */
+    public static $collected_urls_num = 0;
 
     /**
      * 爬虫开始时间 
@@ -1140,9 +1150,15 @@ class phpspider
     {
         // 删除队列
         cls_redis::del("collect_queue");
+
         // 删除采集到的field数量
         cls_redis::del("fields_num");
         cls_redis::del("depth_num");
+
+        // 抓取和抓取到数量
+        cls_redis::del("collect_urls_num");
+        cls_redis::del("collected_urls_num");
+
         // 删除等待采集网页缓存
         $keys = cls_redis::keys("collect_urls-*"); 
         foreach ($keys as $key) 
@@ -1150,6 +1166,7 @@ class phpspider
             $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
             cls_redis::del($key);
         }
+
         // 删除已经采集网页缓存
         $keys = cls_redis::keys("collected_urls-*"); 
         foreach ($keys as $key) 
@@ -1192,12 +1209,18 @@ class phpspider
         {
             $time_start = microtime(true);
 
-            $keys = cls_redis::keys("task_status-*"); 
-            foreach ($keys as $key) 
+            for ($i = 1; $i <= self::$tasknum; $i++) 
             {
-                $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                $key = "task_status-".$i;
                 $task_status[] = cls_redis::get($key);
             }
+            // redis的keys太慢了
+            //$keys = cls_redis::keys("task_status-*"); 
+            //foreach ($keys as $key) 
+            //{
+                //$key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                //$task_status[] = cls_redis::get($key);
+            //}
 
             $time_run = round(microtime(true) - $time_start, 3);
             log::debug(date("H:i:s")." get_task_status in {$time_run} s\n");
@@ -1216,12 +1239,19 @@ class phpspider
             $time_start = microtime(true);
 
             cls_redis::del("lock-depth_num");
-            $keys = cls_redis::keys("task_status-*"); 
-            foreach ($keys as $key) 
+
+            for ($i = 1; $i <= self::$tasknum; $i++) 
             {
-                $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                $key = "task_status-".$i;
                 cls_redis::del($key);
             }
+            // redis的keys太慢了
+            //$keys = cls_redis::keys("task_status-*"); 
+            //foreach ($keys as $key) 
+            //{
+                //$key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                //cls_redis::del($key);
+            //}
 
             $time_run = round(microtime(true) - $time_start, 3);
             log::debug(date("H:i:s")." del_task_status in {$time_run} s\n");
@@ -1274,6 +1304,7 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            cls_redis::incr("collect_urls_num"); 
             cls_redis::set("collect_urls-".md5($url), time()); 
         }
         else 
@@ -1295,6 +1326,7 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            cls_redis::decr("collect_urls_num"); 
             cls_redis::del("collect_urls-".md5($url)); 
         }
         else 
@@ -1317,14 +1349,16 @@ class phpspider
         {
             $time_start = microtime(true);
 
-            $keys = cls_redis::keys("collect_urls-*"); 
-            $count = count($keys);
+            $count = cls_redis::get("collect_urls_num"); 
+            //$keys = cls_redis::keys("collect_urls-*"); 
+            //$count = count($keys);
 
             $time_run = round(microtime(true) - $time_start, 3);
             log::debug(date("H:i:s")." count_collect_url in {$time_run} s\n");
         }
         else 
         {
+            //$count = self::$collect_urls_num;
             $count = count(self::$collect_urls);
         }
         return $count;
@@ -1344,8 +1378,9 @@ class phpspider
         {
             $time_start = microtime(true);
 
-            $keys = cls_redis::keys("collected_urls-*"); 
-            $count = count($keys);
+            $count = cls_redis::get("collected_urls_num"); 
+            //$keys = cls_redis::keys("collected_urls-*"); 
+            //$count = count($keys);
 
             $time_run = round(microtime(true) - $time_start, 3);
             log::debug(date("H:i:s")." count_collected_url in {$time_run} s\n");
@@ -1389,6 +1424,7 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            cls_redis::incr("collected_urls_num"); 
             cls_redis::set("collected_urls-".md5($url), time()); 
         }
         else 
@@ -1409,6 +1445,7 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            cls_redis::decr("collected_urls_num"); 
             cls_redis::del("collected_urls-".md5($url)); 
         }
         else 
