@@ -1190,12 +1190,17 @@ class phpspider
         $task_status = array();
         if (self::$tasknum > 1)
         {
+            $time_start = microtime(true);
+
             $keys = cls_redis::keys("task_status-*"); 
             foreach ($keys as $key) 
             {
                 $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
                 $task_status[] = cls_redis::get($key);
             }
+
+            $time_run = round(microtime(true) - $time_start, 3);
+            log::debug(date("H:i:s")." get_task_status in {$time_run} s\n");
         }
         else 
         {
@@ -1208,6 +1213,8 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            $time_start = microtime(true);
+
             cls_redis::del("lock-depth_num");
             $keys = cls_redis::keys("task_status-*"); 
             foreach ($keys as $key) 
@@ -1215,6 +1222,9 @@ class phpspider
                 $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
                 cls_redis::del($key);
             }
+
+            $time_run = round(microtime(true) - $time_start, 3);
+            log::debug(date("H:i:s")." del_task_status in {$time_run} s\n");
         }
     }
 
@@ -1305,8 +1315,13 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            $time_start = microtime(true);
+
             $keys = cls_redis::keys("collect_urls-*"); 
             $count = count($keys);
+
+            $time_run = round(microtime(true) - $time_start, 3);
+            log::debug(date("H:i:s")." count_collect_url in {$time_run} s\n");
         }
         else 
         {
@@ -1327,8 +1342,13 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            $time_start = microtime(true);
+
             $keys = cls_redis::keys("collected_urls-*"); 
             $count = count($keys);
+
+            $time_run = round(microtime(true) - $time_start, 3);
+            log::debug(date("H:i:s")." count_collected_url in {$time_run} s\n");
         }
         else 
         {
