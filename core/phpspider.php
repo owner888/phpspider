@@ -502,12 +502,34 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 运行前验证
         //--------------------------------------------------------------------------------
+
+        if (version_compare(PHP_VERSION, '5.3.0', 'lt')) 
+        {
+            log::error('PHP 5.3+ is required, currently installed version is: ' . phpversion());
+            exit;
+        }
+
+        if(!function_exists('curl_init'))
+        {
+            log::error("The curl extension was not found");
+            exit;
+        }
+
         // 多任务需要pcntl扩展支持
         if (self::$tasknum > 1) 
         {
             if(!function_exists('pcntl_fork'))
             {
-                log::error("When the task number greater than 1 need pnctl extension");
+                log::error("Multitasking needs pnctl, the pnctl extension was not found");
+                exit;
+            }
+        }
+
+        if (self::$tasknum > 1 || self::$save_running_state) 
+        {
+            if (!extension_loaded("redis"))
+            {
+                log::error("Spider kept running state or multitasking needs Redis support, the redis extension was not found");
                 exit;
             }
         }
@@ -515,14 +537,14 @@ class phpspider
         // 保存运行状态需要Redis支持
         if (self::$save_running_state && !cls_redis::init()) 
         {
-            log::error("Save the running state need Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
+            log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
             exit;
         }
 
         // 多任务需要Redis支持
         if(self::$tasknum > 1 && !cls_redis::init())
         {
-            log::error("Multitasking need Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
+            log::error("Multitasking needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
             exit;
         }
 

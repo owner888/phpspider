@@ -29,12 +29,6 @@ class cls_redis
 
     public static function init()
     {
-        if (!extension_loaded("redis"))
-        {
-            self::$error = "Unable to load redis extension";
-            return false;
-        }
-
         // 获取配置
         $configs = empty(self::$configs) ? self::_get_default_config() : self::$configs;
         if (empty($configs)) 
