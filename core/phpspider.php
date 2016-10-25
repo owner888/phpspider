@@ -1309,6 +1309,7 @@ class phpspider
         }
         else 
         {
+            self::$collect_urls_num++;
             self::$collect_urls[md5($url)] = time();
         }
     }
@@ -1331,6 +1332,7 @@ class phpspider
         }
         else 
         {
+            self::$collect_urls_num--;
             unset(self::$collect_urls[md5($url)]);
         }
     }
@@ -1358,8 +1360,8 @@ class phpspider
         }
         else 
         {
-            //$count = self::$collect_urls_num;
-            $count = count(self::$collect_urls);
+            $count = self::$collect_urls_num;
+            //$count = count(self::$collect_urls);
         }
         return $count;
     }
@@ -1387,7 +1389,8 @@ class phpspider
         }
         else 
         {
-            $count = count(self::$collected_urls);
+            $count = self::$collected_urls_num;
+            //$count = count(self::$collected_urls);
         }
         return $count;
     }
@@ -1429,6 +1432,7 @@ class phpspider
         }
         else 
         {
+            self::$collected_urls_num++;
             self::$collected_urls[md5($url)] = time();
         }
     }
@@ -1450,6 +1454,7 @@ class phpspider
         }
         else 
         {
+            self::$collected_urls_num--;
             unset(self::$collected_urls[md5($url)]);
         }
     }
