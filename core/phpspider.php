@@ -667,6 +667,7 @@ class phpspider
         log::info("Total pages: {$count_collected_url} \n\n");
 
         // 最后:多任务下不保留运行状态，清空redis数据
+        // 注意:ctrl+c 就跑不到这里来了，做守护进程的时候弄吧
         if (self::$tasknum > 1 && !self::$save_running_state) 
         {
             $this->cache_clear();
@@ -1886,7 +1887,7 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->fill_url($url, $fields[$conf['attached_url']]);
-                        log::info(date("H:i:s")." Find attached content page: {$url}");
+                        log::debug(date("H:i:s")." Find attached content page: {$url}");
                         requests::$input_encoding = null;
                         $html = $this->request_url($collect_url);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
@@ -1942,6 +1943,8 @@ class phpspider
                 // 如果值为空而且值设置为必须项，跳出foreach循环
                 if ($required) 
                 {
+                    // 清空整个 fields
+                    $fields = array();
                     break;
                 }
                 // 避免内容分页时attached_url拼接时候string + array了
