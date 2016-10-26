@@ -59,7 +59,7 @@ $spider->on_extract_field = function($fieldname, $data, $page)
         {
             // 下面方法截取中文会有异常
             //$data = substr($data, 0, 10)."...";
-            $data = mb_substr($data, 0, 10, 'UTF-8')."...";
+            $data = mb_strcut($data, 0, 10, 'UTF-8')."...";
         }
     }
     elseif ($fieldname == 'publish_time') 
