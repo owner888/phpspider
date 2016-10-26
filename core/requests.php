@@ -24,6 +24,7 @@ class requests
     protected static $domain_cookies = array();
     protected static $hosts = array();
     public static $headers = array();
+    public static $useragents = array();
     public static $proxies = array();
     public static $url = null;
     public static $domain = null;
@@ -150,6 +151,17 @@ class requests
             return array();
         }
         return empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
+    }
+
+    /**
+     * 设置随机的user_agent
+     *
+     * @param string $useragent
+     * @return void
+     */
+    public static function set_useragents($useragents)
+    {
+        self::$useragents = $useragents;
     }
 
     /**
@@ -486,6 +498,11 @@ class requests
             curl_setopt( self::$ch, CURLOPT_COOKIE, $cookies );
         }
 
+        if (!empty(self::$useragents)) 
+        {
+            $key = rand(0, count(self::$useragents) - 1);
+            self::$headers['User-Agent'] = self::$useragents[$key];
+        }
         if (self::$headers)
         {
             $headers = array();

@@ -1207,8 +1207,6 @@ class phpspider
         $task_status = array();
         if (self::$tasknum > 1)
         {
-            $time_start = microtime(true);
-
             for ($i = 1; $i <= self::$tasknum; $i++) 
             {
                 $key = "task_status-".$i;
@@ -1221,9 +1219,6 @@ class phpspider
                 //$key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
                 //$task_status[] = cls_redis::get($key);
             //}
-
-            $time_run = round(microtime(true) - $time_start, 3);
-            log::debug(date("H:i:s")." get_task_status in {$time_run} s\n");
         }
         else 
         {
@@ -1236,8 +1231,6 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $time_start = microtime(true);
-
             cls_redis::del("lock-depth_num");
 
             for ($i = 1; $i <= self::$tasknum; $i++) 
@@ -1252,9 +1245,6 @@ class phpspider
                 //$key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
                 //cls_redis::del($key);
             //}
-
-            $time_run = round(microtime(true) - $time_start, 3);
-            log::debug(date("H:i:s")." del_task_status in {$time_run} s\n");
         }
     }
 
@@ -1349,14 +1339,9 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $time_start = microtime(true);
-
             $count = cls_redis::get("collect_urls_num"); 
             //$keys = cls_redis::keys("collect_urls-*"); 
             //$count = count($keys);
-
-            $time_run = round(microtime(true) - $time_start, 3);
-            log::debug(date("H:i:s")." count_collect_url in {$time_run} s\n");
         }
         else 
         {
@@ -1378,14 +1363,9 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $time_start = microtime(true);
-
             $count = cls_redis::get("collected_urls_num"); 
             //$keys = cls_redis::keys("collected_urls-*"); 
             //$count = count($keys);
-
-            $time_run = round(microtime(true) - $time_start, 3);
-            log::debug(date("H:i:s")." count_collected_url in {$time_run} s\n");
         }
         else 
         {
@@ -1796,11 +1776,6 @@ class phpspider
                 return false;
             }
         }
-        //var_dump($url);
-        //if (strpos($url,'#') !== false) 
-        //{
-            //echo $url;exit;
-        //}
 
         return $url;
     }
@@ -1845,10 +1820,6 @@ class phpspider
                 }
 
                 $fields_str = json_encode($fields, JSON_UNESCAPED_UNICODE);
-                //if (isset(self::$configs['show_encoding']) && strtolower(self::$configs['show_encoding']) != 'utf-8') 
-                //{
-                    //$fields_str = mb_convert_encoding($fields_str, self::$configs['show_encoding'], 'utf-8');
-                //}
                 if (util::is_win()) 
                 {
                     $fields_str = mb_convert_encoding($fields_str, 'gb2312', 'utf-8');
