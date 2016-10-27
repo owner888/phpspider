@@ -358,12 +358,6 @@ class phpspider
 
     public function add_scan_url($url, $options = array())
     {
-        // 去重
-        if (!$this->is_collect_url($url))
-        {
-            return false;
-        }
-
         // 投递状态
         $status = false;
         $link = array(
@@ -623,7 +617,11 @@ class phpspider
         // 添加入口URL到队列
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            $this->add_scan_url($url);
+            // 去重
+            if (!$this->is_collect_url($url))
+            {
+                $this->add_scan_url($url);
+            }
         }
 
         while( $this->queue_lsize() )
