@@ -154,7 +154,7 @@ class cls_redis
                 self::$redis->close();
                 self::$redis = null;
                 sleep(1);
-                return self::set($key, $expire, $value);
+                return self::set($key, $value, $expire);
             }
         }
         return NULL;
@@ -197,7 +197,7 @@ class cls_redis
                 self::$redis->close();
                 self::$redis = null;
                 sleep(1);
-                return self::setnx($key, $expire, $value);
+                return self::setnx($key, $value, $expire);
             }
         }
         return NULL;
