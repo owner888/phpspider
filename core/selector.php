@@ -92,6 +92,10 @@ class selector
                 $result[] = $content;
             }
         }
+        if (empty($result)) 
+        {
+            return false;
+        }
         // 如果只有一个元素就直接返回string，否则返回数组
         return count($result) > 1 ? $result : $result[0];
     }

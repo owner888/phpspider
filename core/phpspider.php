@@ -563,12 +563,6 @@ class phpspider
             exit;
         }
         
-        // 放这个位置，可以添加入口页面
-        if ($this->on_start) 
-        {
-            call_user_func($this->on_start, $this);
-        }
-
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
             // 只检查配置中的入口URL，通过 add_scan_url 添加的不检查了.
@@ -595,7 +589,7 @@ class phpspider
             log::info("\n[ ".self::$configs['name']." Spider ] is started...\n");
             log::warn("PHPSpider Version: ".self::VERSION."\n");
             log::warn("Task Number: ".self::$tasknum."\n");
-            log::warn("!Documentation: \nhttps://doc.phpspider.org\n");
+            log::warn("!Document: https://doc.phpspider.org\n");
         }
 
         // 多任务和分布式都要清掉，当然分布式只清自己的
@@ -622,6 +616,12 @@ class phpspider
             {
                 $this->add_scan_url($url);
             }
+        }
+
+        // 放这个位置，可以添加入口页面
+        if ($this->on_start) 
+        {
+            call_user_func($this->on_start, $this);
         }
 
         while( $this->queue_lsize() )
