@@ -358,12 +358,6 @@ class phpspider
 
     public function add_scan_url($url, $options = array())
     {
-        if (!$this->is_scan_page($url))
-        {
-            log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
-            exit;
-        }
-
         // 投递状态
         $status = false;
         $link = array(
@@ -380,6 +374,7 @@ class phpspider
         );
         $status = $this->queue_lpush($link);
         log::debug(date("H:i:s")." Find scan page: {$url}");
+        return $status;
     }
 
     /**
@@ -621,7 +616,17 @@ class phpspider
         // 添加入口URL到队列
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            $this->add_scan_url($url);
+            // 只检查配置中的入口URL，通过 add_scan_url 添加的不检查了.
+            if (!$this->is_scan_page($url))
+            {
+                log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
+                exit;
+            }
+            // 去重
+            if (!$this->is_collect_url($url))
+            {
+                $this->add_scan_url($url);
+            }
         }
 
         while( $this->queue_lsize() )
