@@ -1909,6 +1909,7 @@ class phpspider
                 if (!isset($conf['selector_type']) || $conf['selector_type']=='xpath') 
                 {
                     // 返回值一定是多项的
+                    // 注意：这下不一定是多项的了
                     $values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
                 }
                 elseif ($conf['selector_type']=='regex') 
@@ -1953,8 +1954,23 @@ class phpspider
             }
             else 
             {
+                if (is_array($values)) 
+                {
+                    if ($repeated) 
+                    {
+                        $fields[$conf['name']] = $values;
+                    }
+                    else 
+                    {
+                        $fields[$conf['name']] = $values[0];
+                    }
+                }
+                else 
+                {
+                    $fields[$conf['name']] = $values;
+                }
                 // 不重复抽取则只取第一个元素
-                $fields[$conf['name']] = $repeated ? $values : $values[0];
+                //$fields[$conf['name']] = $repeated ? $values : $values[0];
             }
         }
 
@@ -2022,56 +2038,12 @@ class phpspider
      */
     public function get_fields_xpath($html, $selector, $fieldname) 
     {
-        $dom = new DOMDocument();
-        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
-        //libxml_use_internal_errors(true);
-        //$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
-        //$errors = libxml_get_errors();
-        //if (!empty($errors)) 
-        //{
-            //print_r($errors);
-            //exit;
-        //}
-
-        $xpath = new DOMXpath($dom);
-        $elements = @$xpath->query($selector);
-        if ($elements === false)
+        $result = selector::select($html, $selector);
+        if (selector::$error) 
         {
-            log::error("Field(\"{$fieldname}\") the selector in the xpath(\"{$selector}\") syntax errors\n");
-            exit;
+            log::error("Field(\"{$fieldname}\") ".selector::$error."\n");
         }
-
-        $array = array();
-        if (!is_null($elements)) 
-        {
-            foreach ($elements as $element) 
-            {
-                $nodeName = $element->nodeName;
-                $nodeType = $element->nodeType;     // 1.Element 2.Attribute 3.Text
-                //$nodeAttr = $element->getAttribute('src');
-                //$nodes = util::node_to_array($dom, $element);
-                //echo $nodes['@src']."\n";
-                // 如果是img标签，直接取src值
-                if ($nodeType == 1 && in_array($nodeName, array('img'))) 
-                {
-                    $content = $element->getAttribute('src');
-                }
-                // 如果是标签属性，直接取节点值
-                elseif ($nodeType == 2 || $nodeType == 3) 
-                {
-                    $content = $element->nodeValue;
-                }
-                else 
-                {
-                    // 保留nodeValue里的html符号，给children二次提取
-                    $content = $dom->saveXml($element);
-                    //$content = trim($dom->saveHtml($element));
-                    $content = preg_replace(array("#^<{$nodeName}.*>#isU","#</{$nodeName}>$#isU"), array('', ''), $content);
-                }
-                $array[] = trim($content);
-            }
-        }
-        return $array;
+        return $result;
     }
 
     /**
@@ -2085,21 +2057,12 @@ class phpspider
      */
     public function get_fields_regex($html, $selector, $fieldname) 
     {
-        if(@preg_match_all($selector, $html, $out) === false)
+        $result = selector::select($html, $selector, 'regex');
+        if (selector::$error) 
         {
-            log::error("Field(\"{$fieldname}\") the selector in the regex(\"{$selector}\") syntax errors\n");
-            exit;
+            log::error("Field(\"{$fieldname}\") ".selector::$error."\n");
         }
-
-        $array = array();
-        if (!is_null($out[1])) 
-        {
-            foreach ($out[1] as $v) 
-            {
-                $array[] = trim($v);
-            }
-        }
-        return $array;
+        return $result;
     }
 
     /**
