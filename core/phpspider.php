@@ -358,6 +358,12 @@ class phpspider
 
     public function add_scan_url($url, $options = array())
     {
+        // 去重
+        if (!$this->is_collect_url($url))
+        {
+            return false;
+        }
+
         // 投递状态
         $status = false;
         $link = array(
@@ -571,6 +577,7 @@ class phpspider
 
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
+            // 只检查配置中的入口URL，通过 add_scan_url 添加的不检查了.
             if (!$this->is_scan_page($url))
             {
                 log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
@@ -616,17 +623,7 @@ class phpspider
         // 添加入口URL到队列
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            // 只检查配置中的入口URL，通过 add_scan_url 添加的不检查了.
-            if (!$this->is_scan_page($url))
-            {
-                log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
-                exit;
-            }
-            // 去重
-            if (!$this->is_collect_url($url))
-            {
-                $this->add_scan_url($url);
-            }
+            $this->add_scan_url($url);
         }
 
         while( $this->queue_lsize() )
@@ -902,7 +899,7 @@ class phpspider
             // 如果深度没有超过最大深度，获取下一级URL
             if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) 
             {
-                // 分析提取HTML页面中的URL，需要优化 XXX
+                // 分析提取HTML页面中的URL
                 $this->get_html_urls($page['raw'], $url, $link['depth'] + 1);
             }
         }
