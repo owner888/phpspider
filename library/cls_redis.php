@@ -1,13 +1,18 @@
 <?php
+// +----------------------------------------------------------------------
+// | PHPSpider [ A PHP Framework For Crawler ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2006-2014 https://doc.phpspider.org All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
+// +----------------------------------------------------------------------
+// | Author: Seatle Yang <seatle@foxmail.com>
+// +----------------------------------------------------------------------
 
-/**
- * @package 
- * 
- * @version 2.7.0
- * @copyright 1997-2015 The PHP Group
- * @author seatle <seatle@foxmail.com> 
- * @created time :2015-12-13
- */
+//----------------------------------
+// PHPSpider Redis操作类文件
+//----------------------------------
+
 class cls_redis
 {
     /**

@@ -1,11 +1,17 @@
 <?php
+// +----------------------------------------------------------------------
+// | PHPSpider [ A PHP Framework For Crawler ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2006-2014 https://doc.phpspider.org All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
+// +----------------------------------------------------------------------
+// | Author: Seatle Yang <seatle@foxmail.com>
+// +----------------------------------------------------------------------
 
-/**
- * phpspider - A PHP Framework For Crawler
- *
- * @package  phpspider
- * @author   Seatle Yang <seatle@foxmail.com>
- */
+//----------------------------------
+// PHPSpider公共入口文件
+//----------------------------------
 
 // 严格开发模式
 error_reporting( E_ALL );
