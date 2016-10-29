@@ -1918,6 +1918,10 @@ class phpspider
                     // 注意：这下不一定是多项的了
                     $values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
                 }
+                elseif ($conf['selector_type']=='css') 
+                {
+                    $values = $this->get_fields_css($html, $conf['selector'], $conf['name']);
+                }
                 elseif ($conf['selector_type']=='regex') 
                 {
                     $values = $this->get_fields_regex($html, $conf['selector'], $conf['name']);
