@@ -417,6 +417,32 @@ class db
         }
     }
 
+    public static function delete($table = '', $where = null, $return_sql = false)
+    {
+        // 小心全部被删除了
+        if (empty($where)) 
+        {
+            return false;
+        }
+        $where = !is_array($where) ? $where : 'Where ' . implode(' And ', $where);
+        $sql = "Delete From `{$table}` {$where}";
+        if ($return_sql) 
+        {
+            return $sql;
+        }
+        else 
+        {
+            if (self::query($sql))
+            {
+                return mysqli_affected_rows(self::$conn);
+            }
+            else 
+            {
+                return false;
+            }
+        }
+    }
+
     public static function ping()
     {
         if (!mysqli_ping(self::$conn))

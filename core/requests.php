@@ -439,6 +439,12 @@ class requests
         return self::http_client($url, 'OPTIONS', $fields);
     }
 
+    public static function patch($url, $fields = array())
+    {
+        self::init ();
+        return self::http_client($url, 'PATCH', $fields);
+    }
+
     public static function http_client($url, $method = 'GET', $fields)
     {
         $method = strtoupper($method);
