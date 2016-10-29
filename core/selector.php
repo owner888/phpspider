@@ -156,7 +156,8 @@ class selector
      */
     private static function _css_select($html, $selector)
     {
-    
+        phpQuery::loadDocumentHTML($html); 
+        return pq($selector)->html(); 
     }
 
     public static function find_all($html, $selector)

@@ -2083,6 +2083,12 @@ class phpspider
      */
     public function get_fields_css($html, $selector, $fieldname) 
     {
+        $result = selector::select($html, $selector, 'css');
+        if (selector::$error) 
+        {
+            log::error("Field(\"{$fieldname}\") ".selector::$error."\n");
+        }
+        return $result;
     }
 
     public function shell_clear()
