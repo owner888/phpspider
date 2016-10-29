@@ -1931,7 +1931,7 @@ class phpspider
                     foreach ($values as $html) 
                     {
                         // 递归调用本方法，所以多少子项目都支持
-                        $child_value = $this->get_fields($conf['children'], $url, $html, $page);
+                        $child_value = $this->get_fields($conf['children'], $html, $url, $page);
                         if (!empty($child_value)) 
                         {
                             $child_values[] = $child_value;
