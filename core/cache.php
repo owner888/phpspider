@@ -1,17 +1,17 @@
 <?php
-/**
- * 存储类
- * 这里用redis实现
- *
- * Licensed under The MIT License
- * For full copyright and license information, please see the MIT-LICENSE.txt
- * Redistributions of files must retain the above copyright notice.
- *
- * @author seatle<seatle@foxmail.com>
- * @copyright seatle<seatle@foxmail.com>
- * @link http://www.epooll.com/
- * @license http://www.opensource.org/licenses/mit-license.php MIT License
- */
+// +----------------------------------------------------------------------
+// | PHPSpider [ A PHP Framework For Crawler ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2006-2014 https://doc.phpspider.org All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
+// +----------------------------------------------------------------------
+// | Author: Seatle Yang <seatle@foxmail.com>
+// +----------------------------------------------------------------------
+
+//----------------------------------
+// PHPSpider缓存类文件
+//----------------------------------
 
 class cache
 {

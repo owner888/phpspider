@@ -1,9 +1,22 @@
 <?php
+// +----------------------------------------------------------------------
+// | PHPSpider [ A PHP Framework For Crawler ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2006-2014 https://doc.phpspider.org All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
+// +----------------------------------------------------------------------
+// | Author: Seatle Yang <seatle@foxmail.com>
+// +----------------------------------------------------------------------
+
+//----------------------------------
+// PHPSpider日志类文件
+//----------------------------------
 
 class log
 {
     public static $log_show = false;
-    public static $log_file = false;
+    public static $log_file = "data/phpspider.log";
 
     public static function info($msg)
     {

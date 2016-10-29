@@ -1,13 +1,18 @@
 <?php
+// +----------------------------------------------------------------------
+// | PHPSpider [ A PHP Framework For Crawler ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2006-2014 https://doc.phpspider.org All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
+// +----------------------------------------------------------------------
+// | Author: Seatle Yang <seatle@foxmail.com>
+// +----------------------------------------------------------------------
 
-/**
- * @package 
- * 
- * @version 2.7.0
- * @copyright 1997-2015 The PHP Group
- * @author seatle <seatle@foxmail.com> 
- * @created time :2015-12-13
- */
+//----------------------------------
+// PHPSpider Redis操作类文件
+//----------------------------------
+
 class cls_redis
 {
     /**
@@ -29,12 +34,6 @@ class cls_redis
 
     public static function init()
     {
-        if (!extension_loaded("redis"))
-        {
-            self::$error = "Unable to load redis extension";
-            return false;
-        }
-
         // 获取配置
         $configs = empty(self::$configs) ? self::_get_default_config() : self::$configs;
         if (empty($configs)) 
@@ -44,14 +43,9 @@ class cls_redis
         }
 
         // 如果当前链接标识符为空，或者ping不同，就close之后重新打开
-        if ( empty(self::$redis) || !self::ping() )
+        //if ( empty(self::$redis) || !self::ping() )
+        if ( !self::$redis )
         {
-            // 如果当前已经有链接标识符，但是ping不了，则先关闭
-            if ( !empty(self::$redis) )
-            {
-                self::$redis->close();
-            }
-
             self::$redis = new Redis();
             if (!self::$redis->connect($configs['host'], $configs['port'], $configs['timeout']))
             {
@@ -73,6 +67,7 @@ class cls_redis
 
             $prefix = empty($configs['prefix']) ? self::$prefix : $configs['prefix'];
             self::$redis->setOption(Redis::OPT_PREFIX, $prefix . ":");
+            self::$redis->setOption(Redis::OPT_READ_TIMEOUT, -1);
         }
 
         return self::$redis;
@@ -140,20 +135,33 @@ class cls_redis
      */
     public static function set($key, $value, $expire = 0)
     {
-        $redis = self::init();
-
-        if ($redis) 
+        self::init();
+        try
         {
-            if ($expire > 0)
+            if ( self::$redis )
             {
-                return $redis->setex($key, $expire, $value);
-            }
-            else
-            {
-                return $redis->set($key, $value);
+                if ($expire > 0)
+                {
+                    return self::$redis->setex($key, $expire, $value);
+                }
+                else
+                {
+                    return self::$redis->set($key, $value);
+                }
             }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::set($key, $value, $expire);
+            }
+        }
         return NULL;
     }
 
@@ -170,20 +178,33 @@ class cls_redis
      */
     public static function setnx($key, $value, $expire = 0)
     {
-        $redis = self::init();
-
-        if ($redis) 
+        self::init();
+        try
         {
-            if ($expire > 0)
+            if ( self::$redis )
             {
-                return $redis->setnx($key, $expire, $value);
-            }
-            else
-            {
-                return $redis->setnx($key, $value);
+                if ($expire > 0)
+                {
+                    return self::$redis->setnx($key, $expire, $value);
+                }
+                else
+                {
+                    return self::$redis->setnx($key, $value);
+                }
             }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::setnx($key, $value, $expire);
+            }
+        }
         return NULL;
     }
 
@@ -197,14 +218,26 @@ class cls_redis
      */
     public static function get( $key)
     {
-        $redis = self::init();
-
-        if ( $redis )
+        self::init();
+        try
         {
-            $value = $redis->get($key);
-            return $value;
+            if ( self::$redis )
+            {
+                return self::$redis->get($key);
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::get($key);
+            }
+        }
         return NULL;
     }
 
@@ -218,13 +251,26 @@ class cls_redis
      */
     public static function del($key)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->del($key);
+            if ( self::$redis )
+            {
+                return self::$redis->del($key);
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::del($key);
+            }
+        }
         return NULL;
     }
 
@@ -238,18 +284,37 @@ class cls_redis
      */
     public static function type($key)
     {
-        $redis = self::init();
+        self::init();
+
         $types = array(
             '0' => 'set',
             '1' => 'string',
             '3' => 'list',
         );
 
-        if ($redis)
+        try
         {
-            return $types[$redis->type($key)];
+            if ( self::$redis )
+            {
+                $type = self::$redis->type($key);
+                if (isset($types[$type])) 
+                {
+                    return $types[$type];
+                }
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::type($key);
+            }
+        }
         return NULL;
     }
 
@@ -264,20 +329,33 @@ class cls_redis
      */
     public static function incr($key, $integer = 0)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            if (empty($integer)) 
+            if ( self::$redis )
             {
-                return $redis->incr($key);
-            }
-            else 
-            {
-                return $redis->incrby($key, $integer);
+                if (empty($integer)) 
+                {
+                    return self::$redis->incr($key);
+                }
+                else 
+                {
+                    return self::$redis->incrby($key, $integer);
+                }
             }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::incr($key, $integer);
+            }
+        }
         return NULL;
     }
 
@@ -292,20 +370,33 @@ class cls_redis
      */
     public static function decr($key, $integer = 0)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            if (empty($integer)) 
+            if ( self::$redis )
             {
-                return $redis->decr($key);
-            }
-            else 
-            {
-                return $redis->decrby($key, $integer);
+                if (empty($integer)) 
+                {
+                    return self::$redis->decr($key);
+                }
+                else 
+                {
+                    return self::$redis->decrby($key, $integer);
+                }
             }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::decr($key, $integer);
+            }
+        }
         return NULL;
     }
 
@@ -320,13 +411,26 @@ class cls_redis
      */
     public static function append($key, $value)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->append($key, $value);
+            if ( self::$redis )
+            {
+                return self::$redis->append($key, $value);
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::append($key, $value);
+            }
+        }
         return NULL;
     }
 
@@ -342,13 +446,26 @@ class cls_redis
      */
     public static function substr($key, $start, $end)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->substr($key, $start, $end);
+            if ( self::$redis )
+            {
+                return self::$redis->substr($key, $start, $end);
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::substr($key, $start, $end);
+            }
+        }
         return NULL;
     }
 
@@ -362,13 +479,26 @@ class cls_redis
      */
     public static function select($index)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->select($index);
+            if ( self::$redis )
+            {
+                return self::$redis->select($index);
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::select($index);
+            }
+        }
         return NULL;
     }
 
@@ -382,13 +512,26 @@ class cls_redis
      */
     public static function dbsize()
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->dbsize();
+            if ( self::$redis )
+            {
+                return self::$redis->dbsize();
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::dbsize();
+            }
+        }
         return NULL;
     }
 
@@ -401,13 +544,26 @@ class cls_redis
      */
     public static function flushdb()
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->flushdb();
+            if ( self::$redis )
+            {
+                return self::$redis->flushdb();
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::flushdb();
+            }
+        }
         return NULL;
     }
 
@@ -420,13 +576,26 @@ class cls_redis
      */
     public static function flushall()
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->flushall();
+            if ( self::$redis )
+            {
+                return self::$redis->flushall();
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::flushall();
+            }
+        }
         return NULL;
     }
 
@@ -440,20 +609,33 @@ class cls_redis
      */
     public static function save($is_bgsave = false)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            if (!$is_bgsave) 
+            if ( self::$redis )
             {
-                return $redis->save();
-            }
-            else 
-            {
-                return $redis->bgsave();
+                if (!$is_bgsave) 
+                {
+                    return self::$redis->save();
+                }
+                else 
+                {
+                    return self::$redis->bgsave();
+                }
             }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::save($is_bgsave);
+            }
+        }
         return NULL;
     }
 
@@ -466,13 +648,26 @@ class cls_redis
      */
     public static function info()
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->info();
+            if ( self::$redis )
+            {
+                return self::$redis->info();
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::info();
+            }
+        }
         return NULL;
     }
 
@@ -485,20 +680,33 @@ class cls_redis
      */
     public static function slowlog($command = 'get', $len = 0)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            if (!empty($len)) 
+            if ( self::$redis )
             {
-                return $redis->slowlog($command, $len);
-            }
-            else 
-            {
-                return $redis->slowlog($command);
+                if (!empty($len)) 
+                {
+                    return $redis->slowlog($command, $len);
+                }
+                else 
+                {
+                    return $redis->slowlog($command);
+                }
             }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::slowlog($command, $len);
+            }
+        }
         return NULL;
     }
 
@@ -511,13 +719,26 @@ class cls_redis
      */
     public static function lastsave()
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->lastsave();
+            if ( self::$redis )
+            {
+                return self::$redis->lastsave();
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::lastsave();
+            }
+        }
         return NULL;
     }
 
@@ -532,13 +753,26 @@ class cls_redis
      */
     public static function lpush($key, $value)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->lpush($key, $value);
+            if ( self::$redis )
+            {
+                return self::$redis->lpush($key, $value);
+            }
         }
-
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::lpush($key, $value);
+            }
+        }
         return NULL;
     }
 
@@ -553,11 +787,25 @@ class cls_redis
      */
     public static function rpush($key, $value)
     {
-        $redis = self::init();
-
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->rpush($key, $value);
+            if ( self::$redis )
+            {
+                return self::$redis->rpush($key, $value);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::rpush($key, $value);
+            }
         }
         return NULL;
     }
@@ -572,11 +820,25 @@ class cls_redis
      */
     public static function lpop($key)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            $value = $redis->lpop($key);
-            return $value;
+            if ( self::$redis )
+            {
+                return self::$redis->lpop($key);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::lpop($key);
+            }
         }
         return NULL;
     }
@@ -591,11 +853,25 @@ class cls_redis
      */
     public static function rpop($key)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            $value = $redis->rpop($key);
-            return $value;
+            if ( self::$redis )
+            {
+                return self::$redis->rpop($key);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::rpop($key);
+            }
         }
         return NULL;
     }
@@ -610,10 +886,25 @@ class cls_redis
      */
     public static function lsize($key)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->lSize($key);
+            if ( self::$redis )
+            {
+                return self::$redis->lSize($key);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::lsize($key);
+            }
         }
         return NULL;
     }
@@ -629,11 +920,25 @@ class cls_redis
      */
     public static function lget($key, $index = 0)
     {
-        $redis = self::init() ;
-        if ($redis)
+        self::init();
+        try
         {
-            $value = $redis->lget($key, $index);
-            return $value;
+            if ( self::$redis )
+            {
+                return self::$redis->lget($key, $index);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::lget($key, $index);
+            }
         }
         return NULL;
     }
@@ -650,10 +955,25 @@ class cls_redis
      */
     public static function lrange($key, $start, $end)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->lRange($key, $start, $end);
+            if ( self::$redis )
+            {
+                return self::$redis->lRange($key, $start, $end);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::lrange($key, $start, $end);
+            }
         }
         return NULL;
     }
@@ -711,10 +1031,25 @@ class cls_redis
      */
     public static function keys($key)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->keys($key);
+            if ( self::$redis )
+            {
+                return self::$redis->keys($key);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::keys($key);
+            }
         }
         return NULL;
     }
@@ -731,10 +1066,25 @@ class cls_redis
      */
     public static function ttl($key)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->ttl($key);
+            if ( self::$redis )
+            {
+                return self::$redis->ttl($key);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::ttl($key);
+            }
         }
         return NULL;
     }
@@ -750,10 +1100,25 @@ class cls_redis
      */
     public static function expire($key, $expire)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->expire($key, $expire);
+            if ( self::$redis )
+            {
+                return self::$redis->expire($key, $expire);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::expire($key, $expire);
+            }
         }
         return NULL;
     }
@@ -768,10 +1133,25 @@ class cls_redis
      */
     public static function exists($key)
     {
-        $redis = self::init();
-        if ($redis)
+        self::init();
+        try
         {
-            return $redis->exists($key);
+            if ( self::$redis )
+            {
+                return self::$redis->exists($key);
+            }
+        }
+        catch (Exception $e)
+        {
+            $msg = "PHP Fatal error:  Uncaught exception 'RedisException' with message '".$e->getMessage()."'\n";
+            log::warn($msg);
+            if ($e->getCode() == 0) 
+            {
+                self::$redis->close();
+                self::$redis = null;
+                sleep(1);
+                return self::exists($key);
+            }
         }
         return false;
     }
@@ -783,14 +1163,14 @@ class cls_redis
      * @author seatle <seatle@foxmail.com> 
      * @created time :2015-12-13 01:05
      */
-    protected static function ping()
-    {
-        if ( empty (self::$redis) )
-        {
-            return false;
-        }
-        return self::$redis->ping() == '+PONG';
-    }
+    //protected static function ping()
+    //{
+        //if ( empty (self::$redis) )
+        //{
+            //return false;
+        //}
+        //return self::$redis->ping() == '+PONG';
+    //}
 
     public static function encode($value)
     {

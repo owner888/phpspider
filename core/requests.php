@@ -1,11 +1,17 @@
 <?php
+// +----------------------------------------------------------------------
+// | PHPSpider [ A PHP Framework For Crawler ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2006-2014 https://doc.phpspider.org All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
+// +----------------------------------------------------------------------
+// | Author: Seatle Yang <seatle@foxmail.com>
+// +----------------------------------------------------------------------
 
-/**
- * phpspider - A PHP Framework For Crawler
- *
- * @package  requests
- * @author   Seatle Yang <seatle@foxmail.com>
- */
+//----------------------------------
+// PHPSpider请求类文件
+//----------------------------------
 
 class requests
 {
@@ -24,6 +30,7 @@ class requests
     protected static $domain_cookies = array();
     protected static $hosts = array();
     public static $headers = array();
+    public static $useragents = array();
     public static $proxies = array();
     public static $url = null;
     public static $domain = null;
@@ -150,6 +157,17 @@ class requests
             return array();
         }
         return empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
+    }
+
+    /**
+     * 设置随机的user_agent
+     *
+     * @param string $useragent
+     * @return void
+     */
+    public static function set_useragents($useragents)
+    {
+        self::$useragents = $useragents;
     }
 
     /**
@@ -486,6 +504,11 @@ class requests
             curl_setopt( self::$ch, CURLOPT_COOKIE, $cookies );
         }
 
+        if (!empty(self::$useragents)) 
+        {
+            $key = rand(0, count(self::$useragents) - 1);
+            self::$headers['User-Agent'] = self::$useragents[$key];
+        }
         if (self::$headers)
         {
             $headers = array();
