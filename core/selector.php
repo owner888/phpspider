@@ -132,7 +132,7 @@ class selector
         // 只匹配一个，就是只有一个 ()
         elseif ($count == 2) 
         {
-            return $out[1];
+            $result = $out[1];
         }
         else 
         {
@@ -142,7 +142,11 @@ class selector
                 $result[] = count($out[$i]) > 1 ? $out[$i] : $out[$i][0];
             }
         }
-        return $result;
+        if (empty($result)) 
+        {
+            return false;
+        }
+        return count($result) > 1 ? $result : $result[0];
     }
 
     /**
