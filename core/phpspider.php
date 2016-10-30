@@ -1094,7 +1094,7 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 同样进行1000次提取，xpath要6秒，正则一秒不到，所以没有什么特殊还是用正则吧
         //$urls = selector::select($html, '//a/@href');
-        preg_match_all("/<a.*href=[\"'](.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
+        preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
         $urls = array();
         if (!empty($matchs[1])) 
         {
