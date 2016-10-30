@@ -1093,9 +1093,21 @@ class phpspider
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
         // 同样进行1000次提取，xpath要6秒，正则一秒不到，所以没有什么特殊还是用正则吧
-        preg_match_all("/<a.*href=[\"'](.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
-        $urls = !empty($matchs[1]) ? $matchs[1] : array();
         //$urls = selector::select($html, '//a/@href');
+        preg_match_all("/<a.*href=[\"'](.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
+        $urls = array();
+        if (!empty($matchs[1])) 
+        {
+            foreach ($matchs[1] as $url) 
+            {
+                $urls[] = str_replace(array("\"", "'"), "", $url);
+            }
+        }
+
+        if (empty($urls)) 
+        {
+            return false;
+        }
 
         //--------------------------------------------------------------------------------
         // 过滤和拼凑URL
