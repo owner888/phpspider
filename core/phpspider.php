@@ -1481,7 +1481,7 @@ class phpspider
         {
             foreach ($fields as $fieldname => $data) 
             {
-                $pattern = "/<img.*src=[\"'](.*)[\"']{0,1}[> \r\n\t]{1,}/isU";
+                $pattern = "/<img.*src=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU";
                 /*$pattern = "/<img.*?src=[\'|\"](.*?(?:[\.gif|\.jpg|\.jpeg|\.png]))[\'|\"].*?[\/]?>/i"; */
                 // 在抽取到field内容之后调用, 对其中包含的img标签进行回调处理
                 if ($this->on_handle_img && preg_match($pattern, $data)) 
