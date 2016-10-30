@@ -1320,7 +1320,18 @@ class phpspider
                     exit(0);
                 }
 
-                $fields_str = json_encode($fields, JSON_UNESCAPED_UNICODE);
+                if (version_compare(PHP_VERSION,'5.4.0','<'))
+                {
+                    $fields_str = json_encode($fields);
+                    $fields_str = preg_replace_callback( "#\\\u([0-9a-f]{4})#i", function($matchs) {
+                        return iconv('UCS-2BE', 'UTF-8', pack('H4', $matchs[1]));
+                    }, $fields_str ); 
+                } 
+                else
+                {
+                    $fields_str = json_encode($fields, JSON_UNESCAPED_UNICODE);
+                }
+
                 if (util::is_win()) 
                 {
                     $fields_str = mb_convert_encoding($fields_str, 'gb2312', 'utf-8');
