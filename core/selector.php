@@ -20,19 +20,28 @@ class selector
      * @var string
      */
     const VERSION = '1.0.0';
+    public static $dom = null;
+    public static $dom_auth = null;
+    public static $xpath = null;
     public static $error = null;
 
     public static function select($html, $selector, $selector_type = 'xpath')
     {
-        if (strtolower($selector_type) == 'xpath') 
+        if (empty($html) || empty($selector)) 
+        {
+            return false;
+        }
+
+        $selector_type = strtolower($selector_type);
+        if ($selector_type == 'xpath') 
         {
             return self::_xpath_select($html, $selector);
         }
-        elseif (strtolower($selector_type) == 'regex') 
+        elseif ($selector_type == 'regex') 
         {
             return self::_regex_select($html, $selector);
         }
-        elseif (strtolower($selector_type) == 'css') 
+        elseif ($selector_type == 'css') 
         {
             return self::_css_select($html, $selector);
         }
@@ -49,10 +58,21 @@ class selector
      */
     private static function _xpath_select($html, $selector)
     {
-        $dom = new DOMDocument();
-        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        if (!is_object(self::$dom))
+        {
+            self::$dom = new DOMDocument();
+        }
+
+        // 如果加载的不是之前的HTML内容，替换一下验证标识
+        if (self::$dom_auth != md5($html)) 
+        {
+            self::$dom_auth = md5($html);
+            @self::$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+            self::$xpath = new DOMXpath(self::$dom);
+        }
+
         //libxml_use_internal_errors(true);
-        //$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        //self::$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
         //$errors = libxml_get_errors();
         //if (!empty($errors)) 
         //{
@@ -60,8 +80,7 @@ class selector
             //exit;
         //}
 
-        $xpath = new DOMXpath($dom);
-        $elements = @$xpath->query($selector);
+        $elements = @self::$xpath->query($selector);
         if ($elements === false)
         {
             self::$error = "the selector in the xpath(\"{$selector}\") syntax errors";
@@ -76,7 +95,7 @@ class selector
                 $nodeName = $element->nodeName;
                 $nodeType = $element->nodeType;     // 1.Element 2.Attribute 3.Text
                 //$nodeAttr = $element->getAttribute('src');
-                //$nodes = util::node_to_array($dom, $element);
+                //$nodes = util::node_to_array(self::$dom, $element);
                 //echo $nodes['@src']."\n";
                 // 如果是img标签，直接取src值
                 if ($nodeType == 1 && in_array($nodeName, array('img'))) 
@@ -91,8 +110,8 @@ class selector
                 else 
                 {
                     // 保留nodeValue里的html符号，给children二次提取
-                    $content = $dom->saveXml($element);
-                    //$content = trim($dom->saveHtml($element));
+                    $content = self::$dom->saveXml($element);
+                    //$content = trim(self::$dom->saveHtml($element));
                     $content = preg_replace(array("#^<{$nodeName}.*>#isU","#</{$nodeName}>$#isU"), array('', ''), $content);
                 }
                 $result[] = $content;
