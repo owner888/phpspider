@@ -1602,13 +1602,6 @@ class phpspider
                 $key = "task_status-".$i;
                 $task_status[] = cls_redis::get($key);
             }
-            // redis的keys太慢了
-            //$keys = cls_redis::keys("task_status-*"); 
-            //foreach ($keys as $key) 
-            //{
-                //$key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-                //$task_status[] = cls_redis::get($key);
-            //}
         }
         else 
         {
@@ -1621,20 +1614,13 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            cls_redis::del("lock-depth_num");
+            //cls_redis::del("lock-depth_num");
 
             for ($i = 1; $i <= self::$tasknum; $i++) 
             {
                 $key = "task_status-".$i;
                 cls_redis::del($key);
             }
-            // redis的keys太慢了
-            //$keys = cls_redis::keys("task_status-*"); 
-            //foreach ($keys as $key) 
-            //{
-                //$key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-                //cls_redis::del($key);
-            //}
         }
     }
 
@@ -1651,18 +1637,12 @@ class phpspider
         // 多任务 或者 单任务但是从上次继续执行
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $lock = "lock-collect_urls-".md5($url);
-            // 如果不能上锁，说明同时有一个进程带了一样的URL进来判断，而且刚好比这个进程快一丢丢
-            // 那么这个进程的URL就可以直接过滤了
-            if (!cls_redis::setnx($lock, "lock"))
+            $lock = "collect_urls-".md5($url);
+            // 一个进程一个进程进行判断
+            if (cls_redis::lock($lock))
             {
-                return true;
-            }
-            else 
-            {
-                // 删除锁然后判断一下这个连接是不是已经在队列里面了
                 $exists = cls_redis::exists("collect_urls-".md5($url)); 
-                cls_redis::del($lock);
+                cls_redis::unlock($lock);
                 return $exists;
             }
         }
@@ -1684,6 +1664,7 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
+            // incr 本身就是原子性的，不需要上锁
             cls_redis::incr("collect_urls_num"); 
             cls_redis::set("collect_urls-".md5($url), time()); 
         }
@@ -1730,8 +1711,6 @@ class phpspider
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $count = cls_redis::get("collect_urls_num"); 
-            //$keys = cls_redis::keys("collect_urls-*"); 
-            //$count = count($keys);
         }
         else 
         {
@@ -1754,8 +1733,6 @@ class phpspider
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             $count = cls_redis::get("collected_urls_num"); 
-            //$keys = cls_redis::keys("collected_urls-*"); 
-            //$count = count($keys);
         }
         else 
         {
@@ -1777,7 +1754,13 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            return cls_redis::exists("collected_urls-".md5($url)); 
+            $lock = "collected_urls-".md5($url);
+            if (cls_redis::lock($lock))
+            {
+                $exists = cls_redis::exists("collected_urls-".md5($url)); 
+                cls_redis::unlock($lock);
+                return $exists;
+            }
         }
         else 
         {
@@ -1965,16 +1948,16 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $lock = "lock-depth_num";
+            $lock = "depth_num";
             // 一个一个任务执行
-            while (cls_redis::setnx($lock, "lock"))
+            if (cls_redis::lock($lock))
             {
                 if (cls_redis::get("depth_num") < $depth) 
                 {
                     cls_redis::set("depth_num", $depth); 
                 }
-                cls_redis::del($lock);
-                break;
+
+                cls_redis::unlock($lock);
             }
         }
         else 
@@ -1997,7 +1980,8 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            return cls_redis::get("depth_num"); 
+            $depth_num = cls_redis::get("depth_num"); 
+            return $depth_num ? $depth_num : 0;
         }
         else 
         {
@@ -2043,10 +2027,8 @@ class phpspider
         {
             $fields_num = self::$fields_num;
         }
-        return $fields_num;
+        return $fields_num ? $fields_num : 0;
     }
-
-    
 
     /**
      * 转换数组值的编码格式
