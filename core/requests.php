@@ -527,6 +527,13 @@ class requests
 
         curl_setopt( self::$ch, CURLOPT_ENCODING, 'gzip' );
 
+        // 关闭验证
+        if ("https" == substr($url, 0, 5)) 
+        {
+            curl_setopt(self::$ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt(self::$ch, CURLOPT_SSL_VERIFYHOST, false);
+        }
+
         if (self::$proxies)
         {
             if (!empty(self::$proxies[$scheme])) 
