@@ -612,6 +612,12 @@ class phpspider
             call_user_func($this->on_start, $this);
         }
 
+        if (!log::$log_show) 
+        {
+            // 清屏
+            $this->shell_clear();
+        }
+
         while( $this->queue_lsize() )
         { 
             // 抓取页面
@@ -2028,6 +2034,52 @@ class phpspider
         //array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
     }
 
+    public function replaceable_echo($message, $force_clear_lines = NULL) 
+    {
+        static $last_lines = 0;
+
+        if(!is_null($force_clear_lines)) 
+        {
+            $last_lines = $force_clear_lines;
+        }
+
+        // 获取终端宽度
+        $term_width = exec('tput cols', $toss, $status);
+        if($status) 
+        {
+            $term_width = 64; // Arbitrary fall-back term width.
+        }
+
+        $line_count = 0;
+        foreach(explode("\n", $message) as $line) 
+        {
+            $line_count += count(str_split($line, $term_width));
+        }
+
+        // Erasure MAGIC: Clear as many lines as the last output had.
+        for($i = 0; $i < $last_lines; $i++) 
+        {
+            // Return to the beginning of the line
+            echo "\r";
+            // Erase to the end of the line
+            echo "\033[K";
+            // Move cursor Up a line
+            echo "\033[1A";
+            // Return to the beginning of the line
+            echo "\r";
+            // Erase to the end of the line
+            echo "\033[K";
+            // Return to the beginning of the line
+            echo "\r";
+            // Can be consolodated into
+            // echo "\r\033[K\033[1A\r\033[K\r";
+        }
+
+        $last_lines = $line_count;
+
+        echo $message."\n";
+    }
+
     /**
      * 展示启动界面，Windows 不会到这里来
      * @return void
@@ -2040,8 +2092,9 @@ class phpspider
             $loadavg[$k] = round($v, 2);
         }
         $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        //$display_str = "-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
         $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
-        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/60) . " minutes   \n";
+        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/(60*60*60)) . " minutes   \n";
         $display_str .= 'spider name: ' . self::$configs['name'] . "\n";
         $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
         $display_str .= "document: https://doc.phpspider.org\n";
@@ -2079,12 +2132,13 @@ class phpspider
         $display_str .= "\n";
 
         // 清屏
-        $this->shell_clear();
+        //$this->shell_clear();
         // 返回到第一行,第一列
         //echo "\033[0;0H";
         $display_str .= "---------------------------------------------------------------------\n";
-        $display_str .= "Press Ctrl-C to quit. Start success.\n";
-        echo $display_str;
+        $display_str .= "Press Ctrl-C to quit. Start success.";
+        //echo $display_str;
+        $this->replaceable_echo($display_str);
 
         //if(self::$daemonize)
         //{
