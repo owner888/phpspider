@@ -1721,11 +1721,12 @@ class phpspider
         else 
         {
             $key = md5($url);
-            if (array_key_exists($key, self::$collect_urls))
+            if (!array_key_exists($key, self::$collect_urls))
             {
                 self::$collect_urls_num++;
                 self::$collect_urls[$key] = time();
                 array_push(self::$collect_queue, $link);
+                print_r(self::$collect_queue);
                 $status = true;
             }
         }
@@ -1778,7 +1779,7 @@ class phpspider
         else 
         {
             $key = md5($url);
-            if (array_key_exists($key, self::$collect_urls))
+            if (!array_key_exists($key, self::$collect_urls))
             {
                 self::$collect_urls_num++;
                 self::$collect_urls[$key] = time();
