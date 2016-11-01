@@ -187,7 +187,7 @@ class cls_redis
                 {
                     self::$redis->multi();
                     self::$redis->setNX($key, $value);
-                    self::$redis->expire($key, $ttl);
+                    self::$redis->expire($key, $expire);
                     self::$redis->exec();
                     return true;
                 }
