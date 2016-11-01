@@ -35,8 +35,8 @@ $configs = array(
     'export' => array(
         'type' => 'db',
         'table' => 'jd_goods',
-        //        'type' => 'csv',
-        //        'file' => PATH_DATA.'/jd.csv',
+        //'type' => 'csv',
+        //'file' => PATH_DATA.'/jd_goods.csv',
     ),
     'fields' => array(
         // 商品ID
