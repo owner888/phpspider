@@ -1726,7 +1726,6 @@ class phpspider
                 self::$collect_urls_num++;
                 self::$collect_urls[$key] = time();
                 array_push(self::$collect_queue, $link);
-                print_r(self::$collect_queue);
                 $status = true;
             }
         }
