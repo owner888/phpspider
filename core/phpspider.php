@@ -2020,7 +2020,12 @@ class phpspider
 
     public function shell_clear()
     {
-        array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
+        $arr = array(27, 91, 72, 27, 91, 50, 74);
+        foreach ($arr as $a) 
+        {
+            print chr($a);
+        }
+        //array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
     }
 
     /**
