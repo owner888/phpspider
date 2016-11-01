@@ -93,11 +93,6 @@ class phpspider
     public static $tasknum = 1;
 
     /**
-     * 任务主进程 
-     */
-    public static $taskmaster = true;
-
-    /**
      * 任务主进程状态 
      */
     public static $taskmaster_status = false;
@@ -144,12 +139,6 @@ class phpspider
      * md5($url) => time()
      */
     public static $collect_urls = array();
-
-    /**
-     * 已经抓取过的URL数组
-     * md5($url) => time()
-     */
-    public static $collected_urls = array();
 
     /**
      * 要抓取的URL数量
@@ -362,10 +351,8 @@ class phpspider
         }
     }
 
-    public function add_scan_url($url, $options = array())
+    public function add_scan_url($url, $options = array(), $allowed_repeat = true)
     {
-        // 投递状态
-        $status = false;
         $link = array(
             'url'          => $url,            
             'url_type'     => 'scan_page', 
@@ -378,9 +365,8 @@ class phpspider
             'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
             'depth'        => 0,
         );
-        $status = $this->queue_lpush($link);
+        $this->queue_lpush($link, $allowed_repeat);
         log::debug(date("H:i:s")." Find scan page: {$url}");
-        return $status;
     }
 
     /**
@@ -397,6 +383,7 @@ class phpspider
     {
         // 投递状态
         $status = false;
+
         $link = array(
             'url'          => $url,            
             'url_type'     => '', 
@@ -410,14 +397,14 @@ class phpspider
             'depth'        => $depth,
         );
 
-        if ($this->is_list_page($url) && !$this->is_collect_url($url))
+        if ($this->is_list_page($url))
         {
             log::debug(date("H:i:s")." Find list page: {$url}");
             $link['url_type'] = 'list_page';
             $status = $this->queue_lpush($link);
         }
 
-        if ($this->is_content_page($url) && !$this->is_collect_url($url))
+        if ($this->is_content_page($url))
         {
             log::debug(date("H:i:s")." Find content page: {$url}");
             $link['url_type'] = 'content_page';
@@ -505,8 +492,6 @@ class phpspider
         self::$taskid = 1;
         // 当前任务进程ID
         self::$taskpid = function_exists('posix_getpid') ? posix_getpid() : 1;
-        // 当前任务是否主任务
-        self::$taskmaster = true;
         self::$collect_succ = 0;
         self::$collect_fail = 0;
 
@@ -617,11 +602,8 @@ class phpspider
         // 添加入口URL到队列
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
-            // 去重
-            if (!$this->is_collect_url($url))
-            {
-                $this->add_scan_url($url);
-            }
+            // false 表示不允许重复
+            $this->add_scan_url($url, null, false);
         }
 
         // 放这个位置，可以添加入口页面
@@ -669,8 +651,8 @@ class phpspider
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
         log::info("Spider finished in {$spider_time_run}\n");
 
-        $count_collected_url = $this->count_collected_url();
-        log::info("Total pages: {$count_collected_url} \n\n");
+        $get_collected_url_num = $this->get_collected_url_num();
+        log::info("Total pages: {$get_collected_url_num} \n\n");
 
         // 最后:多任务下不保留运行状态，清空redis数据
         // 注意:ctrl+c 就跑不到这里来了，做守护进程的时候弄吧
@@ -703,7 +685,6 @@ class phpspider
             self::$time_start = microtime(true);
             self::$taskid = $taskid;
             self::$taskpid = posix_getpid();
-            self::$taskmaster = false;
             self::$collect_succ = 0;
             self::$collect_fail = 0;
 
@@ -729,7 +710,7 @@ class phpspider
         }
         else
         {
-            log::error("Fork children task({$i}) fail...\n");
+            log::error("Fork children task({$taskid}) fail...\n");
             exit;
         }
     }
@@ -803,21 +784,21 @@ class phpspider
      */
     public function collect_page() 
     {
-        $count_collect_url = $this->count_collect_url();
-        log::info(date("H:i:s")." Find pages: {$count_collect_url} \n");
+        $get_collect_url_num = $this->get_collect_url_num();
+        log::info(date("H:i:s")." Find pages: {$get_collect_url_num} \n");
 
         $queue_lsize = $this->queue_lsize();
         log::info(date("H:i:s")." Waiting for collect pages: {$queue_lsize} \n");
 
-        $count_collected_url = $this->count_collected_url();
-        log::info(date("H:i:s")." Collected pages: {$count_collected_url} \n");
+        $get_collected_url_num = $this->get_collected_url_num();
+        log::info(date("H:i:s")." Collected pages: {$get_collected_url_num} \n");
 
         // 先进先出
         $link = $this->queue_rpop();
         $url = $link['url'];
 
         // 标记为已爬取网页
-        $this->set_collected_url($url);
+        $this->incr_collected_url_num($url);
 
         // 爬取页面开始时间
         $page_time_start = microtime(true);
@@ -841,6 +822,7 @@ class phpspider
                 'try_num'      => $link['try_num'],
                 'max_try'      => $link['max_try'],
                 'depth'        => $link['depth'],
+                'taskid'       => self::$taskid,
             ),
         );
         unset($html);
@@ -1002,7 +984,6 @@ class phpspider
         {
             $html .= $link['context_data'];
         }
-        //var_dump($html);exit;
 
         $http_code = requests::$status_code;
 
@@ -1512,7 +1493,7 @@ class phpspider
                 // 当一个field的内容被抽取到后进行的回调, 在此回调中可以对网页中抽取的内容作进一步处理
                 if ($this->on_extract_field) 
                 {
-                    $return = call_user_func($this->on_extract_field, $fieldname, $data, $page, self::$taskid);
+                    $return = call_user_func($this->on_extract_field, $fieldname, $data, $page);
                     if (!isset($return))
                     {
                         log::warn("on_extract_field return value can't be empty\n");
@@ -1556,16 +1537,15 @@ class phpspider
             $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
             cls_redis::del($key);
         }
-
-        // 删除已经采集网页缓存
-        $keys = cls_redis::keys("collected_urls-*"); 
-        foreach ($keys as $key) 
-        {
-            $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-            cls_redis::del($key);
-        }
     }
 
+    /**
+     * 设置任务状态，主进程和子进程共用
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-30 23:56
+     */
     public function set_task_status()
     {
         // 每采集成功一个页面，生成当前进程状态到文件，供主进程使用
@@ -1592,6 +1572,13 @@ class phpspider
         }
     }
 
+    /**
+     * 获得任务状态，主进程使用
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-30 23:56
+     */
     public function get_task_status()
     {
         $task_status = array();
@@ -1612,89 +1599,16 @@ class phpspider
 
     public function del_task_status()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$tasknum > 1)
         {
-            //cls_redis::del("lock-depth_num");
+            $lock = 'lock-depth_num';
+            cls_redis::unlock($lock);
 
             for ($i = 1; $i <= self::$tasknum; $i++) 
             {
                 $key = "task_status-".$i;
                 cls_redis::del($key);
             }
-        }
-    }
-
-    /**
-     * 是否待爬取网页
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function is_collect_url($url)
-    {
-        // 多任务 或者 单任务但是从上次继续执行
-        if (self::$tasknum > 1 || self::$save_running_state)
-        {
-            $lock = "collect_urls-".md5($url);
-            // 一个进程一个进程进行判断
-            if (cls_redis::lock($lock))
-            {
-                $exists = cls_redis::exists("collect_urls-".md5($url)); 
-                cls_redis::unlock($lock);
-                return $exists;
-            }
-        }
-        else 
-        {
-            return array_key_exists(md5($url), self::$collect_urls);
-        }
-    }
-
-    /**
-     * 添加发现网页标记
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function set_collect_url($url)
-    {
-        if (self::$tasknum > 1 || self::$save_running_state)
-        {
-            // incr 本身就是原子性的，不需要上锁
-            cls_redis::incr("collect_urls_num"); 
-            cls_redis::set("collect_urls-".md5($url), time()); 
-        }
-        else 
-        {
-            self::$collect_urls_num++;
-            self::$collect_urls[md5($url)] = time();
-        }
-    }
-
-    /**
-     * 删除发现网页标记
-     * 暂时没用到
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function del_collect_url($url)
-    {
-        if (self::$tasknum > 1 || self::$save_running_state)
-        {
-            cls_redis::decr("collect_urls_num"); 
-            cls_redis::del("collect_urls-".md5($url)); 
-        }
-        else 
-        {
-            self::$collect_urls_num--;
-            unset(self::$collect_urls[md5($url)]);
         }
     }
 
@@ -1706,7 +1620,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function count_collect_url()
+    public function get_collect_url_num()
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
@@ -1715,7 +1629,6 @@ class phpspider
         else 
         {
             $count = self::$collect_urls_num;
-            //$count = count(self::$collect_urls);
         }
         return $count;
     }
@@ -1728,7 +1641,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function count_collected_url()
+    public function get_collected_url_num()
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
@@ -1737,35 +1650,8 @@ class phpspider
         else 
         {
             $count = self::$collected_urls_num;
-            //$count = count(self::$collected_urls);
         }
         return $count;
-    }
-
-    /**
-     * 是否已爬取网页
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function is_collected_url($url)
-    {
-        if (self::$tasknum > 1 || self::$save_running_state)
-        {
-            $lock = "collected_urls-".md5($url);
-            if (cls_redis::lock($lock))
-            {
-                $exists = cls_redis::exists("collected_urls-".md5($url)); 
-                cls_redis::unlock($lock);
-                return $exists;
-            }
-        }
-        else 
-        {
-            return array_key_exists(md5($url), self::$collected_urls);
-        }
     }
 
     /**
@@ -1776,39 +1662,15 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function set_collected_url($url)
+    public function incr_collected_url_num($url)
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
             cls_redis::incr("collected_urls_num"); 
-            cls_redis::set("collected_urls-".md5($url), time()); 
         }
         else 
         {
             self::$collected_urls_num++;
-            self::$collected_urls[md5($url)] = time();
-        }
-    }
-
-    /**
-     * 删除已爬取网页标记
-     * 
-     * @param mixed $url
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function del_collected_url($url)
-    {
-        if (self::$tasknum > 1 || self::$save_running_state)
-        {
-            cls_redis::decr("collected_urls_num"); 
-            cls_redis::del("collected_urls-".md5($url)); 
-        }
-        else 
-        {
-            self::$collected_urls_num--;
-            unset(self::$collected_urls[md5($url)]);
         }
     }
 
@@ -1819,7 +1681,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function queue_lpush($link = array())
+    public function queue_lpush($link = array(), $allowed_repeat = false)
     {
         if (empty($link) || empty($link['url'])) 
         {
@@ -1827,19 +1689,47 @@ class phpspider
         }
 
         $url = $link['url'];
-        // 先标记为待爬取网页，再入爬取队列
-        $this->set_collect_url($url);
 
+        $status = false;
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $link = json_encode($link);
-            cls_redis::lpush("collect_queue", $link); 
+            $key = "collect_urls-".md5($url);
+            $lock = "lock-".$key;
+            // 加锁：一个进程一个进程轮流处理
+            if (cls_redis::lock($lock))
+            {
+                $exists = cls_redis::exists($key); 
+                //$exists = cls_redis::get($key); 
+                // 不存在或者当然URL可重复入
+                if (!$exists || $allowed_repeat) 
+                {
+                    log::warn(md5($url)." --- ".$url.' url not exists --- taskid: '.self::$taskid);
+
+                    // 待爬取网页记录数加一
+                    cls_redis::incr("collect_urls_num"); 
+                    // 先标记为待爬取网页
+                    cls_redis::set($key, time()); 
+                    // 入队列
+                    $link = json_encode($link);
+                    cls_redis::lpush("collect_queue", $link); 
+                    $status = true;
+                }
+                // 解锁
+                cls_redis::unlock($lock);
+            }
         }
         else 
         {
-            array_push(self::$collect_queue, $link);
+            $key = md5($url);
+            if (array_key_exists($key, self::$collect_urls))
+            {
+                self::$collect_urls_num++;
+                self::$collect_urls[$key] = time();
+                array_push(self::$collect_queue, $link);
+                $status = true;
+            }
         }
-        return true;
+        return $status;
     }
 
     /**
@@ -1849,7 +1739,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function queue_rpush($link = array())
+    public function queue_rpush($link = array(), $allowed_repeat = false)
     {
         if (empty($link) || empty($link['url'])) 
         {
@@ -1857,19 +1747,46 @@ class phpspider
         }
 
         $url = $link['url'];
-        // 先标记为待爬取网页，再入爬取队列
-        $this->set_collect_url($url);
 
+        $status = false;
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $link = json_encode($link);
-            cls_redis::rpush("collect_queue", $link); 
+            $key = "collect_urls-".md5($url);
+            $lock = "lock-".$key;
+            // 加锁：一个进程一个进程轮流处理
+            if (cls_redis::lock($lock))
+            {
+                $exists = cls_redis::exists($key); 
+                // 不存在或者当然URL可重复入
+                if (!$exists || $allowed_repeat) 
+                {
+                    log::warn(md5($url)." --- ".$url.' url not exists --- taskid: '.self::$taskid);
+
+                    // 待爬取网页记录数加一
+                    cls_redis::incr("collect_urls_num"); 
+                    // 先标记为待爬取网页
+                    cls_redis::set($key, time()); 
+                    // 入队列
+                    $link = json_encode($link);
+                    cls_redis::rpush("collect_queue", $link); 
+                    $status = true;
+                }
+                // 解锁
+                cls_redis::unlock($lock);
+            }
         }
         else 
         {
-            array_unshift(self::$collect_queue, $link);
+            $key = md5($url);
+            if (array_key_exists($key, self::$collect_urls))
+            {
+                self::$collect_urls_num++;
+                self::$collect_urls[$key] = time();
+                array_unshift(self::$collect_queue, $link);
+                $status = true;
+            }
         }
-        return true;
+        return $status;
     }
 
     /**
@@ -1948,7 +1865,7 @@ class phpspider
     {
         if (self::$tasknum > 1 || self::$save_running_state)
         {
-            $lock = "depth_num";
+            $lock = "lock-depth_num";
             // 一个一个任务执行
             if (cls_redis::lock($lock))
             {
@@ -2144,8 +2061,8 @@ class phpspider
         "\033[47;30mdepth\033[0m". str_pad('', 12-strlen('depth')). 
         "\n";
 
-        $collect   = $this->count_collect_url();
-        $collected = $this->count_collected_url();
+        $collect   = $this->get_collect_url_num();
+        $collected = $this->get_collected_url_num();
         $queue     = $this->queue_lsize();
         $fields    = $this->get_fields_num();
         $depth     = $this->get_depth_num();
