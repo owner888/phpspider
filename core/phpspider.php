@@ -2044,6 +2044,7 @@ class phpspider
         }
 
         // 获取终端宽度
+        $toss = $status = null;
         $term_width = exec('tput cols', $toss, $status);
         if($status) 
         {
