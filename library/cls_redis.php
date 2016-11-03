@@ -185,11 +185,12 @@ class cls_redis
             {
                 if ($expire > 0)
                 {
-                    self::$redis->multi();
-                    self::$redis->setNX($key, $value);
-                    self::$redis->expire($key, $expire);
-                    self::$redis->exec();
-                    return true;
+                    return self::$redis->set($key, $value, array('nx', 'ex' => $expire));
+                    //self::$redis->multi();
+                    //self::$redis->setNX($key, $value);
+                    //self::$redis->expire($key, $expire);
+                    //self::$redis->exec();
+                    //return true;
                 }
                 else
                 {
