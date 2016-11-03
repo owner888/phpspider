@@ -802,6 +802,12 @@ class phpspider
         $get_collected_url_num = $this->get_collected_url_num();
         log::info("Collected pages: {$get_collected_url_num} ");
 
+        // 多任务的时候输出爬虫序号
+        if (self::$tasknum > 1) 
+        {
+            log::info("Current task id: ".self::$taskid);
+        }
+
         // 先进先出
         $link = $this->queue_rpop();
         $url = $link['url'];
@@ -908,12 +914,6 @@ class phpspider
 
         // 如果当前深度大于缓存的，更新缓存
         $this->incr_depth_num($link['depth']);
-
-        // 多任务的时候输出爬虫序号
-        if (self::$tasknum > 1) 
-        {
-            log::info("Current task id: ".self::$taskid);
-        }
 
         // 处理页面耗时时间
         $time_run = round(microtime(true) - $page_time_start, 3);
