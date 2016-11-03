@@ -76,7 +76,7 @@ class log
         }
         else 
         {
-            $msg = self::$out_sta.date("Y-m-d H:i:s")." [{$log_type}] " . $msg . "\n".self::$out_end;
+            $msg = self::$out_sta.date("Y-m-d H:i:s")." [{$log_type}] " . $msg .self::$out_end. "\n";
         }
         if(self::$log_show)
         {
