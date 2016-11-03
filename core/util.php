@@ -58,25 +58,45 @@ class util
         unlink(PATH_DATA."/lock/{$lock_name}.lock");
     }
 
-    public static function time2second($seconds)
+    public static function time2second($time)
     {
-        $seconds = (int)$seconds;
-        if( $seconds > 3600 )
+        if(is_numeric($time)) 
         {
-            $days_num = '';
-            if( $seconds > 24*3600 )
+            $value = array(
+                "years" => 0, "days" => 0, "hours" => 0,
+                "minutes" => 0, "seconds" => 0,
+            );
+            if($time >= 31556926)
             {
-                $days	  = (int)($seconds/86400);
-                $days_num = $days." day";
-                $seconds  = $seconds%86400;//取余
+                $value["years"] = floor($time/31556926);
+                $time = ($time%31556926);
             }
-            $hours = intval($seconds/3600);
-            $minutes = $seconds%3600;//取余下秒数
-            $time = $days_num.$hours." hour ".gmstrftime('%M minutes %S seconds', $minutes);
-        }else{
-            $time = gmstrftime('%H hour %M minutes %S seconds', $seconds);
+            if($time >= 86400)
+            {
+                $value["days"] = floor($time/86400);
+                $time = ($time%86400);
+            }
+            if($time >= 3600)
+            {
+                $value["hours"] = floor($time/3600);
+                $time = ($time%3600);
+            }
+            if($time >= 60)
+            {
+                $value["minutes"] = floor($time/60);
+                $time = ($time%60);
+            }
+            $value["seconds"] = floor($time);
+            //return (array) $value;
+            //$t = $value["years"] ."y ". $value["days"] ."d ". $value["hours"] ."h ". $value["minutes"] ."m ".$value["seconds"]."s";
+            $t = $value["days"] ."d ". $value["hours"] ."h ". $value["minutes"] ."m ".$value["seconds"]."s";
+            return $t;
+
         }
-        return $time;
+        else
+        {
+            return false;
+        }
     }
 
     public static function get_days($day_sta, $day_end = true, $range = 86400)

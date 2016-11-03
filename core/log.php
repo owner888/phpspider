@@ -16,56 +16,68 @@
 class log
 {
     public static $log_show = false;
+    public static $out_sta = "";
+    public static $out_end = "";
     public static $log_file = "data/phpspider.log";
+
+    public static function note($msg)
+    {
+        self::$out_sta = self::$out_end = "";
+        self::msg($msg, 'note');
+    }
 
     public static function info($msg)
     {
-        $out_sta = $out_end = "";
-        $msg = $out_sta.$msg.$out_end."\n";
-        self::msg($msg);
+        self::$out_sta = self::$out_end = "";
+        self::msg($msg, 'info');
     }
 
     public static function warn($msg)
     {
-        $out_sta = $out_end = "";
+        self::$out_sta = self::$out_end = "";
         if (!util::is_win()) 
         {
-            $out_sta = "\033[33m";
-            $out_end = "\033[0m";
+            self::$out_sta = "\033[33m";
+            self::$out_end = "\033[0m";
         }
 
-        $msg = $out_sta.$msg.$out_end."\n";
-        self::msg($msg);
+        self::msg($msg, 'warn');
     }
 
     public static function debug($msg)
     {
-        $out_sta = $out_end = "";
+        self::$out_sta = self::$out_end = "";
         if (!util::is_win()) 
         {
-            $out_sta = "\033[36m";
-            $out_end = "\033[0m";
+            self::$out_sta = "\033[36m";
+            self::$out_end = "\033[0m";
         }
 
-        $msg = $out_sta.$msg.$out_end."\n";
-        self::msg($msg);
+        self::msg($msg, 'debug');
     }
 
     public static function error($msg)
     {
-        $out_sta = $out_end = "";
+        self::$out_sta = self::$out_end = "";
         if (!util::is_win()) 
         {
-            $out_sta = "\033[31m";
-            $out_end = "\033[0m";
+            self::$out_sta = "\033[31m";
+            self::$out_end = "\033[0m";
         }
 
-        $msg = $out_sta.$msg.$out_end."\n";
-        self::msg($msg);
+        self::msg($msg, 'error');
     }
 
-    public static function msg($msg)
+    public static function msg($msg, $log_type)
     {
+        if ($log_type == 'note') 
+        {
+            $msg = self::$out_sta. $msg . "\n".self::$out_end;
+        }
+        else 
+        {
+            $msg = self::$out_sta.date("Y-m-d H:i:s")." [{$log_type}] " . $msg . "\n".self::$out_end;
+        }
         if(self::$log_show)
         {
             echo $msg;

@@ -366,7 +366,7 @@ class phpspider
             'depth'        => 0,
         );
         $this->queue_lpush($link, $allowed_repeat);
-        log::debug(date("H:i:s")." Find scan page: {$url}");
+        log::debug("Find scan page: {$url}");
     }
 
     /**
@@ -399,14 +399,14 @@ class phpspider
 
         if ($this->is_list_page($url))
         {
-            log::debug(date("H:i:s")." Find list page: {$url}");
+            log::debug("Find list page: {$url}");
             $link['url_type'] = 'list_page';
             $status = $this->queue_lpush($link);
         }
 
         if ($this->is_content_page($url))
         {
-            log::debug(date("H:i:s")." Find content page: {$url}");
+            log::debug("Find content page: {$url}");
             $link['url_type'] = 'content_page';
             $status = $this->queue_lpush($link);
         }
@@ -533,14 +533,14 @@ class phpspider
         // 保存运行状态需要Redis支持
         if (self::$save_running_state && !cls_redis::init()) 
         {
-            log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
+            log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php");
             exit;
         }
 
         // 多任务需要Redis支持
         if(self::$tasknum > 1 && !cls_redis::init())
         {
-            log::error("Multitasking needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php\n");
+            log::error("Multitasking needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php");
             exit;
         }
 
@@ -550,7 +550,7 @@ class phpspider
         // 检查 scan_urls 
         if (empty(self::$configs['scan_urls'])) 
         {
-            log::error("No scan url to start\n");
+            log::error("No scan url to start");
             exit;
         }
         
@@ -559,7 +559,7 @@ class phpspider
             // 只检查配置中的入口URL，通过 add_scan_url 添加的不检查了.
             if (!$this->is_scan_page($url))
             {
-                log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name\n");
+                log::error("Domain of scan_urls (\"{$url}\") does not match the domains of the domain name");
                 exit;
             }
         }
@@ -577,14 +577,17 @@ class phpspider
 
         if (log::$log_show)
         {
-            log::info("\n[ ".self::$configs['name']." Spider ] is started...\n");
-            log::warn("PHPSpider Version: ".self::VERSION."\n");
-            log::warn("Task Number: ".self::$tasknum."\n");
-            log::warn("!Document: https://doc.phpspider.org\n");
+            $header = "\033[33m";
+            $header .= "\n[ ".self::$configs['name']." Spider ] is started...\n";
+            $header .= "PHPSpider Version: ".self::VERSION."\n";
+            $header .= "Task Number: ".self::$tasknum."\n";
+            $header .= "!Document: https://doc.phpspider.org\n";
+            $header .= "\033[0m";
+            log::note($header);
         }
 
         // 多任务和分布式都要清掉，当然分布式只清自己的
-        $this->del_task_status();
+        $this->del_task_status();;
 
         //--------------------------------------------------------------------------------
         // 生成多任务
@@ -655,10 +658,10 @@ class phpspider
         log::$log_show = true;
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info("Spider finished in {$spider_time_run}\n");
+        log::info("Spider finished in {$spider_time_run}");
 
         $get_collected_url_num = $this->get_collected_url_num();
-        log::info("Total pages: {$get_collected_url_num} \n\n");
+        log::info("Total pages: {$get_collected_url_num} \n");
 
         // 最后:多任务下不保留运行状态，清空redis数据
         // 注意:ctrl+c 就跑不到这里来了，做守护进程的时候弄吧
@@ -686,7 +689,7 @@ class phpspider
         // 子进程运行
         elseif(0 === $pid)
         {
-            log::warn("Fork children task({$taskid}) successful...\n");
+            log::warn("Fork children task({$taskid}) successful...");
 
             self::$time_start = microtime(true);
             self::$taskid = $taskid;
@@ -704,7 +707,7 @@ class phpspider
                 }
                 else 
                 {
-                    log::warn("Task(".self::$taskid.") waiting...\n");
+                    log::warn("Task(".self::$taskid.") waiting...");
                     sleep(1);
                 }
 
@@ -716,7 +719,7 @@ class phpspider
         }
         else
         {
-            log::error("Fork children task({$taskid}) fail...\n");
+            log::error("Fork children task({$taskid}) fail...");
             exit;
         }
     }
@@ -753,13 +756,13 @@ class phpspider
             {
                 if (!function_exists('mysqli_connect'))
                 {
-                    log::error("Export data to a database need Mysql support，Error: Unable to load mysqli extension.\n");
+                    log::error("Export data to a database need Mysql support，Error: Unable to load mysqli extension.");
                     exit;
                 }
 
                 if (empty($GLOBALS['config']['db'])) 
                 {
-                    log::error("Export data to a database need Mysql support，Error: You not set a config array for connect.\n\nPlease check the configuration file config/inc_config.php");
+                    log::error("Export data to a database need Mysql support，Error: You not set a config array for connect.\nPlease check the configuration file config/inc_config.php");
                     exit;
                 }
 
@@ -767,13 +770,13 @@ class phpspider
                 @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
                 if(mysqli_connect_errno())
                 {
-                    log::error("Export data to a database need Mysql support，Error: ".mysqli_connect_error()." \n\nPlease check the configuration file config/inc_config.php");
+                    log::error("Export data to a database need Mysql support，Error: ".mysqli_connect_error()." \nPlease check the configuration file config/inc_config.php");
                     exit;
                 }
 
                 if (!db::table_exists(self::$export_table))
                 {
-                    log::error("Table ".self::$export_table." does not exist\n");
+                    log::error("Table ".self::$export_table." does not exist");
                     exit;
                 }
             }
@@ -791,13 +794,13 @@ class phpspider
     public function collect_page() 
     {
         $get_collect_url_num = $this->get_collect_url_num();
-        log::info(date("H:i:s")." Find pages: {$get_collect_url_num} \n");
+        log::info("Find pages: {$get_collect_url_num} ");
 
         $queue_lsize = $this->queue_lsize();
-        log::info(date("H:i:s")." Waiting for collect pages: {$queue_lsize} \n");
+        log::info("Waiting for collect pages: {$queue_lsize} ");
 
         $get_collected_url_num = $this->get_collected_url_num();
-        log::info(date("H:i:s")." Collected pages: {$get_collected_url_num} \n");
+        log::info("Collected pages: {$get_collected_url_num} ");
 
         // 先进先出
         $link = $this->queue_rpop();
@@ -909,15 +912,15 @@ class phpspider
         // 多任务的时候输出爬虫序号
         if (self::$tasknum > 1) 
         {
-            log::info("Current task id: ".self::$taskid."\n");
+            log::info("Current task id: ".self::$taskid);
         }
 
         // 处理页面耗时时间
         $time_run = round(microtime(true) - $page_time_start, 3);
-        log::debug(date("H:i:s")." Success process page {$url} in {$time_run} s\n");
+        log::debug("Success process page {$url} in {$time_run} s");
 
         $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info(date("H:i:s")." Spider running in {$spider_time_run}\n");
+        log::info("Spider running in {$spider_time_run}");
 
         // 爬虫爬取每个网页的时间间隔，单位：毫秒
         if (!isset(self::$configs['interval'])) 
@@ -1033,7 +1036,7 @@ class phpspider
                 {
                     // 扔到队列头部去，继续采集
                     $this->queue_rpush($link);
-                    log::error(date("H:i:s")." Failed to download page {$url}\n");
+                    log::error("Failed to download page {$url}");
                 }
                 elseif (in_array($http_code, array('0','502','503','429'))) 
                 {
@@ -1045,13 +1048,13 @@ class phpspider
                         // 扔到队列头部去，继续采集
                         $this->queue_rpush($link);
                     }
-                    log::error(date("H:i:s")." Failed to download page {$url}, retry({$link['try_num']})\n");
+                    log::error("Failed to download page {$url}, retry({$link['try_num']})");
                 }
                 else 
                 {
-                    log::error(date("H:i:s")." Failed to download page {$url}\n");
+                    log::error("Failed to download page {$url}");
                 }
-                log::error(date("H:i:s")." HTTP CODE: {$http_code}\n");
+                log::error("HTTP CODE: {$http_code}");
                 self::$collect_fail++;
                 return false;
             }
@@ -1059,7 +1062,7 @@ class phpspider
 
         // 爬取页面耗时时间
         $time_run = round(microtime(true) - $time_start, 3);
-        log::debug(date("H:i:s")." Success download page {$url} in {$time_run} s\n");
+        log::debug("Success download page {$url} in {$time_run} s");
         self::$collect_succ++;
 
         return $html;
@@ -1287,11 +1290,11 @@ class phpspider
                 $return = call_user_func($this->on_extract_page, $page, $fields);
                 if (!isset($return))
                 {
-                    log::warn("on_extract_page return value can't be empty\n");
+                    log::warn("on_extract_page return value can't be empty");
                 }
                 elseif (!is_array($return))
                 {
-                    log::warn("on_extract_page return value must be an array\n");
+                    log::warn("on_extract_page return value must be an array");
                 }
                 else 
                 {
@@ -1323,7 +1326,7 @@ class phpspider
                 {
                     $fields_str = mb_convert_encoding($fields_str, 'gb2312', 'utf-8');
                 }
-                log::info(date("H:i:s")." Result[{$fields_num}]: ".$fields_str."\n");
+                log::info("Result[{$fields_num}]: ".$fields_str);
 
                 // 如果设置了导出选项
                 if (!empty(self::$configs['export'])) 
@@ -1384,7 +1387,7 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->fill_url($url, $fields[$conf['attached_url']]);
-                        log::debug(date("H:i:s")." Find attached content page: {$url}");
+                        log::debug("Find attached content page: {$url}");
                         requests::$input_encoding = null;
                         $html = $this->request_url($collect_url);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
@@ -1709,8 +1712,6 @@ class phpspider
                 // 不存在或者当然URL可重复入
                 if (!$exists || $allowed_repeat) 
                 {
-                    log::warn(md5($url)." --- ".$url.' url not exists --- taskid: '.self::$taskid);
-
                     // 待爬取网页记录数加一
                     cls_redis::incr("collect_urls_num"); 
                     // 先标记为待爬取网页
@@ -1766,8 +1767,6 @@ class phpspider
                 // 不存在或者当然URL可重复入
                 if (!$exists || $allowed_repeat) 
                 {
-                    log::warn(md5($url)." --- ".$url.' url not exists --- taskid: '.self::$taskid);
-
                     // 待爬取网页记录数加一
                     cls_redis::incr("collect_urls_num"); 
                     // 先标记为待爬取网页
