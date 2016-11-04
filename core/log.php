@@ -16,9 +16,10 @@
 class log
 {
     public static $log_show = false;
+    public static $log_type = false;
+    public static $log_file = "data/phpspider.log";
     public static $out_sta = "";
     public static $out_end = "";
-    public static $log_file = "data/phpspider.log";
 
     public static function note($msg)
     {
@@ -70,6 +71,11 @@ class log
 
     public static function msg($msg, $log_type)
     {
+        if ($log_type != 'note' && self::$log_type && strpos(self::$log_type, $log_type) === false) 
+        {
+            return false;
+        }
+
         if ($log_type == 'note') 
         {
             $msg = self::$out_sta. $msg . "\n".self::$out_end;

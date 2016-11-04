@@ -297,7 +297,6 @@ class phpspider
     {
         // 先打开以显示验证报错内容
         log::$log_show = true;
-        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
 
         // 彩蛋
         $included_files = get_included_files();
@@ -323,6 +322,9 @@ class phpspider
         self::$configs['max_depth']  = isset(self::$configs['max_depth'])  ? self::$configs['max_depth']  : 0;
         self::$configs['max_fields'] = isset(self::$configs['max_fields']) ? self::$configs['max_fields'] : 0;
         self::$configs['export']     = isset(self::$configs['export'])     ? self::$configs['export']     : array();
+
+        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
+        log::$log_type = isset(self::$configs['log_type']) ? self::$configs['log_type'] : false;
 
         // csv、sql、db
         self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
