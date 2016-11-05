@@ -581,10 +581,10 @@ class phpspider
         {
             $header = "";
             if (!util::is_win()) $header .= "\033[33m";
-            $header .= "\n[ ".self::$configs['name']." Spider ] is started...\n";
-            $header .= "PHPSpider Version: ".self::VERSION."\n";
-            $header .= "Task Number: ".self::$tasknum."\n";
-            $header .= "!Document: https://doc.phpspider.org\n";
+            $header .= "\n[ ".self::$configs['name']." Spider ] is started...\n\n";
+            $header .= "  * PHPSpider Version: ".self::VERSION."\n";
+            $header .= "  * Documentation: https://doc.phpspider.org\n";
+            $header .= "  * Task Number: ".self::$tasknum."\n";
             if (!util::is_win()) $header .= "\033[0m";
             log::note($header);
         }
