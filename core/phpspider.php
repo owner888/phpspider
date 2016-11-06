@@ -355,18 +355,11 @@ class phpspider
 
     public function add_scan_url($url, $options = array(), $allowed_repeat = true)
     {
-        $link = array(
-            'url'          => $url,            
-            'url_type'     => 'scan_page', 
-            'method'       => isset($options['method'])       ? $options['method']       : 'get',             
-            'headers'      => isset($options['headers'])      ? $options['headers']      : array(),    
-            'params'       => isset($options['params'])       ? $options['params']       : array(),           
-            'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
-            'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
-            'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
-            'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
-            'depth'        => 0,
-        );
+        $link = $options;
+        $link['url'] = $url;
+        $link['url_type'] = 'scan_page';
+        $link = $this->link_uncompress($link);
+
         $this->queue_lpush($link, $allowed_repeat);
         log::debug("Find scan page: {$url}");
     }
@@ -386,18 +379,10 @@ class phpspider
         // 投递状态
         $status = false;
 
-        $link = array(
-            'url'          => $url,            
-            'url_type'     => '', 
-            'method'       => isset($options['method'])       ? $options['method']       : 'get',             
-            'headers'      => isset($options['headers'])      ? $options['headers']      : array(),    
-            'params'       => isset($options['params'])       ? $options['params']       : array(),           
-            'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
-            'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
-            'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
-            'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
-            'depth'        => $depth,
-        );
+        $link = $options;
+        $link['url'] = $url;
+        $link['depth'] = $depth;
+        $link = $this->link_uncompress($link);
 
         if ($this->is_list_page($url))
         {
@@ -813,6 +798,7 @@ class phpspider
 
         // 先进先出
         $link = $this->queue_rpop();
+        $link = $this->link_uncompress($link);
         $url = $link['url'];
 
         // 标记为已爬取网页
@@ -938,29 +924,16 @@ class phpspider
      * 下载网页，得到网页内容
      * 
      * @param mixed $url
-     * @param mixed $options
+     * @param mixed $link
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function request_url($url, $options = array())
+    public function request_url($url, $link = array())
     {
         $time_start = microtime(true);
 
         //$url = "http://www.qiushibaike.com/article/117568316";
-
-        $link = array(
-            'url'          => $url,
-            'url_type'     => isset($options['url_type'])     ? $options['url_type']     : '',             
-            'method'       => isset($options['method'])       ? $options['method']       : 'get',             
-            'headers'      => isset($options['headers'])      ? $options['headers']      : array(),    
-            'params'       => isset($options['params'])       ? $options['params']       : array(),           
-            'context_data' => isset($options['context_data']) ? $options['context_data'] : '',                
-            'proxy'        => isset($options['proxy'])        ? $options['proxy']        : self::$configs['proxy'],             
-            'try_num'      => isset($options['try_num'])      ? $options['try_num']      : 0,                 
-            'max_try'      => isset($options['max_try'])      ? $options['max_try']      : self::$configs['max_try'],
-            'depth'        => isset($options['depth'])        ? $options['depth']        : 0,             
-        );
 
         // 设置了编码就不要让requests去判断了
         if (isset(self::$configs['input_encoding'])) 
@@ -989,8 +962,9 @@ class phpspider
             }
         }
 
-        $method = strtolower($link['method']);
-        $html = requests::$method($url, $link['params']);
+        $method = empty($link['method']) ? 'get' : strtolower($link['method']);
+        $params = empty($link['params']) ? array() : $link['params'];
+        $html = requests::$method($url, $params);
         // 此url附加的数据不为空, 比如内容页需要列表页一些数据，拼接到后面去
         if ($html && !empty($link['context_data'])) 
         {
@@ -1022,7 +996,7 @@ class phpspider
                 {
                     $url = $info['redirect_url'];
                     requests::$input_encoding = null;
-                    $html = $this->request_url($url, $options);
+                    $html = $this->request_url($url, $link);
                     if ($html && !empty($link['context_data'])) 
                     {
                         $html .= $link['context_data'];
@@ -1667,6 +1641,90 @@ class phpspider
     }
 
     /**
+     * 连接对象压缩
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-05 18:58
+     */
+    public function link_compress($link)
+    {
+        if (empty($link['url_type'])) 
+        {
+            unset($link['url_type']);
+        }
+
+        if (empty($link['method']) || strtolower($link['method']) == 'get') 
+        {
+            unset($link['method']);
+        }
+
+        if (empty($link['headers'])) 
+        {
+            unset($link['headers']);
+        }
+
+        if (empty($link['params'])) 
+        {
+            unset($link['params']);
+        }
+
+        if (empty($link['context_data'])) 
+        {
+            unset($link['context_data']);
+        }
+
+        if (empty($link['proxy'])) 
+        {
+            unset($link['proxy']);
+        }
+
+        if (empty($link['try_num'])) 
+        {
+            unset($link['try_num']);
+        }
+
+        if (empty($link['max_try'])) 
+        {
+            unset($link['max_try']);
+        }
+        
+        if (empty($link['depth'])) 
+        {
+            unset($link['depth']);
+        }
+        //$json = json_encode($link);
+        //$json = gzdeflate($json);
+        return $link;
+    }
+
+    /**
+     * 连接对象解压缩
+     * 
+     * @param mixed $link
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-05 18:58
+     */
+    public function link_uncompress($link)
+    {
+        $link = array(
+            'url'          => isset($link['url'])          ? $link['url']          : '',             
+            'url_type'     => isset($link['url_type'])     ? $link['url_type']     : '',             
+            'method'       => isset($link['method'])       ? $link['method']       : 'get',             
+            'headers'      => isset($link['headers'])      ? $link['headers']      : array(),    
+            'params'       => isset($link['params'])       ? $link['params']       : array(),           
+            'context_data' => isset($link['context_data']) ? $link['context_data'] : '',                
+            'proxy'        => isset($link['proxy'])        ? $link['proxy']        : self::$configs['proxy'],             
+            'try_num'      => isset($link['try_num'])      ? $link['try_num']      : 0,                 
+            'max_try'      => isset($link['max_try'])      ? $link['max_try']      : self::$configs['max_try'],
+            'depth'        => isset($link['depth'])        ? $link['depth']        : 0,             
+        );
+
+        return $link;
+    }
+
+    /**
      * 添加已爬取网页标记
      * 
      * @param mixed $url
@@ -1701,6 +1759,7 @@ class phpspider
         }
 
         $url = $link['url'];
+        $link = $this->link_compress($link);
 
         $status = false;
         if (self::$tasknum > 1 || self::$save_running_state)
