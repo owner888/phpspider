@@ -103,7 +103,7 @@ class selector
                     $content = $element->getAttribute('src');
                 }
                 // 如果是标签属性，直接取节点值
-                elseif ($nodeType == 2 || $nodeType == 3) 
+                elseif ($nodeType == 2 || $nodeType == 3 || $nodeType == 4) 
                 {
                     $content = $element->nodeValue;
                 }
@@ -179,7 +179,12 @@ class selector
      */
     private static function _css_select($html, $selector)
     {
-        phpQuery::loadDocumentHTML($html); 
+        // 如果加载的不是之前的HTML内容，替换一下验证标识
+        if (self::$dom_auth != md5($html)) 
+        {
+            self::$dom_auth = md5($html);
+            phpQuery::loadDocumentHTML($html); 
+        }
         return pq($selector)->html(); 
     }
 

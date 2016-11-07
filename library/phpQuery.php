@@ -29,6 +29,7 @@ define('DOMNODE', 'DOMNode');
  * @todo implement ArrayAccess ?
  */
 class DOMEvent {
+
 	/**
 	 * Returns a boolean indicating whether the event bubbles up through the DOM or not.
 	 *
