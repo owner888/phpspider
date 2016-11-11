@@ -34,11 +34,17 @@ class cls_redis
 
     public static function init()
     {
+        if (!extension_loaded("redis"))
+        {
+            self::$error = "The redis extension was not found";
+            return false;
+        }
+
         // 获取配置
         $configs = empty(self::$configs) ? self::_get_default_config() : self::$configs;
         if (empty($configs)) 
         {
-            self::$error = "You not set a config array for connect";
+            self::$error = "You not set a config array for connect\nPlease check the configuration file config/inc_config.php";
             return false;
         }
 
@@ -49,7 +55,7 @@ class cls_redis
             self::$redis = new Redis();
             if (!self::$redis->connect($configs['host'], $configs['port'], $configs['timeout']))
             {
-                self::$error = "Unable to connect to redis server";
+                self::$error = "Unable to connect to redis server\nPlease check the configuration file config/inc_config.php";
                 self::$redis = null;
                 return false;
             }
@@ -59,7 +65,7 @@ class cls_redis
             {
                 if ( !self::$redis->auth($configs['pass']) ) 
                 {
-                    self::$error = "Redis Server authentication failed";
+                    self::$error = "Redis Server authentication failed\nPlease check the configuration file config/inc_config.php";
                     self::$redis = null;
                     return false;
                 }

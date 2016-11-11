@@ -19,10 +19,10 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '2.2.3';
+    const VERSION = '3.0.0';
 
     /**
-     * 爬虫爬取每个网页的时间间隔,0表示不延时，单位：秒
+     * 爬虫爬取每个网页的时间间隔,0表示不延时，单位：毫秒
      */
     const INTERVAL = 0;
 
@@ -39,11 +39,12 @@ class phpspider
     /**
      * 抽取规则的类型：xpath、jsonpath、regex 
      */
-    const FIELDS_SELECTOR_TYPE = 'xpath';
+    //const FIELDS_SELECTOR_TYPE = 'xpath';
 
     /**
      * 爬虫爬取网页所使用的浏览器类型：android，ios，pc，mobile
      */
+    const AGENT = "Mozilla/5.0 PHPSpider/".self::VERSION;
     const AGENT_ANDROID = "Mozilla/5.0 (Linux; U; Android 6.0.1;zh_cn; Le X820 Build/FEXCNFN5801507014S) AppleWebKit/537.36 (KHTML, like Gecko)Version/4.0 Chrome/49.0.0.0 Mobile Safari/537.36 EUI Browser/5.8.015S";
     const AGENT_IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 9_3_3 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13G34 Safari/601.1";
     const AGENT_PC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36";
@@ -53,29 +54,33 @@ class phpspider
      * pid文件的路径及名称
      * @var string
      */
-    public static $pid_file = '';
+    //public static $pid_file = '';
 
     /**
      * 日志目录，默认在data根目录下
      * @var mixed
      */
-    public static $log_file = '';
-
-    /**
-     * 运行 status 命令时用于保存结果的文件名
-     * @var string
-     */
-    public static $statistics_file = '';
+    //public static $log_file = '';
 
     /**
      * 主任务进程ID 
      */
-    public static $master_pid = 0;
+    //public static $master_pid = 0;
 
     /**
      * 所有任务进程ID 
      */
     //public static $taskpids = array();
+
+    /**
+     * 是否分布式 
+     */
+    public static $multiserver = false;
+
+    /**
+     * 当前服务器ID 
+     */
+    public static $serverid = 1;
 
     /**
      * 当前任务ID 
@@ -93,19 +98,19 @@ class phpspider
     public static $tasknum = 1;
 
     /**
-     * 任务主进程状态 
+     * 生成 
      */
-    public static $taskmaster_status = false;
+    public static $fork_task_complete = false;
+
+    /**
+     * 是否使用Redis 
+     */
+    public static $use_redis = false;
 
     /**
      * 是否保存爬虫运行状态 
      */
     public static $save_running_state = false;
-
-    /**
-     * 是否清空上次爬虫运行状态 
-     */
-    public static $clean_last_state = false;
 
     /**
      * 试运行
@@ -129,7 +134,7 @@ class phpspider
          'context_data'=> '',      // 此url附加的数据, 可以为空
          'proxy'       => false,   // 是否使用代理
          'try_num'     => 0        // 抓取次数
-         'max_try'     => 0              // 允许抓取失败次数
+         'max_try'     => 0        // 允许抓取失败次数
      ) 
      */
     public static $collect_queue = array();
@@ -149,11 +154,6 @@ class phpspider
      * 已经抓取的URL数量
      */
     public static $collected_urls_num = 0;
-
-    /**
-     * 爬虫开始时间 
-     */
-    public static $time_start = 0;
     
     /**
      * 当前进程采集成功数 
@@ -165,12 +165,6 @@ class phpspider
      */
     public static $collect_fail = 0;
 
-    public static $taskid_length = 6;
-    public static $pid_length = 6;
-    public static $mem_length = 8;
-    public static $urls_length = 15;
-    public static $speed_length = 6;
-
     /**
      * 提取到的字段数 
      */
@@ -181,12 +175,27 @@ class phpspider
      */
     public static $depth_num = 0;
 
+    /**
+     * 爬虫开始时间 
+     */
+    public static $time_start = 0;
+
     public static $task_status = array();
 
+    // 导出类型配置
     public static $export_type = '';
     public static $export_file = '';
     public static $export_conf = '';
     public static $export_table = '';
+
+    // 运行面板参数长度
+    public static $serverid_length = 8;
+    public static $tasknum_length = 8;
+    public static $taskid_length = 6;
+    public static $pid_length = 6;
+    public static $mem_length = 8;
+    public static $urls_length = 15;
+    public static $speed_length = 6;
 
     /**
      * 爬虫初始化时调用, 用来指定一些爬取前的操作 
@@ -202,7 +211,7 @@ class phpspider
      * @var mixed
      * @access public
      */
-    public $on_change_proxy = null;
+    //public $on_change_proxy = null;
 
     public $on_status_code = null;
 
@@ -336,14 +345,11 @@ class phpspider
         {
             self::$tasknum = self::$configs['tasknum'];
         }
+
         // 是否设置了保留运行状态
         if (isset(self::$configs['save_running_state'])) 
         {
             self::$save_running_state = self::$configs['save_running_state'];
-        }
-        if (isset(self::$configs['clean_last_state'])) 
-        {
-            self::$clean_last_state = self::$configs['clean_last_state'];
         }
 
         // 不同项目的采集以采集名称作为前缀区分
@@ -351,6 +357,11 @@ class phpspider
         {
             $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
         }
+
+        // 是否分布式
+        self::$multiserver  = isset(self::$configs['multiserver'])  ? self::$configs['multiserver'] : self::$multiserver;
+        // 当前服务器ID
+        self::$serverid  = isset(self::$configs['serverid'])  ? self::$configs['serverid'] : self::$serverid;
     }
 
     public function add_scan_url($url, $options = array(), $allowed_repeat = true)
@@ -471,8 +482,6 @@ class phpspider
 
     public function start()
     {
-        $this->parse_command();
-
         // 爬虫开始时间
         self::$time_start = time();
         // 当前任务ID
@@ -486,12 +495,14 @@ class phpspider
         // 运行前验证
         //--------------------------------------------------------------------------------
 
+        // 检查PHP版本
         if (version_compare(PHP_VERSION, '5.3.0', 'lt')) 
         {
             log::error('PHP 5.3+ is required, currently installed version is: ' . phpversion());
             exit;
         }
 
+        // 检查CURL扩展
         if(!function_exists('curl_init'))
         {
             log::error("The curl extension was not found");
@@ -499,40 +510,43 @@ class phpspider
         }
 
         // 多任务需要pcntl扩展支持
-        if (self::$tasknum > 1) 
+        if (self::$tasknum > 1 && !function_exists('pcntl_fork')) 
         {
-            if(!function_exists('pcntl_fork'))
+            log::error("Multitasking needs pnctl, the pnctl extension was not found");
+            exit;
+        }
+
+        if (!cls_redis::init()) 
+        {
+            if (self::$multiserver) 
             {
-                log::error("Multitasking needs pnctl, the pnctl extension was not found");
+                log::error("Multiserver needs Redis support，Error: ".cls_redis::$error);
+                exit;
+            }
+
+            if (self::$tasknum > 1) 
+            {
+                log::error("Multitasking needs Redis support，Error: ".cls_redis::$error);
+                exit;
+            }
+
+            if (self::$save_running_state) 
+            {
+                log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error);
                 exit;
             }
         }
 
-        if (self::$tasknum > 1 || self::$save_running_state) 
+        if (self::$multiserver || self::$save_running_state || self::$tasknum > 1) 
         {
-            if (!extension_loaded("redis"))
-            {
-                log::error("Spider kept running state or multitasking needs Redis support, the redis extension was not found");
-                exit;
-            }
+            self::$use_redis = true;
         }
 
-        // 保存运行状态需要Redis支持
-        if (self::$save_running_state && !cls_redis::init()) 
-        {
-            log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php");
-            exit;
-        }
+        // 检查导出
+        $this->check_export();
 
-        // 多任务需要Redis支持
-        if(self::$tasknum > 1 && !cls_redis::init())
-        {
-            log::error("Multitasking needs Redis support，Error: ".cls_redis::$error."\n\nPlease check the configuration file config/inc_config.php");
-            exit;
-        }
-
-        // 验证导出
-        $this->export_auth();
+        // 检查缓存
+        $this->check_cache();
 
         // 检查 scan_urls 
         if (empty(self::$configs['scan_urls'])) 
@@ -575,20 +589,11 @@ class phpspider
         }
 
         // 多任务和分布式都要清掉，当然分布式只清自己的
-        $this->del_task_status();;
+        $this->init_redis();
 
         //--------------------------------------------------------------------------------
         // 生成多任务
         //--------------------------------------------------------------------------------
-        if(self::$tasknum > 1)
-        {
-            // 不保留运行状态
-            if (!self::$save_running_state) 
-            {
-                // 清空redis里面的数据
-                $this->cache_clear();
-            }
-        }
 
         // 添加入口URL到队列
         foreach ( self::$configs['scan_urls'] as $url ) 
@@ -603,6 +608,7 @@ class phpspider
             call_user_func($this->on_start, $this);
         }
 
+
         if (!log::$log_show) 
         {
             // 清屏
@@ -615,13 +621,12 @@ class phpspider
             $this->collect_page();
 
             // 多任务下主任务未准备就绪
-            if (self::$tasknum > 1 && !self::$taskmaster_status) 
+            if (self::$tasknum > 1 && !self::$fork_task_complete) 
             {
                 // 主进程采集到两倍于任务数时，生成子任务一起采集
                 if ($this->queue_lsize() > self::$tasknum*2) 
                 {
-                    // 主任务状态
-                    self::$taskmaster_status = true;
+                    self::$fork_task_complete = true;
                     
                     // fork 子进程前一定要先干掉redis连接fd，不然会存在进程互抢redis fd 问题
                     cls_redis::close();
@@ -650,13 +655,6 @@ class phpspider
 
         $get_collected_url_num = $this->get_collected_url_num();
         log::info("Total pages: {$get_collected_url_num} \n");
-
-        // 最后:多任务下不保留运行状态，清空redis数据
-        // 注意:ctrl+c 就跑不到这里来了，做守护进程的时候弄吧
-        if (self::$tasknum > 1 && !self::$save_running_state) 
-        {
-            $this->cache_clear();
-        }
     }
 
     /**
@@ -709,65 +707,6 @@ class phpspider
         {
             log::error("Fork children task({$taskid}) fail...");
             exit;
-        }
-    }
-
-    /**
-     * 验证导出
-     * 
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-10-02 23:37
-     */
-    public function export_auth()
-    {
-        // 如果设置了导出选项
-        if (!empty(self::$configs['export'])) 
-        {
-            if (self::$export_type == 'csv') 
-            {
-                if (empty(self::$export_file)) 
-                {
-                    log::error("Export data into CSV files need to Set the file path.");
-                    exit;
-                }
-            }
-            elseif (self::$export_type == 'sql') 
-            {
-                if (empty(self::$export_file)) 
-                {
-                    log::error("Export data into SQL files need to Set the file path.");
-                    exit;
-                }
-            }
-            elseif (self::$export_type == 'db') 
-            {
-                if (!function_exists('mysqli_connect'))
-                {
-                    log::error("Export data to a database need Mysql support，Error: Unable to load mysqli extension.");
-                    exit;
-                }
-
-                if (empty($GLOBALS['config']['db'])) 
-                {
-                    log::error("Export data to a database need Mysql support，Error: You not set a config array for connect.\nPlease check the configuration file config/inc_config.php");
-                    exit;
-                }
-
-                $config = $GLOBALS['config']['db'];
-                @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
-                if(mysqli_connect_errno())
-                {
-                    log::error("Export data to a database need Mysql support，Error: ".mysqli_connect_error()." \nPlease check the configuration file config/inc_config.php");
-                    exit;
-                }
-
-                if (!db::table_exists(self::$export_table))
-                {
-                    log::error("Table ".self::$export_table." does not exist");
-                    exit;
-                }
-            }
         }
     }
 
@@ -1497,31 +1436,87 @@ class phpspider
     }
 
     /**
-     * 清空Redis里面上次爬取的采集数据
+     * 验证导出
      * 
      * @return void
      * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-29 13:00
+     * @created time :2016-10-02 23:37
      */
-    public function cache_clear()
+    public function check_export()
     {
-        // 删除队列
-        cls_redis::del("collect_queue");
-
-        // 删除采集到的field数量
-        cls_redis::del("fields_num");
-        cls_redis::del("depth_num");
-
-        // 抓取和抓取到数量
-        cls_redis::del("collect_urls_num");
-        cls_redis::del("collected_urls_num");
-
-        // 删除等待采集网页缓存
-        $keys = cls_redis::keys("collect_urls-*"); 
-        foreach ($keys as $key) 
+        // 如果设置了导出选项
+        if (!empty(self::$configs['export'])) 
         {
-            $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-            cls_redis::del($key);
+            if (self::$export_type == 'csv') 
+            {
+                if (empty(self::$export_file)) 
+                {
+                    log::error("Export data into CSV files need to Set the file path.");
+                    exit;
+                }
+            }
+            elseif (self::$export_type == 'sql') 
+            {
+                if (empty(self::$export_file)) 
+                {
+                    log::error("Export data into SQL files need to Set the file path.");
+                    exit;
+                }
+            }
+            elseif (self::$export_type == 'db') 
+            {
+                if (!function_exists('mysqli_connect'))
+                {
+                    log::error("Export data to a database need Mysql support，Error: Unable to load mysqli extension.");
+                    exit;
+                }
+
+                if (empty($GLOBALS['config']['db'])) 
+                {
+                    log::error("Export data to a database need Mysql support，Error: You not set a config array for connect.\nPlease check the configuration file config/inc_config.php");
+                    exit;
+                }
+
+                $config = $GLOBALS['config']['db'];
+                @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
+                if(mysqli_connect_errno())
+                {
+                    log::error("Export data to a database need Mysql support，Error: ".mysqli_connect_error()." \nPlease check the configuration file config/inc_config.php");
+                    exit;
+                }
+
+                if (!db::table_exists(self::$export_table))
+                {
+                    log::error("Table ".self::$export_table." does not exist");
+                    exit;
+                }
+            }
+        }
+    }
+
+    public function check_cache()
+    {
+        if (self::$use_redis)
+        {
+            //if (cls_redis::exists("collect_queue")) 
+            $keys = cls_redis::keys("*"); 
+            $count = count($keys);
+            if ($count != 0) 
+            {
+                $msg = "发现Redis中有采集数据，是否继续执行，不继续则清空Redis数据重新采集\n";
+                $msg .= "您希望继续执行吗？ [Y/n] ";
+                fwrite(STDOUT, $msg);
+                $arg = strtolower(trim(fgets(STDIN)));
+                $arg = empty($arg) || !in_array($arg, array('y','n')) ? 'y' : $arg;
+                if ($arg == 'n') 
+                {
+                    foreach ($keys as $key) 
+                    {
+                        $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                        cls_redis::del($key);
+                    }
+                }
+            }
         }
     }
 
@@ -1535,9 +1530,9 @@ class phpspider
     public function set_task_status()
     {
         // 每采集成功一个页面，生成当前进程状态到文件，供主进程使用
-        $mem = round(memory_get_usage(true)/(1024*1024),2)."MB";
+        $mem = round(memory_get_usage(true)/(1024*1024),2);
         $use_time = microtime(true) - self::$time_start; 
-        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2)."/s";
+        $speed = round((self::$collect_succ + self::$collect_fail) / $use_time, 2);
         $status = array(
             'id' => self::$taskid,
             'pid' => self::$taskpid,
@@ -1548,9 +1543,10 @@ class phpspider
         );
         $task_status = json_encode($status);
 
-        if (self::$tasknum > 1)
+        if (self::$use_redis)
         {
-            cls_redis::set("task_status-".self::$taskid, $task_status); 
+            $key = "server-".self::$serverid."-task_status-".self::$taskid;
+            cls_redis::set($key, $task_status); 
         }
         else 
         {
@@ -1565,14 +1561,14 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-30 23:56
      */
-    public function get_task_status()
+    public function get_task_status($serverid = 1, $tasknum)
     {
         $task_status = array();
-        if (self::$tasknum > 1)
+        if (self::$use_redis)
         {
-            for ($i = 1; $i <= self::$tasknum; $i++) 
+            for ($i = 1; $i <= $tasknum; $i++) 
             {
-                $key = "task_status-".$i;
+                $key = "server-{$serverid}-task_status-".$i;
                 $task_status[] = cls_redis::get($key);
             }
         }
@@ -1583,19 +1579,55 @@ class phpspider
         return $task_status;
     }
 
-    public function del_task_status()
+    public function init_redis()
     {
-        if (self::$tasknum > 1)
+        if (self::$use_redis)
         {
-            $lock = 'lock-depth_num';
-            cls_redis::unlock($lock);
+            // 更新服务器列表
+            $server_list_json = cls_redis::get("server_list");
+            $server_list = array();
+            if (!$server_list_json) 
+            {
+                $server_list[self::$serverid] = array(
+                    'serverid' => self::$serverid,
+                    'tasknum' => self::$tasknum,
+                    'time' => time(),
+                );
+            }
+            else 
+            {
+                $server_list = json_decode($server_list_json, true);
+                $server_list[self::$serverid] = array(
+                    'serverid' => self::$serverid,
+                    'tasknum' => self::$tasknum,
+                    'time' => time(),
+                );
+                ksort($server_list);
+            }
+            cls_redis::set("server_list", json_encode($server_list));
 
+            // 当前服务器task数量
+            $this->update_server_tasknum(self::$serverid, self::$tasknum);
+            // 当前服务器活跃时间
+            $this->update_server_active_time(self::$serverid);
+
+            // 删除当前服务器的任务状态
             for ($i = 1; $i <= self::$tasknum; $i++) 
             {
-                $key = "task_status-".$i;
+                $key = "server-".self::$serverid."-task_status-".$i;
                 cls_redis::del($key);
             }
         }
+    }
+
+    public function update_server_tasknum($serverid, $tasknum)
+    {
+        cls_redis::set("server-{$serverid}-tasknum", $tasknum);
+    }
+
+    public function update_server_active_time($serverid)
+    {
+        cls_redis::set("server-{$serverid}-active_time", time());
     }
 
     /**
@@ -1608,7 +1640,7 @@ class phpspider
      */
     public function get_collect_url_num()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $count = cls_redis::get("collect_urls_num"); 
         }
@@ -1629,7 +1661,7 @@ class phpspider
      */
     public function get_collected_url_num()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $count = cls_redis::get("collected_urls_num"); 
         }
@@ -1734,7 +1766,7 @@ class phpspider
      */
     public function incr_collected_url_num($url)
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             cls_redis::incr("collected_urls_num"); 
         }
@@ -1762,7 +1794,7 @@ class phpspider
         $link = $this->link_compress($link);
 
         $status = false;
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $key = "collect_urls-".md5($url);
             $lock = "lock-".$key;
@@ -1818,7 +1850,7 @@ class phpspider
         $url = $link['url'];
 
         $status = false;
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $key = "collect_urls-".md5($url);
             $lock = "lock-".$key;
@@ -1868,7 +1900,7 @@ class phpspider
      */
     public function queue_lpop()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $link = cls_redis::lpop("collect_queue"); 
             $link = json_decode($link, true);
@@ -1889,7 +1921,7 @@ class phpspider
      */
     public function queue_rpop()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $link = cls_redis::rpop("collect_queue"); 
             $link = json_decode($link, true);
@@ -1910,7 +1942,7 @@ class phpspider
      */
     public function queue_lsize()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $lsize = cls_redis::lsize("collect_queue"); 
         }
@@ -1930,11 +1962,11 @@ class phpspider
      */
     public function incr_depth_num($depth)
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $lock = "lock-depth_num";
-            // 一个一个任务执行
-            if (cls_redis::lock($lock))
+            // 锁2秒
+            if (cls_redis::lock($lock, time(), 2))
             {
                 if (cls_redis::get("depth_num") < $depth) 
                 {
@@ -1962,7 +1994,7 @@ class phpspider
      */
     public function get_depth_num()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $depth_num = cls_redis::get("depth_num"); 
             return $depth_num ? $depth_num : 0;
@@ -1982,7 +2014,7 @@ class phpspider
      */
     public function incr_fields_num()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $fields_num = cls_redis::incr("fields_num"); 
         }
@@ -2003,7 +2035,7 @@ class phpspider
      */
     public function get_fields_num()
     {
-        if (self::$tasknum > 1 || self::$save_running_state)
+        if (self::$use_redis)
         {
             $fields_num = cls_redis::get("fields_num"); 
         }
@@ -2158,6 +2190,7 @@ class phpspider
         $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
         $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/(60*60*60)) . " minutes   \n";
         $display_str .= 'spider name: ' . self::$configs['name'] . "\n";
+        $display_str .= 'server id: ' . self::$serverid . "\n";
         $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
         $display_str .= "document: https://doc.phpspider.org\n";
         $display_str .= "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
@@ -2170,7 +2203,19 @@ class phpspider
         "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
         "\n";
 
-        $display_str .= $this->display_process_ui();
+        $display_str .= $this->display_task_process_ui();
+
+        $display_str .= "-------------------------------\033[47;30m SERVER \033[0m-------------------------------\n";
+
+        $display_str .= "\033[47;30mserverid\033[0m". str_pad('', self::$serverid_length+2-strlen('serverid')). 
+        "\033[47;30mtasknum\033[0m". str_pad('', self::$tasknum_length+2-strlen('tasknum')). 
+        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
+        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
+        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+        "\n";
+
+        $display_str .= $this->display_server_process_ui();
 
         $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
 
@@ -2214,10 +2259,10 @@ class phpspider
         //}
     }
 
-    public function display_process_ui()
+    public function display_task_process_ui()
     {
         // "\033[32;40m [OK] \033[0m"
-        $task_status = $this->get_task_status();
+        $task_status = $this->get_task_status(self::$serverid, self::$tasknum);
         $display_str = '';
         foreach ($task_status as $json) 
         {
@@ -2229,14 +2274,52 @@ class phpspider
             }
             $display_str .= str_pad($task['id'], self::$taskid_length+2).
                 str_pad($task['pid'], self::$pid_length+2).
-                str_pad($task['mem'], self::$mem_length+2). 
+                str_pad($task['mem']."MB", self::$mem_length+2). 
                 str_pad($task['collect_succ'], self::$urls_length+2). 
                 str_pad($task['collect_fail'], self::$urls_length+2). 
-                str_pad($task['speed'], self::$speed_length+2). 
+                str_pad($task['speed']."/s", self::$speed_length+2). 
                 "\n";
         }
 
         //echo "\033[9;0H";
+        return $display_str;
+    }
+
+    public function display_server_process_ui()
+    {
+        $server_list_json = cls_redis::get("server_list");
+        $server_list = json_decode($server_list_json, true);
+        $display_str = "";
+        foreach ($server_list as $server) 
+        {
+            $serverid = $server['serverid'];
+            $tasknum = $server['tasknum'];
+            $mem = 0;
+            $speed = 0;
+            $collect_succ = $collect_fail = 0;
+            $task_status = $this->get_task_status($serverid, $tasknum);
+            foreach ($task_status as $json) 
+            {
+                //$json = util::get_file(PATH_DATA."/status/".$i);
+                $task = json_decode($json, true);
+                if (empty($task)) 
+                {
+                    continue;
+                }
+                $mem += $task['mem'];
+                $speed += $task['speed'];
+                $collect_fail += $task['collect_fail'];
+                $collect_succ += $task['collect_succ'];
+            }
+
+            $display_str .= str_pad($serverid, self::$serverid_length+2).
+                str_pad($tasknum, self::$tasknum_length+2). 
+                str_pad($mem."MB", self::$mem_length+2). 
+                str_pad($collect_succ, self::$urls_length). 
+                str_pad($collect_fail, self::$urls_length). 
+                str_pad($speed."/s", self::$speed_length+2). 
+                "\n";
+        }
         return $display_str;
     }
 
