@@ -45,7 +45,7 @@ $spider->start();
 
 #### 运行界面如下:      
 
-![](http://www.epooll.com/zhihu/log_show_false.png)
+![](http://www.epooll.com/zhihu/pachong.gif)
 
 更多详细内容，移步到：
 
