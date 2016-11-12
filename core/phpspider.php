@@ -2212,14 +2212,14 @@ class phpspider
         $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
         $display_str .= "document: https://doc.phpspider.org\n";
 
-        $display_str .= $this->display_task_process_ui();
+        $display_str .= $this->display_task_ui();
 
         if (self::$multiserver) 
         {
-            $display_str .= $this->display_server_process_ui();
+            $display_str .= $this->display_server_ui();
         }
 
-        $display_str .= $this->display_collect_status_ui();
+        $display_str .= $this->display_collect_ui();
 
         // 清屏
         //$this->shell_clear();
@@ -2242,7 +2242,7 @@ class phpspider
         //}
     }
 
-    public function display_task_process_ui()
+    public function display_task_ui()
     {
         $display_str = "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
 
@@ -2275,7 +2275,7 @@ class phpspider
         return $display_str;
     }
 
-    public function display_server_process_ui()
+    public function display_server_ui()
     {
         $display_str = "-------------------------------\033[47;30m SERVER \033[0m------------------------------\n";
 
@@ -2321,7 +2321,7 @@ class phpspider
         return $display_str;
     }
 
-    public function display_collect_status_ui()
+    public function display_collect_ui()
     {
         $display_str = "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
 
