@@ -187,6 +187,7 @@ class phpspider
     public static $export_file = '';
     public static $export_conf = '';
     public static $export_table = '';
+    public static $export_db_config = '';
 
     // 运行面板参数长度
     public static $serverid_length = 10;
@@ -339,6 +340,7 @@ class phpspider
         self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
         self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
         self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
+        self::$export_db_config = isset(self::$configs['export']['config']) ? self::$configs['export']['config'] : $GLOBALS['config']['db'];
 
         // 是否设置了并发任务数，并且大于1，而且不是windows环境
         if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1 && !util::is_win()) 
@@ -627,6 +629,7 @@ class phpspider
         {
             $this->display_ui();
         }
+
         while( $this->queue_lsize() )
         { 
             // 抓取页面
@@ -1484,19 +1487,21 @@ class phpspider
                     exit;
                 }
 
-                if (empty($GLOBALS['config']['db'])) 
+                if (empty(self::$export_db_config)) 
                 {
                     log::error("Export data to a database need Mysql support，Error: You not set a config array for connect.\nPlease check the configuration file config/inc_config.php");
                     exit;
                 }
 
-                $config = $GLOBALS['config']['db'];
+                $config = self::$export_db_config;
                 @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
                 if(mysqli_connect_errno())
                 {
                     log::error("Export data to a database need Mysql support，Error: ".mysqli_connect_error()." \nPlease check the configuration file config/inc_config.php");
                     exit;
                 }
+
+                db::_init_mysql(self::$export_db_config);
 
                 if (!db::table_exists(self::$export_table))
                 {
