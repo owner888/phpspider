@@ -1534,7 +1534,7 @@ class phpspider
     }
 
     /**
-     * 设置任务状态，主进程和子进程共用
+     * 设置任务状态，主进程和子进程每成功采集一个页面后调用
      * 
      * @return void
      * @author seatle <seatle@foxmail.com> 
@@ -1568,7 +1568,7 @@ class phpspider
     }
 
     /**
-     * 获得任务状态，主进程使用
+     * 获得任务状态，主进程才会调用
      * 
      * @return void
      * @author seatle <seatle@foxmail.com> 
@@ -1633,18 +1633,35 @@ class phpspider
         }
     }
 
+    /**
+     * 更新服务器任务数量
+     * 
+     * @param mixed $serverid
+     * @param mixed $tasknum
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-05 18:58
+     */
     public function update_server_tasknum($serverid, $tasknum)
     {
         cls_redis::set("server-{$serverid}-tasknum", $tasknum);
     }
 
+    /**
+     * 更新当前服务器最后活跃时间
+     * 
+     * @param mixed $serverid
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-05 18:58
+     */
     public function update_server_active_time($serverid)
     {
         cls_redis::set("server-{$serverid}-active_time", time());
     }
 
     /**
-     * 发现爬取网页数量
+     * 获取等待爬取页面数量
      * 
      * @param mixed $url
      * @return void
@@ -1665,7 +1682,7 @@ class phpspider
     }
 
     /**
-     * 等待爬取网页数量
+     * 获取已经爬取页面数量
      * 
      * @param mixed $url
      * @return void
@@ -1770,7 +1787,7 @@ class phpspider
     }
 
     /**
-     * 添加已爬取网页标记
+     * 已采集页面数量加一
      * 
      * @param mixed $url
      * @return void
@@ -1815,7 +1832,6 @@ class phpspider
             if (cls_redis::lock($lock))
             {
                 $exists = cls_redis::exists($key); 
-                //$exists = cls_redis::get($key); 
                 // 不存在或者当然URL可重复入
                 if (!$exists || $allowed_repeat) 
                 {
