@@ -189,10 +189,10 @@ class phpspider
     public static $export_table = '';
 
     // 运行面板参数长度
-    public static $serverid_length = 8;
+    public static $serverid_length = 10;
     public static $tasknum_length = 8;
-    public static $taskid_length = 6;
-    public static $pid_length = 6;
+    public static $taskid_length = 8;
+    public static $pid_length = 8;
     public static $mem_length = 8;
     public static $urls_length = 15;
     public static $speed_length = 6;
@@ -352,16 +352,23 @@ class phpspider
             self::$save_running_state = self::$configs['save_running_state'];
         }
 
+        // 是否分布式
+        if (isset(self::$configs['multiserver'])) 
+        {
+            self::$multiserver = self::$configs['multiserver'];
+        }
+
+        // 当前服务器ID
+        if (isset(self::$configs['serverid'])) 
+        {
+            self::$serverid = self::$configs['serverid'];
+        }
+
         // 不同项目的采集以采集名称作为前缀区分
         if (isset($GLOBALS['config']['redis']['prefix'])) 
         {
             $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
         }
-
-        // 是否分布式
-        self::$multiserver  = isset(self::$configs['multiserver'])  ? self::$configs['multiserver'] : self::$multiserver;
-        // 当前服务器ID
-        self::$serverid  = isset(self::$configs['serverid'])  ? self::$configs['serverid'] : self::$serverid;
     }
 
     public function add_scan_url($url, $options = array(), $allowed_repeat = true)
@@ -516,30 +523,30 @@ class phpspider
             exit;
         }
 
-        if (!cls_redis::init()) 
-        {
-            if (self::$multiserver) 
-            {
-                log::error("Multiserver needs Redis support，Error: ".cls_redis::$error);
-                exit;
-            }
-
-            if (self::$tasknum > 1) 
-            {
-                log::error("Multitasking needs Redis support，Error: ".cls_redis::$error);
-                exit;
-            }
-
-            if (self::$save_running_state) 
-            {
-                log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error);
-                exit;
-            }
-        }
-
         if (self::$multiserver || self::$save_running_state || self::$tasknum > 1) 
         {
             self::$use_redis = true;
+
+            if (!cls_redis::init()) 
+            {
+                if (self::$multiserver) 
+                {
+                    log::error("Multiserver needs Redis support，Error: ".cls_redis::$error);
+                    exit;
+                }
+
+                if (self::$tasknum > 1) 
+                {
+                    log::error("Multitasking needs Redis support，Error: ".cls_redis::$error);
+                    exit;
+                }
+
+                if (self::$save_running_state) 
+                {
+                    log::error("Spider kept running state needs Redis support，Error: ".cls_redis::$error);
+                    exit;
+                }
+            }
         }
 
         // 检查导出
@@ -615,6 +622,11 @@ class phpspider
             $this->shell_clear();
         }
 
+        // 先显示一次面板，然后下面再每次采集成功显示一次
+        if (!log::$log_show) 
+        {
+            $this->display_ui();
+        }
         while( $this->queue_lsize() )
         { 
             // 抓取页面
@@ -677,6 +689,7 @@ class phpspider
         {
             log::warn("Fork children task({$taskid}) successful...");
 
+            // 初始化子进程参数
             self::$time_start = microtime(true);
             self::$taskid = $taskid;
             self::$taskpid = posix_getpid();
@@ -2189,54 +2202,24 @@ class phpspider
         //$display_str = "-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
         $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
         $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/(60*60*60)) . " minutes   \n";
+
         $display_str .= 'spider name: ' . self::$configs['name'] . "\n";
-        $display_str .= 'server id: ' . self::$serverid . "\n";
+        if (self::$multiserver) 
+        {
+            $display_str .= 'server id: ' . self::$serverid."\n";
+        }
+        $display_str .= 'task number: ' . self::$tasknum . "\n";
         $display_str .= 'load average: ' . implode(", ", $loadavg) . "\n";
         $display_str .= "document: https://doc.phpspider.org\n";
-        $display_str .= "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
-
-        $display_str .= "\033[47;30mtaskid\033[0m". str_pad('', self::$taskid_length+2-strlen('taskid')). 
-        "\033[47;30mpid\033[0m". str_pad('', self::$pid_length+2-strlen('pid')). 
-        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
-        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length+2-strlen('collect succ')). 
-        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length+2-strlen('collect fail')). 
-        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
-        "\n";
 
         $display_str .= $this->display_task_process_ui();
 
-        $display_str .= "-------------------------------\033[47;30m SERVER \033[0m-------------------------------\n";
+        if (self::$multiserver) 
+        {
+            $display_str .= $this->display_server_process_ui();
+        }
 
-        $display_str .= "\033[47;30mserverid\033[0m". str_pad('', self::$serverid_length+2-strlen('serverid')). 
-        "\033[47;30mtasknum\033[0m". str_pad('', self::$tasknum_length+2-strlen('tasknum')). 
-        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
-        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
-        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
-        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
-        "\n";
-
-        $display_str .= $this->display_server_process_ui();
-
-        $display_str .= "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
-
-        $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
-        "\033[47;30mcollected\033[0m". str_pad('', 15-strlen('collected')). 
-        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
-        "\033[47;30mfields\033[0m". str_pad('', 14-strlen('fields')). 
-        "\033[47;30mdepth\033[0m". str_pad('', 12-strlen('depth')). 
-        "\n";
-
-        $collect   = $this->get_collect_url_num();
-        $collected = $this->get_collected_url_num();
-        $queue     = $this->queue_lsize();
-        $fields    = $this->get_fields_num();
-        $depth     = $this->get_depth_num();
-        $display_str .= str_pad($collect, 16);
-        $display_str .= str_pad($collected, 15);
-        $display_str .= str_pad($queue, 14);
-        $display_str .= str_pad($fields, 14);
-        $display_str .= str_pad($depth, 12);
-        $display_str .= "\n";
+        $display_str .= $this->display_collect_status_ui();
 
         // 清屏
         //$this->shell_clear();
@@ -2261,12 +2244,20 @@ class phpspider
 
     public function display_task_process_ui()
     {
+        $display_str = "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
+
+        $display_str .= "\033[47;30mtaskid\033[0m". str_pad('', self::$taskid_length+2-strlen('taskid')). 
+        "\033[47;30mtaskpid\033[0m". str_pad('', self::$pid_length+2-strlen('taskpid')). 
+        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
+        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
+        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+        "\n";
+
         // "\033[32;40m [OK] \033[0m"
         $task_status = $this->get_task_status(self::$serverid, self::$tasknum);
-        $display_str = '';
         foreach ($task_status as $json) 
         {
-            //$json = util::get_file(PATH_DATA."/status/".$i);
             $task = json_decode($json, true);
             if (empty($task)) 
             {
@@ -2275,21 +2266,29 @@ class phpspider
             $display_str .= str_pad($task['id'], self::$taskid_length+2).
                 str_pad($task['pid'], self::$pid_length+2).
                 str_pad($task['mem']."MB", self::$mem_length+2). 
-                str_pad($task['collect_succ'], self::$urls_length+2). 
-                str_pad($task['collect_fail'], self::$urls_length+2). 
+                str_pad($task['collect_succ'], self::$urls_length). 
+                str_pad($task['collect_fail'], self::$urls_length). 
                 str_pad($task['speed']."/s", self::$speed_length+2). 
                 "\n";
         }
-
         //echo "\033[9;0H";
         return $display_str;
     }
 
     public function display_server_process_ui()
     {
+        $display_str = "-------------------------------\033[47;30m SERVER \033[0m------------------------------\n";
+
+        $display_str .= "\033[47;30mserver\033[0m". str_pad('', self::$serverid_length+2-strlen('serverid')). 
+        "\033[47;30mtasknum\033[0m". str_pad('', self::$tasknum_length+2-strlen('tasknum')). 
+        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
+        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
+        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+        "\n";
+
         $server_list_json = cls_redis::get("server_list");
         $server_list = json_decode($server_list_json, true);
-        $display_str = "";
         foreach ($server_list as $server) 
         {
             $serverid = $server['serverid'];
@@ -2300,7 +2299,6 @@ class phpspider
             $task_status = $this->get_task_status($serverid, $tasknum);
             foreach ($task_status as $json) 
             {
-                //$json = util::get_file(PATH_DATA."/status/".$i);
                 $task = json_decode($json, true);
                 if (empty($task)) 
                 {
@@ -2312,7 +2310,7 @@ class phpspider
                 $collect_succ += $task['collect_succ'];
             }
 
-            $display_str .= str_pad($serverid, self::$serverid_length+2).
+            $display_str .= str_pad($serverid, self::$serverid_length).
                 str_pad($tasknum, self::$tasknum_length+2). 
                 str_pad($mem."MB", self::$mem_length+2). 
                 str_pad($collect_succ, self::$urls_length). 
@@ -2320,6 +2318,31 @@ class phpspider
                 str_pad($speed."/s", self::$speed_length+2). 
                 "\n";
         }
+        return $display_str;
+    }
+
+    public function display_collect_status_ui()
+    {
+        $display_str = "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
+
+        $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
+        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
+        "\033[47;30mcollected\033[0m". str_pad('', 15-strlen('collected')). 
+        "\033[47;30mfields\033[0m". str_pad('', 15-strlen('fields')). 
+        "\033[47;30mdepth\033[0m". str_pad('', 12-strlen('depth')). 
+        "\n";
+
+        $collect   = $this->get_collect_url_num();
+        $collected = $this->get_collected_url_num();
+        $queue     = $this->queue_lsize();
+        $fields    = $this->get_fields_num();
+        $depth     = $this->get_depth_num();
+        $display_str .= str_pad($collect, 16);
+        $display_str .= str_pad($queue, 14);
+        $display_str .= str_pad($collected, 15);
+        $display_str .= str_pad($fields, 15);
+        $display_str .= str_pad($depth, 12);
+        $display_str .= "\n";
         return $display_str;
     }
 
