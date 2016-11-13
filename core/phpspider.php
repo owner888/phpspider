@@ -753,7 +753,6 @@ class phpspider
 
         // 先进先出
         $link = $this->queue_rpop();
-        $link = $this->link_uncompress($link);
         $url = $link['url'];
 
         // 标记为已爬取网页
@@ -888,6 +887,8 @@ class phpspider
     {
         $time_start = microtime(true);
 
+        $link['url'] = $url;
+        $link = $this->link_uncompress($link);
         //$url = "http://www.qiushibaike.com/article/117568316";
 
         // 设置了编码就不要让requests去判断了
