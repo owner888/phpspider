@@ -1319,9 +1319,9 @@ class phpspider
                     {
                         $collect_url = $this->fill_url($fields[$conf['attached_url']], $url);
                         log::debug("Find attached content page: {$collect_url}");
-                        requests::$input_encoding = null;
                         $link['url'] = $collect_url;
                         $link = $this->link_uncompress($link);
+                        requests::$input_encoding = null;
                         $html = $this->request_url($collect_url, $link);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
                         if ($this->on_attached_download_page) 
