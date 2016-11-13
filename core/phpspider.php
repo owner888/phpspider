@@ -1317,8 +1317,8 @@ class phpspider
                     // 取出上个field的内容作为连接，内容分页是不进队列直接下载网页的
                     if (!empty($fields[$conf['attached_url']])) 
                     {
-                        $collect_url = $this->fill_url($url, $fields[$conf['attached_url']]);
-                        log::debug("Find attached content page: {$url}");
+                        $collect_url = $this->fill_url($fields[$conf['attached_url']], $url);
+                        log::debug("Find attached content page: {$collect_url}");
                         requests::$input_encoding = null;
                         $link['url'] = $collect_url;
                         $link = $this->link_uncompress($link);
