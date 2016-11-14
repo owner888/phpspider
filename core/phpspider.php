@@ -1098,6 +1098,11 @@ class phpspider
         {
             return false;
         }
+        // 排除没有被解析成功的语言标签
+        if(substr($url, 0, 3) == '<%=')
+        {
+            return false;
+        }
 
         $parse_url = @parse_url($collect_url);
         if (empty($parse_url['scheme']) || empty($parse_url['host'])) 
