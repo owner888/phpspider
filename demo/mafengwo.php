@@ -123,7 +123,6 @@ $spider->on_list_page = function($page, $content, $phpspider)
                     $v = $page['request']['params']['mddid'];
                     $url = "http://www.mafengwo.cn/gonglve/ajax.php?act=get_travellist&mddid={$v}&page={$i}";
                     $options = array(
-                        'url_type' => $url,
                         'method' => 'post',
                         'params' => array(
                             'mddid'=>$v,
