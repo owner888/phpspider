@@ -493,7 +493,13 @@ class requests
                 self::$headers['X-HTTP-Method-Override'] = $method;
                 curl_setopt( self::$ch, CURLOPT_CUSTOMREQUEST, $method ); 
             }
-            curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
+            if (!empty($fields)) 
+            {
+                // 不能直接传数组，不知道是什么Bug，会非常慢
+                $fields_str = http_build_query($fields);
+                curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields_str );
+                //curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
+            }
         }
 
         $cookies = self::get_cookies();
