@@ -19,7 +19,7 @@ class requests
      * 版本号
      * @var string
      */
-    const VERSION = '1.10.0';
+    const VERSION = '1.2.0';
 
     protected static $ch = null;
     protected static $timeout = 10;
