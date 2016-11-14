@@ -1083,6 +1083,21 @@ class phpspider
         {
             return false;
         }
+        // 排除邮件标签
+        if(substr($url, 0, 7) == 'mailto:')
+        {
+            return false;
+        }
+        // 排除电话标签
+        if(substr($url, 0, 4) == 'tel:')
+        {
+            return false;
+        }
+        // 排除信息标签
+        if(substr($url, 0, 4) == 'sms:')
+        {
+            return false;
+        }
 
         $parse_url = @parse_url($collect_url);
         if (empty($parse_url['scheme']) || empty($parse_url['host'])) 
