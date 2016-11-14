@@ -37,17 +37,12 @@ class phpspider
     const MAX_TRY = 0;
 
     /**
-     * 抽取规则的类型：xpath、jsonpath、regex 
+     * 爬虫爬取网页所使用的浏览器类型：pc、ios、android
+     * 默认类型是PC
      */
-    //const FIELDS_SELECTOR_TYPE = 'xpath';
-
-    /**
-     * 爬虫爬取网页所使用的浏览器类型：android，ios，pc，mobile
-     */
-    const AGENT_ANDROID = "Mozilla/5.0 (Linux; U; Android 6.0.1;zh_cn; Le X820 Build/FEXCNFN5801507014S) AppleWebKit/537.36 (KHTML, like Gecko)Version/4.0 Chrome/49.0.0.0 Mobile Safari/537.36 EUI Browser/5.8.015S";
-    const AGENT_IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 9_3_3 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13G34 Safari/601.1";
     const AGENT_PC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36";
-    const AGENT_MOBILE = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36";
+    const AGENT_IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 9_3_3 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13G34 Safari/601.1";
+    const AGENT_ANDROID = "Mozilla/5.0 (Linux; U; Android 6.0.1;zh_cn; Le X820 Build/FEXCNFN5801507014S) AppleWebKit/537.36 (KHTML, like Gecko)Version/4.0 Chrome/49.0.0.0 Mobile Safari/537.36 EUI Browser/5.8.015S";
 
     /**
      * pid文件的路径及名称
@@ -112,12 +107,6 @@ class phpspider
     public static $save_running_state = false;
 
     /**
-     * 试运行
-     * 试运行状态下，程序持续三分钟或抓取到30条数据后停止
-     */
-    //public static $test_run = true;
-
-    /**
      * 配置 
      */
     public static $configs = array();
@@ -179,6 +168,9 @@ class phpspider
      */
     public static $time_start = 0;
 
+    /**
+     * 任务状态 
+     */
     public static $task_status = array();
 
     // 导出类型配置
@@ -189,7 +181,7 @@ class phpspider
     public static $export_db_config = '';
 
     // 运行面板参数长度
-    public static $serverid_length = 10;
+    public static $server_length = 10;
     public static $tasknum_length = 8;
     public static $taskid_length = 8;
     public static $pid_length = 8;
@@ -206,13 +198,11 @@ class phpspider
     public $on_start = null;
 
     /**
-     * 切换IP代理后，先前请求网页用到的Cookie会被清除，这里可以再次添加 
+     * 网页状态码回调 
      * 
      * @var mixed
      * @access public
      */
-    //public $on_change_proxy = null;
-
     public $on_status_code = null;
 
     /**
@@ -2301,7 +2291,7 @@ class phpspider
     {
         $display_str = "-------------------------------\033[47;30m SERVER \033[0m------------------------------\n";
 
-        $display_str .= "\033[47;30mserver\033[0m". str_pad('', self::$serverid_length+2-strlen('serverid')). 
+        $display_str .= "\033[47;30mserver\033[0m". str_pad('', self::$server_length+2-strlen('serverid')). 
         "\033[47;30mtasknum\033[0m". str_pad('', self::$tasknum_length+2-strlen('tasknum')). 
         "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
         "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
@@ -2332,7 +2322,7 @@ class phpspider
                 $collect_succ += $task['collect_succ'];
             }
 
-            $display_str .= str_pad($serverid, self::$serverid_length).
+            $display_str .= str_pad($serverid, self::$server_length).
                 str_pad($tasknum, self::$tasknum_length+2). 
                 str_pad($mem."MB", self::$mem_length+2). 
                 str_pad($collect_succ, self::$urls_length). 
