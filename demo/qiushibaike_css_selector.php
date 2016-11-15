@@ -7,9 +7,8 @@ require dirname(__FILE__).'/../core/init.php';
 
 $configs = array(
     'name' => '糗事百科CSS选择器示例',
-    'log_show' => true,
-    'tasknum' => 1,
-    //'save_running_state' => true,
+    'tasknum' => 8,
+    'interval' => 350,
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
@@ -65,10 +64,46 @@ $configs = array(
             'selector_type' => 'css',
             'required' => true,
         ),
+        array(
+            'name' => "depth",
+            'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
+            'selector_type' => 'css',
+            'required' => true,
+        ),
     ),
 );
 
 $spider = new phpspider($configs);
+
+$spider->on_handle_img = function($fieldname, $img) 
+{
+    $regex = '/src="(https?:\/\/.*?)"/i';
+    preg_match($regex, $img, $rs);
+    if (!$rs) 
+    {
+        return $img;
+    }
+
+    $url = $rs[1];
+    $img = $url;
+
+    //$pathinfo = pathinfo($url);
+    //$fileext = $pathinfo['extension'];
+    //if (strtolower($fileext) == 'jpeg') 
+    //{
+        //$fileext = 'jpg';
+    //}
+    //// 以纳秒为单位生成随机数
+    //$filename = uniqid().".".$fileext;
+    //// 在data目录下生成图片
+    //$filepath = PATH_ROOT."/images/{$filename}";
+    //// 用系统自带的下载器wget下载
+    //exec("wget -q {$url} -O {$filepath}");
+
+    //// 替换成真是图片url
+    //$img = str_replace($url, $filename, $img);
+    return $img;
+};
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
@@ -91,6 +126,11 @@ $spider->on_extract_field = function($fieldname, $data, $page)
     elseif ($fieldname == 'url') 
     {
         $data = $page['url'];
+    }
+    // 把当前内容页depth替换上面的field
+    elseif ($fieldname == 'depth') 
+    {
+        $data = $page['request']['depth'];
     }
     return $data;
 };
