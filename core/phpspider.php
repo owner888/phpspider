@@ -227,7 +227,7 @@ class phpspider
      * @var mixed
      * @access public
      */
-    public $on_attached_download_page = null;
+    public $on_download_attached_page = null;
 
     /**
      * URL属于入口页 
@@ -1083,21 +1083,6 @@ class phpspider
         {
             return false;
         }
-        // 排除邮件标签
-        if(substr($url, 0, 7) == 'mailto:')
-        {
-            return false;
-        }
-        // 排除电话标签
-        if(substr($url, 0, 4) == 'tel:')
-        {
-            return false;
-        }
-        // 排除信息标签
-        if(substr($url, 0, 4) == 'sms:')
-        {
-            return false;
-        }
         // 排除没有被解析成功的语言标签
         if(substr($url, 0, 3) == '<%=')
         {
@@ -1106,6 +1091,11 @@ class phpspider
 
         $parse_url = @parse_url($collect_url);
         if (empty($parse_url['scheme']) || empty($parse_url['host'])) 
+        {
+            return false;
+        }
+        // 过滤mailto、tel、sms、wechat、sinaweibo、weixin等协议
+        if (!in_array($parse_url['scheme'], array("http", "https"))) 
         {
             return false;
         }
@@ -1333,9 +1323,9 @@ class phpspider
                         requests::$input_encoding = null;
                         $html = $this->request_url($collect_url, $link);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
-                        if ($this->on_attached_download_page) 
+                        if ($this->on_download_attached_page) 
                         {
-                            $return = call_user_func($this->on_attached_download_page, $html, $this);
+                            $return = call_user_func($this->on_download_attached_page, $html, $this);
                             if (isset($return)) 
                             {
                                 $html = $return;
