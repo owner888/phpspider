@@ -26,6 +26,8 @@ class requests
     //public static $request = array(
         //'headers' => array()
     //);
+    public static $input_encoding = null;
+    public static $output_encoding = null;
     public static $cookies = array();
     public static $domain_cookies = array();
     public static $hosts = array();
@@ -37,8 +39,6 @@ class requests
     public static $domain = null;
     public static $raw = null;
     public static $content = null;
-    public static $input_encoding = null;
-    public static $output_encoding = null;
     public static $info = array();
     public static $status_code = 0;
     public static $error = null;
@@ -598,3 +598,5 @@ class requests
     }
 
 }
+
+
