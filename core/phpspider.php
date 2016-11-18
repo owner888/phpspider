@@ -1005,14 +1005,14 @@ class phpspider
         //--------------------------------------------------------------------------------
         $urls = selector::select($html, '//a/@href');
         //preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
-        $urls = array();
-        if (!empty($matchs[1])) 
-        {
-            foreach ($matchs[1] as $url) 
-            {
-                $urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
-            }
-        }
+        //$urls = array();
+        //if (!empty($matchs[1])) 
+        //{
+            //foreach ($matchs[1] as $url) 
+            //{
+                //$urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
+            //}
+        //}
 
         if (empty($urls)) 
         {
