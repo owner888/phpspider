@@ -76,7 +76,7 @@ class requests
      * @param string $headers
      * @return void
      */
-    public static function add_header($key, $value)
+    public static function set_header($key, $value)
     {
         self::$headers[$key] = $value;
     }
@@ -87,7 +87,7 @@ class requests
      * @param string $cookie
      * @return void
      */
-    public static function add_cookie($key, $value, $domain = '')
+    public static function set_cookie($key, $value, $domain = '')
     {
         if (empty($key) || empty($value)) 
         {
@@ -104,7 +104,7 @@ class requests
         return true;
     }
 
-    public static function add_cookies($cookies, $domain = '')
+    public static function set_cookies($cookies, $domain = '')
     {
         $cookies_arr = explode(";", $cookies);
         if (empty($cookies_arr)) 
