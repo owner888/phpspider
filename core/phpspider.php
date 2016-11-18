@@ -958,6 +958,7 @@ class phpspider
                     // 扔到队列头部去, 继续采集
                     $this->queue_rpush($link);
                     log::error("Failed to download page {$url}");
+                    self::$collect_fail++;
                 }
                 elseif (in_array($http_code, array('0','502','503','429'))) 
                 {
@@ -974,9 +975,9 @@ class phpspider
                 else 
                 {
                     log::error("Failed to download page {$url}");
+                    self::$collect_fail++;
                 }
                 log::error("HTTP CODE: {$http_code}");
-                self::$collect_fail++;
                 return false;
             }
         }
