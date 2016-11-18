@@ -31,6 +31,7 @@ class requests
     public static $hosts = array();
     public static $headers = array();
     public static $useragents = array();
+    public static $client_ips = array();
     public static $proxies = array();
     public static $url = null;
     public static $domain = null;
@@ -200,6 +201,19 @@ class requests
     {
         self::$headers["CLIENT-IP"] = $ip;
         self::$headers["X-FORWARDED-FOR"] = $ip;
+    }
+
+    /**
+     * 设置随机伪造IP
+     * 
+     * @param mixed $ip
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public static function set_client_ips($ip)
+    {
+        self::$client_ips = $client_ips;
     }
 
     /**
@@ -525,6 +539,14 @@ class requests
             $key = rand(0, count(self::$useragents) - 1);
             self::$headers['User-Agent'] = self::$useragents[$key];
         }
+
+        if (!empty(self::$client_ips)) 
+        {
+            $key = rand(0, count(self::$client_ips) - 1);
+            self::$headers["CLIENT-IP"] = self::$client_ips[$key];
+            self::$headers["X-FORWARDED-FOR"] = self::$client_ips[$key];
+        }
+
         if (self::$headers)
         {
             $headers = array();

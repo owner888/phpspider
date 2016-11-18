@@ -312,15 +312,17 @@ class phpspider
         }
 
         self::$configs = $configs;
-        self::$configs['name']       = isset(self::$configs['name'])       ? self::$configs['name']       : 'phpspider';
-        self::$configs['proxy']      = isset(self::$configs['proxy'])      ? self::$configs['proxy']      : '';
-        self::$configs['user_agent'] = isset(self::$configs['user_agent']) ? self::$configs['user_agent'] : self::AGENT_PC;
-        self::$configs['interval']   = isset(self::$configs['interval'])   ? self::$configs['interval']   : self::INTERVAL;
-        self::$configs['timeout']    = isset(self::$configs['timeout'])    ? self::$configs['timeout']    : self::TIMEOUT;
-        self::$configs['max_try']    = isset(self::$configs['max_try'])    ? self::$configs['max_try']    : self::MAX_TRY;
-        self::$configs['max_depth']  = isset(self::$configs['max_depth'])  ? self::$configs['max_depth']  : 0;
-        self::$configs['max_fields'] = isset(self::$configs['max_fields']) ? self::$configs['max_fields'] : 0;
-        self::$configs['export']     = isset(self::$configs['export'])     ? self::$configs['export']     : array();
+        self::$configs['name']        = isset(self::$configs['name'])        ? self::$configs['name']        : 'phpspider';
+        self::$configs['proxy']       = isset(self::$configs['proxy'])       ? self::$configs['proxy']       : '';
+        self::$configs['user_agent']  = isset(self::$configs['user_agent'])  ? self::$configs['user_agent']  : self::AGENT_PC;
+        self::$configs['user_agents'] = isset(self::$configs['user_agents']) ? self::$configs['user_agents'] : null;
+        self::$configs['client_ips']  = isset(self::$configs['client_ips'])  ? self::$configs['client_ips']  : null;
+        self::$configs['interval']    = isset(self::$configs['interval'])    ? self::$configs['interval']    : self::INTERVAL;
+        self::$configs['timeout']     = isset(self::$configs['timeout'])     ? self::$configs['timeout']     : self::TIMEOUT;
+        self::$configs['max_try']     = isset(self::$configs['max_try'])     ? self::$configs['max_try']     : self::MAX_TRY;
+        self::$configs['max_depth']   = isset(self::$configs['max_depth'])   ? self::$configs['max_depth']   : 0;
+        self::$configs['max_fields']  = isset(self::$configs['max_fields'])  ? self::$configs['max_fields']  : 0;
+        self::$configs['export']      = isset(self::$configs['export'])      ? self::$configs['export']      : array();
 
         log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
         log::$log_type = isset(self::$configs['log_type']) ? self::$configs['log_type'] : false;
@@ -888,6 +890,14 @@ class phpspider
         requests::$output_encoding = 'utf-8';
         requests::set_timeout(self::$configs['timeout']);
         requests::set_useragent(self::$configs['user_agent']);
+        if (self::$configs['user_agents']) 
+        {
+            requests::set_useragents(self::$configs['user_agents']);
+        }
+        if (self::$configs['client_ips']) 
+        {
+            requests::set_client_ips(self::$configs['client_ips']);
+        }
         
         // 是否设置了代理
         if (!empty($link['proxy'])) 
