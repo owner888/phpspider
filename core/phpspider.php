@@ -1003,7 +1003,12 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
-        $urls = selector::select($html, '//a/@href');
+        $urls = selector::select($html, '//a/@href');             
+        foreach ($urls as $key=>$url) 
+        {
+            $urls[$key] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
+        }
+
         //preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
         //$urls = array();
         //if (!empty($matchs[1])) 
