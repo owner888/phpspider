@@ -23,12 +23,12 @@ class requests
 
     protected static $ch = null;
     protected static $timeout = 10;
-    //protected static $request = array(
+    //public static $request = array(
         //'headers' => array()
     //);
-    protected static $cookies = array();
-    protected static $domain_cookies = array();
-    protected static $hosts = array();
+    public static $cookies = array();
+    public static $domain_cookies = array();
+    public static $hosts = array();
     public static $headers = array();
     public static $useragents = array();
     public static $proxies = array();
