@@ -316,6 +316,7 @@ class phpspider
         self::$configs['proxy']       = isset(self::$configs['proxy'])       ? self::$configs['proxy']       : '';
         self::$configs['user_agent']  = isset(self::$configs['user_agent'])  ? self::$configs['user_agent']  : self::AGENT_PC;
         self::$configs['user_agents'] = isset(self::$configs['user_agents']) ? self::$configs['user_agents'] : null;
+        self::$configs['client_ip']   = isset(self::$configs['client_ip'])   ? self::$configs['client_ip']   : null;
         self::$configs['client_ips']  = isset(self::$configs['client_ips'])  ? self::$configs['client_ips']  : null;
         self::$configs['interval']    = isset(self::$configs['interval'])    ? self::$configs['interval']    : self::INTERVAL;
         self::$configs['timeout']     = isset(self::$configs['timeout'])     ? self::$configs['timeout']     : self::TIMEOUT;
@@ -893,6 +894,10 @@ class phpspider
         if (self::$configs['user_agents']) 
         {
             requests::set_useragents(self::$configs['user_agents']);
+        }
+        if (self::$configs['client_ip']) 
+        {
+            requests::set_client_ip(self::$configs['client_ip']);
         }
         if (self::$configs['client_ips']) 
         {
