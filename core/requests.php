@@ -208,9 +208,10 @@ class requests
      * @param string $hosts
      * @return void
      */
-    public static function set_hosts($hosts)
+    public static function set_hosts($host, $ips = array())
     {
-        self::$hosts = $hosts;
+        $ips = is_array($ips) ? $ips : array($ips);
+        self::$hosts[$host] = $ips;
     }
 
     public static function get_response_body($domain)
@@ -470,14 +471,17 @@ class requests
         $domain = $parse_url['host'];
 
         // 随机绑定 hosts，做负载均衡
-        //if (self::$hosts) 
-        //{
-            //$host = $parse_url['host'];
-            //$key = rand(0, count(self::$hosts)-1);
-            //$ip = self::$hosts[$key];
-            //$url = str_replace($host, $ip, $url);
-            //self::$headers['Host'] = $host;
-        //}
+        if (self::$hosts) 
+        {
+            if (isset(self::$hosts[$domain]))
+            {
+                $hosts = self::$hosts[$domain];
+                $key = rand(0, count($hosts)-1);
+                $ip = $hosts[$key];
+                $url = str_replace($domain, $ip, $url);
+                self::$headers['Host'] = $domain;
+            }
+        }
 
         curl_setopt( self::$ch, CURLOPT_URL, $url );
 
