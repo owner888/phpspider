@@ -19,7 +19,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '3.0.1';
+    const VERSION = '3.0.2';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时, 单位: 毫秒
@@ -1003,14 +1003,14 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
-        //$urls = selector::select($html, '//a/@href');
-        preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
+        $urls = selector::select($html, '//a/@href');
+        //preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
         $urls = array();
         if (!empty($matchs[1])) 
         {
             foreach ($matchs[1] as $url) 
             {
-                $urls[] = str_replace(array("\"", "'"), "", $url);
+                $urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
             }
         }
 
@@ -1521,8 +1521,11 @@ class phpspider
             $count = count($keys);
             if ($count != 0) 
             {
-                $msg = "发现Redis中有采集数据, 是否继续执行, 不继续则清空Redis数据重新采集\n";
-                $msg .= "您希望继续执行吗？ [Y/n] ";
+                // After this operation, 4,318 kB of additional disk space will be used.
+                // Do you want to continue? [Y/n] 
+                //$msg = "发现Redis中有采集数据, 是否继续执行, 不继续则清空Redis数据重新采集\n";
+                $msg = "Found that the data of Redis, no continue will empty Redis data start again\n";
+                $msg .= "Do you want to continue? [Y/n]";
                 fwrite(STDOUT, $msg);
                 $arg = strtolower(trim(fgets(STDIN)));
                 $arg = empty($arg) || !in_array($arg, array('y','n')) ? 'y' : $arg;
