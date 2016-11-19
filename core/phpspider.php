@@ -1083,12 +1083,12 @@ class phpspider
                 $return = call_user_func($this->on_fetch_url, $url, $this);
                 $url = isset($return) ? $return : $url;
                 unset($return);
-            }
 
-            // 如果 on_fetch_url 返回 false，此URL不入队列
-            if (!$url) 
-            {
-                continue;
+                // 如果 on_fetch_url 返回 false，此URL不入队列
+                if (!$url) 
+                {
+                    continue;
+                }
             }
 
             // 把当前页当做找到的url的Referer页
