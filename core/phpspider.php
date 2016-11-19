@@ -230,6 +230,14 @@ class phpspider
     public $on_download_attached_page = null;
 
     /**
+     * 当前页面抽取到URL 
+     * 
+     * @var mixed
+     * @access public
+     */
+    public $on_fetch_url = null;
+
+    /**
      * URL属于入口页 
      * 在爬取到入口url的内容之后, 添加新的url到待爬队列之前调用 
      * 主要用来发现新的待爬url, 并且能给新发现的url附加数据
@@ -302,11 +310,7 @@ class phpspider
         $content = file_get_contents($included_files[0]);
         if (!preg_match("#/\* Do NOT delete this comment \*/#", $content) || !preg_match("#/\* 不要删除这段注释 \*/#", $content))
         {
-            $msg = "未知错误；请参考文档或寻求技术支持。";
-            if (util::is_win()) 
-            {
-                $msg = mb_convert_encoding($msg, "gbk", "utf-8");
-            }
+            $msg = "Unknown error...";
             log::error($msg);
             exit;
         }
@@ -1074,6 +1078,13 @@ class phpspider
         //--------------------------------------------------------------------------------
         foreach ($urls as $url) 
         {
+            if ($this->on_fetch_url) 
+            {
+                $return = call_user_func($this->on_fetch_url, $url, $this);
+                $url = isset($return) ? $return : $url;
+                unset($return);
+            }
+
             // 把当前页当做找到的url的Referer页
             $options = array(
                 'headers' => array(
