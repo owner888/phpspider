@@ -1085,13 +1085,17 @@ class phpspider
                 unset($return);
             }
 
-            // 把当前页当做找到的url的Referer页
-            $options = array(
-                'headers' => array(
-                    'Referer' => $collect_url,
-                )
-            );
-            $this->add_url($url, $options, $depth);
+            // 如果 on_fetch_url 返回 false，此URL不入队列
+            if ($url) 
+            {
+                // 把当前页当做找到的url的Referer页
+                $options = array(
+                    'headers' => array(
+                        'Referer' => $collect_url,
+                    )
+                );
+                $this->add_url($url, $options, $depth);
+            }
         }
     }
 
