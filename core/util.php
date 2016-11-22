@@ -572,6 +572,20 @@ class util
         }
     }
 
+    
+    /**
+     * 转换数组值的编码格式
+     * @param  array $arr           
+     * @param  string $toEncoding   
+     * @param  string $fromEncoding 
+     * @return array                
+     */
+    public static function array_iconv($arr, $from_encoding, $to_encoding)
+    {
+        eval('$arr = '.iconv($from_encoding, $to_encoding.'//IGNORE', var_export($arr,TRUE)).';');
+        return $arr;
+    }
+
     /**
      * 从普通时间返回Linux时间截(strtotime中文处理版)
      * @parem string $dtime

@@ -51,6 +51,8 @@ require CORE.'/selector.php';
 require CORE.'/util.php';
 require CORE.'/db.php';
 require CORE.'/cache.php';
+require CORE."/worker.php"; 
+require CORE."/phpspider.php"; 
 
 // 启动的时候生成data目录
 util::path_exists(PATH_DATA);
@@ -58,9 +60,6 @@ util::path_exists(PATH_DATA."/lock");
 util::path_exists(PATH_DATA."/log");
 util::path_exists(PATH_DATA."/cache");
 util::path_exists(PATH_DATA."/status");
-
-require CORE."/worker.php"; 
-require CORE."/phpspider.php"; 
 
 function autoload($classname) {
     set_include_path(PATH_ROOT.'/library/');

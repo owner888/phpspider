@@ -67,6 +67,18 @@ class phpspider
     //public static $taskpids = array();
 
     /**
+     * Daemonize.
+     *
+     * @var bool
+     */
+    public static $daemonize = false;
+
+    /**
+     * 当前进程是否终止 
+     */
+    public static $terminate = false;
+
+    /**
      * 是否分布式 
      */
     public static $multiserver = false;
@@ -75,6 +87,11 @@ class phpspider
      * 当前服务器ID 
      */
     public static $serverid = 1;
+
+    /**
+     * 主任务进程 
+     */
+    public static $taskmaster = true;
 
     /**
      * 当前任务ID 
@@ -304,6 +321,8 @@ class phpspider
     {
         // 先打开以显示验证报错内容
         log::$log_show = true;
+        log::$log_file = isset($configs['log_file']) ? $configs['log_file'] : PATH_DATA.'/phpspider.log';
+        log::$log_type = isset($configs['log_type']) ? $configs['log_type'] : false;
 
         // 彩蛋
         $included_files = get_included_files();
@@ -315,58 +334,56 @@ class phpspider
             exit;
         }
 
-        self::$configs = $configs;
-        self::$configs['name']        = isset(self::$configs['name'])        ? self::$configs['name']        : 'phpspider';
-        self::$configs['proxy']       = isset(self::$configs['proxy'])       ? self::$configs['proxy']       : '';
-        self::$configs['user_agent']  = isset(self::$configs['user_agent'])  ? self::$configs['user_agent']  : self::AGENT_PC;
-        self::$configs['user_agents'] = isset(self::$configs['user_agents']) ? self::$configs['user_agents'] : null;
-        self::$configs['client_ip']   = isset(self::$configs['client_ip'])   ? self::$configs['client_ip']   : null;
-        self::$configs['client_ips']  = isset(self::$configs['client_ips'])  ? self::$configs['client_ips']  : null;
-        self::$configs['interval']    = isset(self::$configs['interval'])    ? self::$configs['interval']    : self::INTERVAL;
-        self::$configs['timeout']     = isset(self::$configs['timeout'])     ? self::$configs['timeout']     : self::TIMEOUT;
-        self::$configs['max_try']     = isset(self::$configs['max_try'])     ? self::$configs['max_try']     : self::MAX_TRY;
-        self::$configs['max_depth']   = isset(self::$configs['max_depth'])   ? self::$configs['max_depth']   : 0;
-        self::$configs['max_fields']  = isset(self::$configs['max_fields'])  ? self::$configs['max_fields']  : 0;
-        self::$configs['export']      = isset(self::$configs['export'])      ? self::$configs['export']      : array();
-
-        log::$log_file = isset(self::$configs['log_file']) ? self::$configs['log_file'] : PATH_DATA.'/phpspider.log';
-        log::$log_type = isset(self::$configs['log_type']) ? self::$configs['log_type'] : false;
+        $configs['name']        = isset($configs['name'])        ? $configs['name']        : 'phpspider';
+        $configs['proxy']       = isset($configs['proxy'])       ? $configs['proxy']       : '';
+        $configs['user_agent']  = isset($configs['user_agent'])  ? $configs['user_agent']  : self::AGENT_PC;
+        $configs['user_agents'] = isset($configs['user_agents']) ? $configs['user_agents'] : null;
+        $configs['client_ip']   = isset($configs['client_ip'])   ? $configs['client_ip']   : null;
+        $configs['client_ips']  = isset($configs['client_ips'])  ? $configs['client_ips']  : null;
+        $configs['interval']    = isset($configs['interval'])    ? $configs['interval']    : self::INTERVAL;
+        $configs['timeout']     = isset($configs['timeout'])     ? $configs['timeout']     : self::TIMEOUT;
+        $configs['max_try']     = isset($configs['max_try'])     ? $configs['max_try']     : self::MAX_TRY;
+        $configs['max_depth']   = isset($configs['max_depth'])   ? $configs['max_depth']   : 0;
+        $configs['max_fields']  = isset($configs['max_fields'])  ? $configs['max_fields']  : 0;
+        $configs['export']      = isset($configs['export'])      ? $configs['export']      : array();
 
         // csv、sql、db
-        self::$export_type  = isset(self::$configs['export']['type'])  ? self::$configs['export']['type']  : '';
-        self::$export_file  = isset(self::$configs['export']['file'])  ? self::$configs['export']['file']  : '';
-        self::$export_table = isset(self::$configs['export']['table']) ? self::$configs['export']['table'] : '';
-        self::$export_db_config = isset(self::$configs['export']['config']) ? self::$configs['export']['config'] : $GLOBALS['config']['db'];
+        self::$export_type  = isset($configs['export']['type'])  ? $configs['export']['type']  : '';
+        self::$export_file  = isset($configs['export']['file'])  ? $configs['export']['file']  : '';
+        self::$export_table = isset($configs['export']['table']) ? $configs['export']['table'] : '';
+        self::$export_db_config = isset($configs['export']['config']) ? $configs['export']['config'] : $GLOBALS['config']['db'];
 
         // 是否设置了并发任务数, 并且大于1, 而且不是windows环境
-        if (isset(self::$configs['tasknum']) && self::$configs['tasknum'] > 1 && !util::is_win()) 
+        if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !util::is_win()) 
         {
-            self::$tasknum = self::$configs['tasknum'];
+            self::$tasknum = $configs['tasknum'];
         }
 
         // 是否设置了保留运行状态
-        if (isset(self::$configs['save_running_state'])) 
+        if (isset($configs['save_running_state'])) 
         {
-            self::$save_running_state = self::$configs['save_running_state'];
+            self::$save_running_state = $configs['save_running_state'];
         }
 
         // 是否分布式
-        if (isset(self::$configs['multiserver'])) 
+        if (isset($configs['multiserver'])) 
         {
-            self::$multiserver = self::$configs['multiserver'];
+            self::$multiserver = $configs['multiserver'];
         }
 
         // 当前服务器ID
-        if (isset(self::$configs['serverid'])) 
+        if (isset($configs['serverid'])) 
         {
-            self::$serverid = self::$configs['serverid'];
+            self::$serverid = $configs['serverid'];
         }
 
         // 不同项目的采集以采集名称作为前缀区分
         if (isset($GLOBALS['config']['redis']['prefix'])) 
         {
-            $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5(self::$configs['name']);
+            $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5($configs['name']);
         }
+
+        self::$configs = $configs;
     }
 
     public function add_scan_url($url, $options = array(), $allowed_repeat = true)
@@ -485,8 +502,200 @@ class phpspider
         return $result;
     }
 
+    /**
+     * Parse command.
+     * php yourfile.php start | stop | status | kill
+     *
+     * @return void
+     */
+    public function parse_command()
+    {
+        // 检查运行命令的参数
+        global $argv;
+        $start_file = $argv[0]; 
+                
+        // 命令
+        $command = isset($argv[1]) ? trim($argv[1]) : 'start';
+        
+        // 子命令, 目前只支持-d
+        $command2 = isset($argv[2]) ? $argv[2] : '';
+
+        // 根据命令做相应处理
+        switch($command)
+        {
+            // 启动 phpspider
+            case 'start':
+                if ($command2 === '-d') 
+                {
+                    self::$daemonize = true;
+                }
+                break;
+            case 'stop':
+                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}'", $info);
+                if (count($info) <= 1)
+                {
+                    echo "PHPSpider[$start_file] not run\n";
+                }
+                else 
+                {
+                    //echo "PHPSpider[$start_file] is stoping ...\n";
+                    echo "PHPSpider[$start_file] stop success";
+                    exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGINT", $info);
+                }
+                exit;
+                break;
+            case 'kill':
+                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGKILL");
+                break;
+            // 显示 phpspider 运行状态
+            case 'status':
+                exit(0);
+            // 未知命令
+            default :
+                 exit("Usage: php yourfile.php {start|stop|status|kill}\n");
+        }
+    }
+
+    /**
+     * Signal hander.
+     *
+     * @param int $signal
+     */
+    public function signal_handler($signal)
+    {
+        switch ($signal) {
+            // Stop.
+            case SIGINT:
+                log::debug("Program stopping...");
+                self::$terminate = true;
+                break;
+            // Show status.
+            case SIGUSR2:
+                echo "show status\n";
+                break;
+        }
+    }
+
+    /**
+     * Install signal handler.
+     *
+     * @return void
+     */
+    public function install_signal()
+    {
+        if (function_exists('pcntl_signal')) 
+        {
+            // stop
+            pcntl_signal(SIGINT, array(__CLASS__, 'signal_handler'), false);
+            // status
+            pcntl_signal(SIGUSR2, array(__CLASS__, 'signal_handler'), false);
+            // ignore
+            pcntl_signal(SIGPIPE, SIG_IGN, false);
+        }
+    }
+
+    /**
+     * Run as deamon mode.
+     *
+     * @throws Exception
+     */
+    protected static function daemonize()
+    {
+        if (!self::$daemonize) 
+        {
+            return;
+        }
+
+        // fork前一定要关闭redis
+        cls_redis::close();
+
+        umask(0);
+        $pid = pcntl_fork();
+        if (-1 === $pid) 
+        {
+            throw new Exception('fork fail');
+        } 
+        elseif ($pid > 0) 
+        {
+            exit(0);
+        }
+        if (-1 === posix_setsid()) 
+        {
+            throw new Exception("setsid fail");
+        }
+        // Fork again avoid SVR4 system regain the control of terminal.
+        $pid = pcntl_fork();
+        if (-1 === $pid) 
+        {
+            throw new Exception("fork fail");
+        } 
+        elseif (0 !== $pid) 
+        {
+            exit(0);
+        }
+    }
+
+    /**
+     * 检查是否终止当前进程
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public function check_terminate()
+    {
+        if (!self::$terminate) 
+        {
+            return false;
+        }
+
+        // 删除当前任务状态
+        $this->del_task_status(self::$serverid, self::$taskid);
+
+        if (self::$taskmaster) 
+        {
+            // 检查子进程是否都退出
+            while (true)
+            {
+                $all_stop = true;
+                for ($i = 2; $i <= self::$tasknum; $i++) 
+                {
+                    // 只要一个还活着就说明没有完全退出
+                    $task_status = $this->get_task_status(self::$serverid, $i);
+                    if ($task_status)
+                    {
+                        $all_stop = false;
+                    }
+                }
+                if ($all_stop) 
+                {
+                    break;
+                }
+                else 
+                {
+                    log::warn("Task stop waiting...");
+                }
+                sleep(1);
+            }
+
+            $this->del_server_list(self::$serverid);
+
+            // 显示最后结果
+            log::$log_show = true;
+
+            $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
+            log::note("Spider finished in {$spider_time_run}");
+
+            $get_collected_url_num = $this->get_collected_url_num();
+            log::note("Total pages: {$get_collected_url_num} \n");
+        }
+        exit();
+    }
+
     public function start()
     {
+        $this->parse_command();
+
         // 爬虫开始时间
         self::$time_start = time();
         // 当前任务ID
@@ -521,6 +730,14 @@ class phpspider
             exit;
         }
 
+        // 守护进程需要pcntl扩展支持
+        if (self::$daemonize && !function_exists('pcntl_fork')) 
+        {
+            log::error("Daemonize needs pnctl, the pnctl extension was not found");
+            exit;
+        }
+
+        // 集群、保存运行状态、多任务都需要Redis支持
         if (self::$multiserver || self::$save_running_state || self::$tasknum > 1) 
         {
             self::$use_redis = true;
@@ -573,7 +790,7 @@ class phpspider
         // windows 下没法显示面板, 强制显示日志
         if (util::is_win()) 
         {
-            self::$configs['name'] = mb_convert_encoding(self::$configs['name'], "gbk", "utf-8");
+            self::$configs['name'] = iconv("UTF-8", "GB2312//IGNORE", self::$configs['name']);
             log::$log_show = true;
         }
         else 
@@ -581,16 +798,31 @@ class phpspider
             log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
         }
 
+        if (self::$daemonize) 
+        {
+            log::$log_show = true;
+        }
+
         if (log::$log_show)
         {
+            global $argv;
+            $start_file = $argv[0]; 
+
             $header = "";
             if (!util::is_win()) $header .= "\033[33m";
             $header .= "\n[ ".self::$configs['name']." Spider ] is started...\n\n";
             $header .= "  * PHPSpider Version: ".self::VERSION."\n";
             $header .= "  * Documentation: https://doc.phpspider.org\n";
-            $header .= "  * Task Number: ".self::$tasknum."\n";
+            $header .= "  * Task Number: ".self::$tasknum."\n\n";
+            $header .= "Input \"php $start_file stop\" to quit. Start success.\n";
             if (!util::is_win()) $header .= "\033[0m";
             log::note($header);
+        }
+
+        // 如果是守护进程，恢复日志状态
+        if (self::$daemonize) 
+        {
+            log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
         }
 
         // 多任务和分布式都要清掉, 当然分布式只清自己的
@@ -613,59 +845,30 @@ class phpspider
             call_user_func($this->on_start, $this);
         }
 
-
-        if (!log::$log_show) 
+        if (!self::$daemonize) 
         {
-            // 清屏
-            $this->shell_clear();
-        }
-
-        // 先显示一次面板, 然后下面再每次采集成功显示一次
-        if (!log::$log_show) 
-        {
-            $this->display_ui();
-        }
-
-        while( $this->queue_lsize() )
-        { 
-            // 抓取页面
-            $this->collect_page();
-
-            // 多任务下主任务未准备就绪
-            if (self::$tasknum > 1 && !self::$fork_task_complete) 
-            {
-                // 主进程采集到两倍于任务数时, 生成子任务一起采集
-                if ($this->queue_lsize() > self::$tasknum*2) 
-                {
-                    self::$fork_task_complete = true;
-                    
-                    // fork 子进程前一定要先干掉redis连接fd, 不然会存在进程互抢redis fd 问题
-                    cls_redis::close();
-                    // task进程从2开始, 1被master进程所使用
-                    for ($i = 2; $i <= self::$tasknum; $i++) 
-                    {
-                        $this->fork_one_task($i);
-                    }
-                }
-            }
-
-            $this->set_task_status();
-
-            // 每采集成功一次页面, 就刷新一次面板
             if (!log::$log_show) 
             {
+                // 第一次先清屏
+                $this->clear_echo();
+
+                // 先显示一次面板, 然后下面再每次采集成功显示一次
                 $this->display_ui();
             }
-        } 
+        }
+        else 
+        {
+            $this->daemonize();
+        }
 
-        // 显示最后结果
-        log::$log_show = true;
+        // 安装信号
+        $this->install_signal();
 
-        $spider_time_run = util::time2second(intval(microtime(true) - self::$time_start));
-        log::info("Spider finished in {$spider_time_run}");
+        // 开始采集
+        $this->do_collect_page();
 
-        $get_collected_url_num = $this->get_collected_url_num();
-        log::info("Total pages: {$get_collected_url_num} \n");
+        // 从服务器列表中删除当前服务器信息
+        $this->del_server_list(self::$serverid);
     }
 
     /**
@@ -690,27 +893,13 @@ class phpspider
 
             // 初始化子进程参数
             self::$time_start = microtime(true);
-            self::$taskid = $taskid;
-            self::$taskpid = posix_getpid();
+            self::$taskid     = $taskid;
+            self::$taskmaster = false;
+            self::$taskpid    = posix_getpid();
             self::$collect_succ = 0;
             self::$collect_fail = 0;
 
-            while( $this->queue_lsize() )
-            { 
-                // 如果队列中的网页比任务数2倍多, 子任务可以采集, 否则等待...
-                if ($this->queue_lsize() > self::$tasknum*2) 
-                {
-                    // 抓取页面
-                    $this->collect_page();
-                }
-                else 
-                {
-                    log::warn("Task(".self::$taskid.") waiting...");
-                    sleep(1);
-                }
-
-                $this->set_task_status();
-            } 
+            $this->do_collect_page();
 
             // 这里用0表示正常退出
             exit(0);
@@ -720,6 +909,65 @@ class phpspider
             log::error("Fork children task({$taskid}) fail...");
             exit;
         }
+    }
+
+    public function do_collect_page() 
+    {
+        while( $queue_lsize = $this->queue_lsize() )
+        { 
+            // 如果是主任务
+            if (self::$taskmaster) 
+            {
+                // 多任务下主任务未准备就绪
+                if (self::$tasknum > 1 && !self::$fork_task_complete) 
+                {
+                    // 主进程采集到两倍于任务数时, 生成子任务一起采集
+                    if ( $queue_lsize > self::$tasknum*2 ) 
+                    {
+                        self::$fork_task_complete = true;
+
+                        // fork 子进程前一定要先干掉redis连接fd, 不然会存在进程互抢redis fd 问题
+                        cls_redis::close();
+                        // task进程从2开始, 1被master进程所使用
+                        for ($i = 2; $i <= self::$tasknum; $i++) 
+                        {
+                            $this->fork_one_task($i);
+                        }
+                    }
+                }
+
+                // 抓取页面
+                $this->collect_page();
+                // 保存任务状态
+                $this->set_task_status();
+
+                // 每采集成功一次页面, 就刷新一次面板
+                if (!log::$log_show && !self::$daemonize) 
+                {
+                    $this->display_ui();
+                }
+            }
+            // 如果是子任务
+            else 
+            {
+                // 如果队列中的网页比任务数2倍多, 子任务可以采集, 否则等待...
+                if ( $queue_lsize > self::$tasknum*2 ) 
+                {
+                    // 抓取页面
+                    $this->collect_page();
+                    // 保存任务状态
+                    $this->set_task_status();
+                }
+                else 
+                {
+                    log::warn("Task(".self::$taskid.") waiting...");
+                    sleep(1);
+                }
+            }
+
+            // 检查进程是否收到关闭信号
+            $this->check_terminate();
+        } 
     }
 
     /**
@@ -841,7 +1089,7 @@ class phpspider
             if (self::$configs['max_depth'] == 0 || $link['depth'] < self::$configs['max_depth']) 
             {
                 // 分析提取HTML页面中的URL
-                $this->get_html_urls($page['raw'], $url, $link['depth'] + 1);
+                $this->get_urls($page['raw'], $url, $link['depth'] + 1);
             }
         }
 
@@ -1018,17 +1266,12 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public function get_html_urls($html, $collect_url, $depth = 0) 
+    public function get_urls($html, $collect_url, $depth = 0) 
     { 
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
         $urls = selector::select($html, '//a/@href');             
-        foreach ($urls as $key=>$url) 
-        {
-            $urls[$key] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
-        }
-
         //preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
         //$urls = array();
         //if (!empty($matchs[1])) 
@@ -1042,6 +1285,11 @@ class phpspider
         if (empty($urls)) 
         {
             return false;
+        }
+
+        foreach ($urls as $key=>$url) 
+        {
+            $urls[$key] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
         }
 
         //--------------------------------------------------------------------------------
@@ -1237,6 +1485,90 @@ class phpspider
         }
 
         return $url;
+    }
+
+    /**
+     * 连接对象压缩
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-05 18:58
+     */
+    public function link_compress($link)
+    {
+        if (empty($link['url_type'])) 
+        {
+            unset($link['url_type']);
+        }
+
+        if (empty($link['method']) || strtolower($link['method']) == 'get') 
+        {
+            unset($link['method']);
+        }
+
+        if (empty($link['headers'])) 
+        {
+            unset($link['headers']);
+        }
+
+        if (empty($link['params'])) 
+        {
+            unset($link['params']);
+        }
+
+        if (empty($link['context_data'])) 
+        {
+            unset($link['context_data']);
+        }
+
+        if (empty($link['proxy'])) 
+        {
+            unset($link['proxy']);
+        }
+
+        if (empty($link['try_num'])) 
+        {
+            unset($link['try_num']);
+        }
+
+        if (empty($link['max_try'])) 
+        {
+            unset($link['max_try']);
+        }
+        
+        if (empty($link['depth'])) 
+        {
+            unset($link['depth']);
+        }
+        //$json = json_encode($link);
+        //$json = gzdeflate($json);
+        return $link;
+    }
+
+    /**
+     * 连接对象解压缩
+     * 
+     * @param mixed $link
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-05 18:58
+     */
+    public function link_uncompress($link)
+    {
+        $link = array(
+            'url'          => isset($link['url'])          ? $link['url']          : '',             
+            'url_type'     => isset($link['url_type'])     ? $link['url_type']     : '',             
+            'method'       => isset($link['method'])       ? $link['method']       : 'get',             
+            'headers'      => isset($link['headers'])      ? $link['headers']      : array(),    
+            'params'       => isset($link['params'])       ? $link['params']       : array(),           
+            'context_data' => isset($link['context_data']) ? $link['context_data'] : '',                
+            'proxy'        => isset($link['proxy'])        ? $link['proxy']        : self::$configs['proxy'],             
+            'try_num'      => isset($link['try_num'])      ? $link['try_num']      : 0,                 
+            'max_try'      => isset($link['max_try'])      ? $link['max_try']      : self::$configs['max_try'],
+            'depth'        => isset($link['depth'])        ? $link['depth']        : 0,             
+        );
+
+        return $link;
     }
 
     /**
@@ -1552,30 +1884,50 @@ class phpspider
 
     public function check_cache()
     {
-        if (self::$use_redis)
+        if (!self::$use_redis)
         {
-            //if (cls_redis::exists("collect_queue")) 
-            $keys = cls_redis::keys("*"); 
-            $count = count($keys);
-            if ($count != 0) 
+            return false;
+        }
+
+        //if (cls_redis::exists("collect_queue")) 
+        $keys = cls_redis::keys("*"); 
+        $count = count($keys);
+        if ($count != 0) 
+        {
+            // After this operation, 4,318 kB of additional disk space will be used.
+            // Do you want to continue? [Y/n] 
+            //$msg = "发现Redis中有采集数据, 是否继续执行, 不继续则清空Redis数据重新采集\n";
+            $msg = "Found that the data of Redis, no continue will empty Redis data start again\n";
+            $msg .= "Do you want to continue? [Y/n]";
+            fwrite(STDOUT, $msg);
+            $arg = strtolower(trim(fgets(STDIN)));
+            $arg = empty($arg) || !in_array($arg, array('y','n')) ? 'y' : $arg;
+            if ($arg == 'n') 
             {
-                // After this operation, 4,318 kB of additional disk space will be used.
-                // Do you want to continue? [Y/n] 
-                //$msg = "发现Redis中有采集数据, 是否继续执行, 不继续则清空Redis数据重新采集\n";
-                $msg = "Found that the data of Redis, no continue will empty Redis data start again\n";
-                $msg .= "Do you want to continue? [Y/n]";
-                fwrite(STDOUT, $msg);
-                $arg = strtolower(trim(fgets(STDIN)));
-                $arg = empty($arg) || !in_array($arg, array('y','n')) ? 'y' : $arg;
-                if ($arg == 'n') 
+                foreach ($keys as $key) 
                 {
-                    foreach ($keys as $key) 
-                    {
-                        $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-                        cls_redis::del($key);
-                    }
+                    $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                    cls_redis::del($key);
                 }
             }
+        }
+    }
+
+    public function init_redis()
+    {
+        if (!self::$use_redis)
+        {
+            return false;
+        }
+
+        // 添加当前服务器到服务器列表
+        $this->add_server_list(self::$serverid, self::$tasknum);
+
+        // 删除当前服务器的任务状态
+        // 对于被强制退出的进程有用
+        for ($i = 1; $i <= self::$tasknum; $i++) 
+        {
+            $this->del_task_status(self::$serverid, $i);
         }
     }
 
@@ -1614,13 +1966,49 @@ class phpspider
     }
 
     /**
+     * 删除任务状态
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public function del_task_status($serverid, $taskid)
+    {
+        if (!self::$use_redis)
+        {
+            return false;
+        }
+        $key = "server-{$serverid}-task_status-{$taskid}";
+        cls_redis::del($key); 
+    }
+
+    /**
      * 获得任务状态, 主进程才会调用
      * 
      * @return void
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-30 23:56
      */
-    public function get_task_status($serverid = 1, $tasknum)
+    public function get_task_status($serverid, $taskid)
+    {
+        if (!self::$use_redis)
+        {
+            return false;
+        }
+
+        $key = "server-{$serverid}-task_status-{$taskid}";
+        $task_status = cls_redis::get($key);
+        return $task_status;
+    }
+
+    /**
+     * 获得任务状态, 主进程才会调用
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-30 23:56
+     */
+    public function get_task_status_list($serverid = 1, $tasknum)
     {
         $task_status = array();
         if (self::$use_redis)
@@ -1638,72 +2026,75 @@ class phpspider
         return $task_status;
     }
 
-    public function init_redis()
+    /**
+     * 添加当前服务器信息到服务器列表
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public function add_server_list($serverid, $tasknum)
     {
-        if (self::$use_redis)
+        if (!self::$use_redis) 
         {
-            // 更新服务器列表
-            $server_list_json = cls_redis::get("server_list");
-            $server_list = array();
-            if (!$server_list_json) 
+            return false;
+        }
+
+        // 更新服务器列表
+        $server_list_json = cls_redis::get("server_list");
+        $server_list = array();
+        if (!$server_list_json) 
+        {
+            $server_list[$serverid] = array(
+                'serverid' => $serverid,
+                'tasknum' => $tasknum,
+                'time' => time(),
+            );
+        }
+        else 
+        {
+            $server_list = json_decode($server_list_json, true);
+            $server_list[$serverid] = array(
+                'serverid' => $serverid,
+                'tasknum' => $tasknum,
+                'time' => time(),
+            );
+            ksort($server_list);
+        }
+        cls_redis::set("server_list", json_encode($server_list));
+    }
+
+    /**
+     * 从服务器列表中删除当前服务器信息
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public function del_server_list($serverid)
+    {
+        if (!self::$use_redis) 
+        {
+            return false;
+        }
+
+        $server_list_json = cls_redis::get("server_list");
+        $server_list = array();
+        if ($server_list_json) 
+        {
+            $server_list = json_decode($server_list_json, true);
+            if (isset($server_list[$serverid])) 
             {
-                $server_list[self::$serverid] = array(
-                    'serverid' => self::$serverid,
-                    'tasknum' => self::$tasknum,
-                    'time' => time(),
-                );
+                unset($server_list[$serverid]);
             }
-            else 
+
+            // 删除完当前的任务列表如果还存在，就更新一下Redis
+            if (!empty($server_list)) 
             {
-                $server_list = json_decode($server_list_json, true);
-                $server_list[self::$serverid] = array(
-                    'serverid' => self::$serverid,
-                    'tasknum' => self::$tasknum,
-                    'time' => time(),
-                );
                 ksort($server_list);
-            }
-            cls_redis::set("server_list", json_encode($server_list));
-
-            // 当前服务器task数量
-            $this->update_server_tasknum(self::$serverid, self::$tasknum);
-            // 当前服务器活跃时间
-            $this->update_server_active_time(self::$serverid);
-
-            // 删除当前服务器的任务状态
-            for ($i = 1; $i <= self::$tasknum; $i++) 
-            {
-                $key = "server-".self::$serverid."-task_status-".$i;
-                cls_redis::del($key);
+                cls_redis::set("server_list", json_encode($server_list));
             }
         }
-    }
-
-    /**
-     * 更新服务器任务数量
-     * 
-     * @param mixed $serverid
-     * @param mixed $tasknum
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-11-05 18:58
-     */
-    public function update_server_tasknum($serverid, $tasknum)
-    {
-        cls_redis::set("server-{$serverid}-tasknum", $tasknum);
-    }
-
-    /**
-     * 更新当前服务器最后活跃时间
-     * 
-     * @param mixed $serverid
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-11-05 18:58
-     */
-    public function update_server_active_time($serverid)
-    {
-        cls_redis::set("server-{$serverid}-active_time", time());
     }
 
     /**
@@ -1746,90 +2137,6 @@ class phpspider
             $count = self::$collected_urls_num;
         }
         return $count;
-    }
-
-    /**
-     * 连接对象压缩
-     * 
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-11-05 18:58
-     */
-    public function link_compress($link)
-    {
-        if (empty($link['url_type'])) 
-        {
-            unset($link['url_type']);
-        }
-
-        if (empty($link['method']) || strtolower($link['method']) == 'get') 
-        {
-            unset($link['method']);
-        }
-
-        if (empty($link['headers'])) 
-        {
-            unset($link['headers']);
-        }
-
-        if (empty($link['params'])) 
-        {
-            unset($link['params']);
-        }
-
-        if (empty($link['context_data'])) 
-        {
-            unset($link['context_data']);
-        }
-
-        if (empty($link['proxy'])) 
-        {
-            unset($link['proxy']);
-        }
-
-        if (empty($link['try_num'])) 
-        {
-            unset($link['try_num']);
-        }
-
-        if (empty($link['max_try'])) 
-        {
-            unset($link['max_try']);
-        }
-        
-        if (empty($link['depth'])) 
-        {
-            unset($link['depth']);
-        }
-        //$json = json_encode($link);
-        //$json = gzdeflate($json);
-        return $link;
-    }
-
-    /**
-     * 连接对象解压缩
-     * 
-     * @param mixed $link
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-11-05 18:58
-     */
-    public function link_uncompress($link)
-    {
-        $link = array(
-            'url'          => isset($link['url'])          ? $link['url']          : '',             
-            'url_type'     => isset($link['url_type'])     ? $link['url_type']     : '',             
-            'method'       => isset($link['method'])       ? $link['method']       : 'get',             
-            'headers'      => isset($link['headers'])      ? $link['headers']      : array(),    
-            'params'       => isset($link['params'])       ? $link['params']       : array(),           
-            'context_data' => isset($link['context_data']) ? $link['context_data'] : '',                
-            'proxy'        => isset($link['proxy'])        ? $link['proxy']        : self::$configs['proxy'],             
-            'try_num'      => isset($link['try_num'])      ? $link['try_num']      : 0,                 
-            'max_try'      => isset($link['max_try'])      ? $link['max_try']      : self::$configs['max_try'],
-            'depth'        => isset($link['depth'])        ? $link['depth']        : 0,             
-        );
-
-        return $link;
     }
 
     /**
@@ -2122,19 +2429,6 @@ class phpspider
     }
 
     /**
-     * 转换数组值的编码格式
-     * @param  array $arr           
-     * @param  string $toEncoding   
-     * @param  string $fromEncoding 
-     * @return array                
-     */
-    private function _array_convert_encoding($arr, $to_encoding, $from_encoding)
-    {
-        eval('$arr = '.iconv($from_encoding, $to_encoding.'//IGNORE', var_export($arr,TRUE)).';');
-        return $arr;
-    }
-
-    /**
      * 采用xpath分析提取字段
      * 
      * @param mixed $html
@@ -2192,7 +2486,14 @@ class phpspider
         return $result;
     }
 
-    public function shell_clear()
+    /**
+     * 清空shell输出内容
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public function clear_echo()
     {
         $arr = array(27, 91, 72, 27, 91, 50, 74);
         foreach ($arr as $a) 
@@ -2202,7 +2503,16 @@ class phpspider
         //array_map(create_function('$a', 'print chr($a);'), array(27, 91, 72, 27, 91, 50, 74));
     }
 
-    public function replaceable_echo($message, $force_clear_lines = NULL) 
+    /**
+     * 替换shell输出内容
+     * 
+     * @param mixed $message
+     * @param mixed $force_clear_lines
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-11-16 11:06
+     */
+    public function replace_echo($message, $force_clear_lines = NULL) 
     {
         static $last_lines = 0;
 
@@ -2284,24 +2594,13 @@ class phpspider
         $display_str .= $this->display_collect_ui();
 
         // 清屏
-        //$this->shell_clear();
+        //$this->clear_echo();
         // 返回到第一行,第一列
         //echo "\033[0;0H";
         $display_str .= "---------------------------------------------------------------------\n";
         $display_str .= "Press Ctrl-C to quit. Start success.";
         //echo $display_str;
-        $this->replaceable_echo($display_str);
-
-        //if(self::$daemonize)
-        //{
-            //global $argv;
-            //$start_file = $argv[0];
-            //echo "Input \"php $start_file stop\" to quit. Start success.\n";
-        //}
-        //else
-        //{
-            //echo "Press Ctrl-C to quit. Start success.\n";
-        //}
+        $this->replace_echo($display_str);
     }
 
     public function display_task_ui()
@@ -2317,7 +2616,7 @@ class phpspider
         "\n";
 
         // "\033[32;40m [OK] \033[0m"
-        $task_status = $this->get_task_status(self::$serverid, self::$tasknum);
+        $task_status = $this->get_task_status_list(self::$serverid, self::$tasknum);
         foreach ($task_status as $json) 
         {
             $task = json_decode($json, true);
@@ -2358,7 +2657,7 @@ class phpspider
             $mem = 0;
             $speed = 0;
             $collect_succ = $collect_fail = 0;
-            $task_status = $this->get_task_status($serverid, $tasknum);
+            $task_status = $this->get_task_status_list($serverid, $tasknum);
             foreach ($task_status as $json) 
             {
                 $task = json_decode($json, true);
@@ -2406,52 +2705,6 @@ class phpspider
         $display_str .= str_pad($depth, 12);
         $display_str .= "\n";
         return $display_str;
-    }
-
-    public function parse_command()
-    {
-        // 检查运行命令的参数
-        global $argv;
-        $start_file = $argv[0]; 
-                
-        // 命令
-        $command = isset($argv[2]) ? trim($argv[1]) : 'start';
-        
-        // 子命令, 目前只支持-d
-        $command2 = isset($argv[2]) ? $argv[2] : '';
-
-        //// 检查主进程是否在运行
-        //$master_pid = @file_get_contents(self::$pid_file);
-        //$master_is_alive = $master_pid && @posix_kill($master_pid, 0);
-        //if($master_is_alive)
-        //{
-            //if($command === 'start')
-            //{
-                //log::error("PHPSpider[$start_file] is running");
-                //exit;
-            //}
-        //}
-        //elseif($command !== 'start')
-        //{
-            //log::error("PHPSpider[$start_file] not run");
-            //exit;
-        //}
-
-        // 根据命令做相应处理
-        switch($command)
-        {
-            // 启动 phpspider
-            case 'start':
-                break;
-            // 显示 phpspider 运行状态
-            case 'status':
-                exit(0);
-            case 'stop':
-                break;
-            // 未知命令
-            default :
-                 exit("Usage: php yourfile.php {start|stop|status}\n");
-        }
     }
 
     /**

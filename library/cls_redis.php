@@ -81,8 +81,11 @@ class cls_redis
 
     public static function close()
     {
-        self::$redis->close();
-        self::$redis = null;
+        if ( !empty(self::$redis) )
+        {
+            self::$redis->close();
+            self::$redis = null;
+        }
     }
 
     public static function set_connect($config = array())
