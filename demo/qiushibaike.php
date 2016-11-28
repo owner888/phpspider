@@ -112,6 +112,7 @@ $spider->on_extract_field = function($fieldname, $data, $page)
         //用 UTF-8 编码的数据解码为 ISO-8859-1 编码
         $data = utf8_decode($data);
     }
+
     if ($fieldname == 'article_title') 
     {
         if (strlen($data) > 10) 
