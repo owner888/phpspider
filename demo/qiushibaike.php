@@ -105,6 +105,11 @@ $spider->on_handle_img = function($fieldname, $img)
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
+    $html_encode = util::get_encode($page['raw']);
+    if ($html_encode == 'iso-8859-1') 
+    {
+        $data = mb_convert_encoding($data, "LATIN1", "UTF-8");
+    }
     if ($fieldname == 'article_title') 
     {
         if (strlen($data) > 10) 
@@ -112,6 +117,7 @@ $spider->on_extract_field = function($fieldname, $data, $page)
             // 下面方法截取中文会有异常
             //$data = substr($data, 0, 10)."...";
             $data = mb_substr($data, 0, 10, 'UTF-8')."...";
+            $data = trim($data);
         }
     }
     elseif ($fieldname == 'article_publish_time') 

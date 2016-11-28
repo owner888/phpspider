@@ -572,7 +572,17 @@ class util
         }
     }
 
-    
+    /**
+     * 获取文件编码
+     * @param $string
+     * @return string
+     */
+    public static function get_encode($string)
+    {
+        $encode = mb_detect_encoding($string, array('UTF-8', 'GBK', 'GB2312', 'LATIN1', 'ASCII', 'BIG5'));
+        return strtolower($encode);
+    }
+
     /**
      * 转换数组值的编码格式
      * @param  array $arr           

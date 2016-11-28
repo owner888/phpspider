@@ -160,6 +160,24 @@ class requests
         return empty($domain) ? self::$cookies : self::$domain_cookies[$domain];
     }
 
+    public static function del_cookies($domain = '')
+    {
+        if (!empty($domain) && !isset(self::$domain_cookies[$domain])) 
+        {
+            return false;
+        }
+        if ( empty($domain)) 
+        {
+            unset(self::$cookies);
+        }
+        else 
+        {
+            unset(self::$domain_cookies[$domain]);
+        }
+        return true;
+    }
+
+
     /**
      * 设置随机的user_agent
      *
@@ -262,11 +280,12 @@ class requests
             // 从头部获取
             preg_match("/charset=([^\s]*)/i", $header, $out);
             $encode = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
+            //$encode = null;
             if (empty($encode)) 
             {
                 // 在某些情况下,无法再 response header 中获取 html 的编码格式
                 // 则需要根据 html 的文本格式获取
-                $encode = self::_get_encode($body);
+                $encode = util::get_encode($body);
                 $encode = strtolower($encode);
                 if($encode == false || $encode == "ascii")
                 {
@@ -276,8 +295,8 @@ class requests
             self::$input_encoding = $encode;
         }
 
-        // 设置了输出编码的转码，注意: xpath只支持utf-8
-        if (self::$output_encoding && self::$input_encoding != self::$output_encoding) 
+        // 设置了输出编码的转码，注意: xpath只支持utf-8，iso-8859-1 不要转，他本身就是utf-8
+        if (self::$output_encoding && self::$input_encoding != self::$output_encoding && self::$input_encoding != 'iso-8859-1') 
         {
             // 先将非utf8编码,转化为utf8编码
             $body = mb_convert_encoding($body, self::$output_encoding, self::$input_encoding);
@@ -340,18 +359,6 @@ class requests
                 $headers[$key] = $val;
             }
         }
-    }
-
-
-    /**
-     * 获取文件编码
-     * @param $string
-     * @return string
-     */
-    private static function _get_encode($string)
-    {
-        $encode = mb_detect_encoding($string, array('ASCII', 'GB2312', 'GBK', 'UTF-8'));
-        return strtolower($encode);
     }
 
     /**
@@ -513,9 +520,12 @@ class requests
             }
             if (!empty($fields)) 
             {
+                if (is_array($fields)) 
+                {
+                    $fields = http_build_query($fields);
+                }
                 // 不能直接传数组，不知道是什么Bug，会非常慢
-                $fields_str = http_build_query($fields);
-                curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields_str );
+                curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
                 //curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
             }
         }

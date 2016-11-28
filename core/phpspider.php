@@ -119,11 +119,6 @@ class phpspider
     public static $use_redis = false;
 
     /**
-     * 是否保存爬虫运行状态 
-     */
-    public static $save_running_state = false;
-
-    /**
      * 配置 
      */
     public static $configs = array();
@@ -357,12 +352,6 @@ class phpspider
         if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !util::is_win()) 
         {
             self::$tasknum = $configs['tasknum'];
-        }
-
-        // 是否设置了保留运行状态
-        if (isset($configs['save_running_state'])) 
-        {
-            self::$save_running_state = $configs['save_running_state'];
         }
 
         // 是否分布式
@@ -738,7 +727,7 @@ class phpspider
         }
 
         // 集群、保存运行状态、多任务都需要Redis支持
-        if (self::$multiserver || self::$save_running_state || self::$tasknum > 1) 
+        if (self::$multiserver || self::$tasknum > 1) 
         {
             self::$use_redis = true;
 
@@ -753,12 +742,6 @@ class phpspider
                 if (self::$tasknum > 1) 
                 {
                     log::error("Multitasking needs Redis support, Error: ".cls_redis::$error);
-                    exit;
-                }
-
-                if (self::$save_running_state) 
-                {
-                    log::error("Spider kept running state needs Redis support, Error: ".cls_redis::$error);
                     exit;
                 }
             }
@@ -1710,8 +1693,6 @@ class phpspider
                 // 没有设置抽取规则的类型 或者 设置为 xpath
                 if (!isset($conf['selector_type']) || $conf['selector_type']=='xpath') 
                 {
-                    // 返回值一定是多项的
-                    // 注意: 这下不一定是多项的了
                     $values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
                 }
                 elseif ($conf['selector_type']=='css') 
@@ -2599,6 +2580,10 @@ class phpspider
         //echo "\033[0;0H";
         $display_str .= "---------------------------------------------------------------------\n";
         $display_str .= "Press Ctrl-C to quit. Start success.";
+        if (self::$terminate) 
+        {
+            $display_str .= "\nWait for the process exits...";
+        }
         //echo $display_str;
         $this->replace_echo($display_str);
     }
