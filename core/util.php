@@ -58,7 +58,7 @@ class util
         unlink(PATH_DATA."/lock/{$lock_name}.lock");
     }
 
-    public static function time2second($time)
+    public static function time2second($time, $is_log = true)
     {
         if(is_numeric($time)) 
         {
@@ -89,7 +89,14 @@ class util
             $value["seconds"] = floor($time);
             //return (array) $value;
             //$t = $value["years"] ."y ". $value["days"] ."d ". $value["hours"] ."h ". $value["minutes"] ."m ".$value["seconds"]."s";
-            $t = $value["days"] ."d ". $value["hours"] ."h ". $value["minutes"] ."m ".$value["seconds"]."s";
+            if ($is_log) 
+            {
+                $t = $value["days"] ."d ". $value["hours"] ."h ". $value["minutes"] ."m ".$value["seconds"]."s";
+            }
+            else 
+            {
+                $t = $value["days"] ." days ". $value["hours"] ." hours ". $value["minutes"] ." minutes";
+            }
             return $t;
 
         }

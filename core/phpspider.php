@@ -557,6 +557,8 @@ class phpspider
             case SIGINT:
                 log::debug("Program stopping...");
                 self::$terminate = true;
+                // 显示 Wait for the process exits...
+                $this->display_ui();
                 break;
             // Show status.
             case SIGUSR2:
@@ -2553,8 +2555,9 @@ class phpspider
         }
         $display_str = "\033[1A\n\033[K-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
         //$display_str = "-----------------------------\033[47;30m PHPSPIDER \033[0m-----------------------------\n\033[0m";
+        $run_time_str = util::time2second(time()-self::$time_start, false);
         $display_str .= 'PHPSpider version:' . self::VERSION . "          PHP version:" . PHP_VERSION . "\n";
-        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . floor((time()-self::$time_start)/(24*60*60)). ' days ' . floor(((time()-self::$time_start)%(24*60*60))/(60*60)) . " hours " . floor(((time()-self::$time_start)%(24*60*60))/(60*60*60)) . " minutes   \n";
+        $display_str .= 'start time:'. date('Y-m-d H:i:s', self::$time_start).'   run ' . $run_time_str . " \n";
 
         $display_str .= 'spider name: ' . self::$configs['name'] . "\n";
         if (self::$multiserver) 
@@ -2582,7 +2585,7 @@ class phpspider
         $display_str .= "Press Ctrl-C to quit. Start success.";
         if (self::$terminate) 
         {
-            $display_str .= "\nWait for the process exits...";
+            $display_str .= "\n\033[33mWait for the process exits...\033[0m";
         }
         //echo $display_str;
         $this->replace_echo($display_str);
