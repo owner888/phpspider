@@ -279,20 +279,20 @@ class requests
         {
             // 从头部获取
             preg_match("/charset=([^\s]*)/i", $header, $out);
-            $encode = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
-            //$encode = null;
-            if (empty($encode)) 
+            $encoding = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
+            //$encoding = null;
+            if (empty($encoding)) 
             {
                 // 在某些情况下,无法再 response header 中获取 html 的编码格式
                 // 则需要根据 html 的文本格式获取
-                $encode = util::get_encode($body);
-                $encode = strtolower($encode);
-                if($encode == false || $encode == "ascii")
+                $encoding = util::get_encoding($body);
+                $encoding = strtolower($encoding);
+                if($encoding == false || $encoding == "ascii")
                 {
-                    $encode = 'gbk';
+                    $encoding = 'gbk';
                 }
             }
-            self::$input_encoding = $encode;
+            self::$input_encoding = $encoding;
         }
 
         // 设置了输出编码的转码，注意: xpath只支持utf-8，iso-8859-1 不要转，他本身就是utf-8

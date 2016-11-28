@@ -105,8 +105,8 @@ $spider->on_handle_img = function($fieldname, $img)
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
-    $html_encode = util::get_encode($page['raw']);
-    if ($html_encode == 'iso-8859-1') 
+    $encoding = util::get_encoding($page['raw']);
+    if ($encoding == 'iso-8859-1') 
     {
         //$data = mb_convert_encoding($data, "LATIN1", "UTF-8");
         //用 UTF-8 编码的数据解码为 ISO-8859-1 编码

@@ -577,10 +577,10 @@ class util
      * @param $string
      * @return string
      */
-    public static function get_encode($string)
+    public static function get_encoding($string)
     {
-        $encode = mb_detect_encoding($string, array('UTF-8', 'GBK', 'GB2312', 'LATIN1', 'ASCII', 'BIG5'));
-        return strtolower($encode);
+        $encoding = mb_detect_encoding($string, array('UTF-8', 'GBK', 'GB2312', 'LATIN1', 'ASCII', 'BIG5'));
+        return strtolower($encoding);
     }
 
     /**
