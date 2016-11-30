@@ -54,7 +54,7 @@ $spider = new phpspider($configs);
 
 $spider->on_start = function($phpspider) 
 {
-    requests::add_header('Referer','http://www.mafengwo.cn/mdd/citylist/21536.html');
+    requests::set_header('Referer','http://www.mafengwo.cn/mdd/citylist/21536.html');
 };
 
 $spider->on_scan_page = function($page, $content, $phpspider) 
