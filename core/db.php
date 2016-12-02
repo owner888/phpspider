@@ -424,7 +424,7 @@ class db
         {
             return false;
         }
-        $where = !is_array($where) ? $where : 'Where ' . implode(' And ', $where);
+        $where = 'Where ' . (!is_array($where) ? $where : implode(' And ', $where));
         $sql = "Delete From `{$table}` {$where}";
         if ($return_sql) 
         {

@@ -119,6 +119,11 @@ class phpspider
     public static $use_redis = false;
 
     /**
+     * 是否保存爬虫运行状态 
+     */
+    public static $save_running_state = false;
+
+    /**
      * 配置 
      */
     public static $configs = array();
@@ -154,7 +159,7 @@ class phpspider
      * 已经抓取的URL数量
      */
     public static $collected_urls_num = 0;
-    
+
     /**
      * 当前进程采集成功数 
      */
@@ -258,7 +263,7 @@ class phpspider
      * @access public
      */
     public $on_scan_page = null;
-    
+
     /**
      * URL属于列表页
      * 在爬取到列表页url的内容之后, 添加新的url到待爬队列之前调用 
@@ -314,6 +319,9 @@ class phpspider
 
     function __construct($configs = array())
     {
+        // 产生时钟云，解决php7下面ctrl+c无法停止bug
+        declare(ticks = 1);
+
         // 先打开以显示验证报错内容
         log::$log_show = true;
         log::$log_file = isset($configs['log_file']) ? $configs['log_file'] : PATH_DATA.'/phpspider.log';
@@ -352,6 +360,12 @@ class phpspider
         if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !util::is_win()) 
         {
             self::$tasknum = $configs['tasknum'];
+        }
+
+        // 是否设置了保留运行状态
+        if (isset($configs['save_running_state'])) 
+        {
+            self::$save_running_state = $configs['save_running_state'];
         }
 
         // 是否分布式
@@ -465,7 +479,7 @@ class phpspider
         }
         return $result;
     }
-        
+
     /**
      * 是否内容页面
      * 
@@ -502,10 +516,10 @@ class phpspider
         // 检查运行命令的参数
         global $argv;
         $start_file = $argv[0]; 
-                
+
         // 命令
         $command = isset($argv[1]) ? trim($argv[1]) : 'start';
-        
+
         // 子命令, 目前只支持-d
         $command2 = isset($argv[2]) ? $argv[2] : '';
 
@@ -513,35 +527,35 @@ class phpspider
         switch($command)
         {
             // 启动 phpspider
-            case 'start':
-                if ($command2 === '-d') 
-                {
-                    self::$daemonize = true;
-                }
-                break;
-            case 'stop':
-                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}'", $info);
-                if (count($info) <= 1)
-                {
-                    echo "PHPSpider[$start_file] not run\n";
-                }
-                else 
-                {
-                    //echo "PHPSpider[$start_file] is stoping ...\n";
-                    echo "PHPSpider[$start_file] stop success";
-                    exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGINT", $info);
-                }
-                exit;
-                break;
-            case 'kill':
-                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGKILL");
-                break;
+        case 'start':
+            if ($command2 === '-d') 
+            {
+                self::$daemonize = true;
+            }
+            break;
+        case 'stop':
+            exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}'", $info);
+            if (count($info) <= 1)
+            {
+                echo "PHPSpider[$start_file] not run\n";
+            }
+            else 
+            {
+                //echo "PHPSpider[$start_file] is stoping ...\n";
+                echo "PHPSpider[$start_file] stop success";
+                exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGINT", $info);
+            }
+            exit;
+            break;
+        case 'kill':
+            exec("ps aux | grep $start_file | grep -v grep | awk '{print $2}' |xargs kill -SIGKILL");
+            break;
             // 显示 phpspider 运行状态
-            case 'status':
-                exit(0);
+        case 'status':
+            exit(0);
             // 未知命令
-            default :
-                 exit("Usage: php yourfile.php {start|stop|status|kill}\n");
+        default :
+            exit("Usage: php yourfile.php {start|stop|status|kill}\n");
         }
     }
 
@@ -554,16 +568,16 @@ class phpspider
     {
         switch ($signal) {
             // Stop.
-            case SIGINT:
-                log::debug("Program stopping...");
-                self::$terminate = true;
-                // 显示 Wait for the process exits...
-                $this->display_ui();
-                break;
+        case SIGINT:
+            log::debug("Program stopping...");
+            self::$terminate = true;
+            // 显示 Wait for the process exits...
+            $this->display_ui();
+            break;
             // Show status.
-            case SIGUSR2:
-                echo "show status\n";
-                break;
+        case SIGUSR2:
+            echo "show status\n";
+            break;
         }
     }
 
@@ -729,7 +743,7 @@ class phpspider
         }
 
         // 集群、保存运行状态、多任务都需要Redis支持
-        if (self::$multiserver || self::$tasknum > 1) 
+        if (self::$multiserver || self::$save_running_state || self::$tasknum > 1) 
         {
             self::$use_redis = true;
 
@@ -744,6 +758,12 @@ class phpspider
                 if (self::$tasknum > 1) 
                 {
                     log::error("Multitasking needs Redis support, Error: ".cls_redis::$error);
+                    exit;
+                }
+
+                if (self::$save_running_state) 
+                {
+                    log::error("Spider kept running state needs Redis support, Error: ".cls_redis::$error);
                     exit;
                 }
             }
@@ -761,7 +781,7 @@ class phpspider
             log::error("No scan url to start");
             exit;
         }
-        
+
         foreach ( self::$configs['scan_urls'] as $url ) 
         {
             // 只检查配置中的入口URL, 通过 add_scan_url 添加的不检查了.
@@ -1140,7 +1160,7 @@ class phpspider
         {
             requests::set_client_ips(self::$configs['client_ips']);
         }
-        
+
         // 是否设置了代理
         if (!empty($link['proxy'])) 
         {
@@ -1261,10 +1281,10 @@ class phpspider
         //$urls = array();
         //if (!empty($matchs[1])) 
         //{
-            //foreach ($matchs[1] as $url) 
-            //{
-                //$urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
-            //}
+        //foreach ($matchs[1] as $url) 
+        //{
+        //$urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
+        //}
         //}
 
         if (empty($urls)) 
@@ -1454,7 +1474,7 @@ class phpspider
             }
         }
         // 两个 / 或以上的替换成一个 /
-		$url = preg_replace('@/{1,}@i', '/', $url);
+        $url = preg_replace('@/{1,}@i', '/', $url);
         $url = $scheme.'://'.$url;
 
         $parse_url = @parse_url($url);
@@ -1520,7 +1540,7 @@ class phpspider
         {
             unset($link['max_try']);
         }
-        
+
         if (empty($link['depth'])) 
         {
             unset($link['depth']);
@@ -2596,12 +2616,12 @@ class phpspider
         $display_str = "-------------------------------\033[47;30m TASKS \033[0m-------------------------------\n";
 
         $display_str .= "\033[47;30mtaskid\033[0m". str_pad('', self::$taskid_length+2-strlen('taskid')). 
-        "\033[47;30mtaskpid\033[0m". str_pad('', self::$pid_length+2-strlen('taskpid')). 
-        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
-        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
-        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
-        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
-        "\n";
+            "\033[47;30mtaskpid\033[0m". str_pad('', self::$pid_length+2-strlen('taskpid')). 
+            "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+            "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
+            "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
+            "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+            "\n";
 
         // "\033[32;40m [OK] \033[0m"
         $task_status = $this->get_task_status_list(self::$serverid, self::$tasknum);
@@ -2629,12 +2649,12 @@ class phpspider
         $display_str = "-------------------------------\033[47;30m SERVER \033[0m------------------------------\n";
 
         $display_str .= "\033[47;30mserver\033[0m". str_pad('', self::$server_length+2-strlen('serverid')). 
-        "\033[47;30mtasknum\033[0m". str_pad('', self::$tasknum_length+2-strlen('tasknum')). 
-        "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
-        "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
-        "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
-        "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
-        "\n";
+            "\033[47;30mtasknum\033[0m". str_pad('', self::$tasknum_length+2-strlen('tasknum')). 
+            "\033[47;30mmem\033[0m". str_pad('', self::$mem_length+2-strlen('mem')). 
+            "\033[47;30mcollect succ\033[0m". str_pad('', self::$urls_length-strlen('collect succ')). 
+            "\033[47;30mcollect fail\033[0m". str_pad('', self::$urls_length-strlen('collect fail')). 
+            "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
+            "\n";
 
         $server_list_json = cls_redis::get("server_list");
         $server_list = json_decode($server_list_json, true);
@@ -2675,11 +2695,11 @@ class phpspider
         $display_str = "---------------------------\033[47;30m COLLECT STATUS \033[0m--------------------------\n";
 
         $display_str .= "\033[47;30mfind pages\033[0m". str_pad('', 16-strlen('find pages')). 
-        "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
-        "\033[47;30mcollected\033[0m". str_pad('', 15-strlen('collected')). 
-        "\033[47;30mfields\033[0m". str_pad('', 15-strlen('fields')). 
-        "\033[47;30mdepth\033[0m". str_pad('', 12-strlen('depth')). 
-        "\n";
+            "\033[47;30mqueue\033[0m". str_pad('', 14-strlen('queue')). 
+            "\033[47;30mcollected\033[0m". str_pad('', 15-strlen('collected')). 
+            "\033[47;30mfields\033[0m". str_pad('', 15-strlen('fields')). 
+            "\033[47;30mdepth\033[0m". str_pad('', 12-strlen('depth')). 
+            "\n";
 
         $collect   = $this->get_collect_url_num();
         $collected = $this->get_collected_url_num();
@@ -2704,56 +2724,57 @@ class phpspider
      */
     //public function is_attachment_file($url)
     //{
-        //$mime_types = $GLOBALS['config']['mimetype'];
-        //$mime_types_flip = array_flip($mime_types);
+    //$mime_types = $GLOBALS['config']['mimetype'];
+    //$mime_types_flip = array_flip($mime_types);
 
-        //$pathinfo = pathinfo($url);
-        //$fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
+    //$pathinfo = pathinfo($url);
+    //$fileext = isset($pathinfo['extension']) ? $pathinfo['extension'] : '';
 
-        //$fileinfo = array();
-        //// 存在文件后缀并且是配置里面的后缀
-        //if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
-        //{
-            //stream_context_set_default(
-                //array(
-                    //'http' => array(
-                        //'method' => 'HEAD'
-                    //)
-                //)
-            //);
-            //// 代理和Cookie以后实现, 方法和 file_get_contents 一样 使用 stream_context_create 设置
-            //$headers = get_headers($url, 1);
-            //if (strpos($headers[0], '302')) 
-            //{
-                //$url = $headers['Location'];
-                //$headers = get_headers($url, 1);
-            //}
-            ////print_r($headers);
-            //$fileinfo = array(
-                //'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
-                //'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
-                //'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
-                //'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
-                //'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
-                //'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
-            //);
+    //$fileinfo = array();
+    //// 存在文件后缀并且是配置里面的后缀
+    //if (!empty($fileext) && isset($mime_types_flip[$fileext])) 
+    //{
+    //stream_context_set_default(
+    //array(
+    //'http' => array(
+    //'method' => 'HEAD'
+    //)
+    //)
+    //);
+    //// 代理和Cookie以后实现, 方法和 file_get_contents 一样 使用 stream_context_create 设置
+    //$headers = get_headers($url, 1);
+    //if (strpos($headers[0], '302')) 
+    //{
+    //$url = $headers['Location'];
+    //$headers = get_headers($url, 1);
+    //}
+    ////print_r($headers);
+    //$fileinfo = array(
+    //'basename' => isset($pathinfo['basename']) ? $pathinfo['basename'] : '',
+    //'filename' => isset($pathinfo['filename']) ? $pathinfo['filename'] : '',
+    //'fileext' => isset($pathinfo['extension']) ? $pathinfo['extension'] : '',
+    //'filesize' => isset($headers['Content-Length']) ? $headers['Content-Length'] : 0,
+    //'atime' => isset($headers['Date']) ? strtotime($headers['Date']) : time(),
+    //'mtime' => isset($headers['Last-Modified']) ? strtotime($headers['Last-Modified']) : time(),
+    //);
 
-            //$mime_type = 'html';
-            //$content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
-            //if (!empty($content_type)) 
-            //{
-                //$mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
-            //}
-            //$mime_types_flip = array_flip($mime_types);
-            //// 判断一下是不是文件名被加什么后缀了, 比如 http://www.xxxx.com/test.jpg?token=xxxxx
-            //if (!isset($mime_types_flip[$fileinfo['fileext']]))
-            //{
-                //$fileinfo['fileext'] = $mime_type;
-                //$fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
-            //}
-        //}
-        //return $fileinfo;
+    //$mime_type = 'html';
+    //$content_type = isset($headers['Content-Type']) ? $headers['Content-Type'] : '';
+    //if (!empty($content_type)) 
+    //{
+    //$mime_type = isset($GLOBALS['config']['mimetype'][$content_type]) ? $GLOBALS['config']['mimetype'][$content_type] : $mime_type;
+    //}
+    //$mime_types_flip = array_flip($mime_types);
+    //// 判断一下是不是文件名被加什么后缀了, 比如 http://www.xxxx.com/test.jpg?token=xxxxx
+    //if (!isset($mime_types_flip[$fileinfo['fileext']]))
+    //{
+    //$fileinfo['fileext'] = $mime_type;
+    //$fileinfo['basename'] = $fileinfo['filename'].'.'.$mime_type;
+    //}
+    //}
+    //return $fileinfo;
     //}
 
 }
+
 

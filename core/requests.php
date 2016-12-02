@@ -415,7 +415,7 @@ class requests
     public static function get($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'get', $fields);
+        return self::request($url, 'get', $fields);
     }
 
     /**
@@ -434,40 +434,40 @@ class requests
     public static function post($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'POST', $fields);
+        return self::request($url, 'POST', $fields);
     }
 
     public static function put($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'PUT', $fields);
+        return self::request($url, 'PUT', $fields);
     }
 
     public static function delete($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'DELETE', $fields);
+        return self::request($url, 'DELETE', $fields);
     }
 
     public static function head($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'HEAD', $fields);
+        return self::request($url, 'HEAD', $fields);
     }
 
     public static function options($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'OPTIONS', $fields);
+        return self::request($url, 'OPTIONS', $fields);
     }
 
     public static function patch($url, $fields = array())
     {
         self::init ();
-        return self::http_client($url, 'PATCH', $fields);
+        return self::request($url, 'PATCH', $fields);
     }
 
-    public static function http_client($url, $method = 'GET', $fields)
+    public static function request($url, $method = 'GET', $fields)
     {
         $method = strtoupper($method);
         if(!self::_is_url($url))
