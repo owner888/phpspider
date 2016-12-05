@@ -731,14 +731,14 @@ class phpspider
         // 多任务需要pcntl扩展支持
         if (self::$tasknum > 1 && !function_exists('pcntl_fork')) 
         {
-            log::error("Multitasking needs pnctl, the pnctl extension was not found");
+            log::error("Multitasking needs pcntl, the pcntl extension was not found");
             exit;
         }
 
         // 守护进程需要pcntl扩展支持
         if (self::$daemonize && !function_exists('pcntl_fork')) 
         {
-            log::error("Daemonize needs pnctl, the pnctl extension was not found");
+            log::error("Daemonize needs pcntl, the pcntl extension was not found");
             exit;
         }
 
