@@ -391,13 +391,30 @@ class phpspider
 
     public function add_scan_url($url, $options = array(), $allowed_repeat = true)
     {
+        // 投递状态
+        $status = false;
+
         $link = $options;
         $link['url'] = $url;
         $link['url_type'] = 'scan_page';
         $link = $this->link_uncompress($link);
 
-        $this->queue_lpush($link, $allowed_repeat);
-        log::debug("Find scan page: {$url}");
+        if ($this->is_list_page($url))
+        {
+            $link['url_type'] = 'list_page';
+            $status = $this->queue_lpush($link, $allowed_repeat);
+        }
+        elseif ($this->is_content_page($url))
+        {
+            $link['url_type'] = 'content_page';
+            $status = $this->queue_lpush($link, $allowed_repeat);
+        }
+        else
+        {
+            $status = $this->queue_lpush($link, $allowed_repeat);
+        }
+
+        return $status;
     }
 
     /**
@@ -422,15 +439,11 @@ class phpspider
 
         if ($this->is_list_page($url))
         {
-            log::debug("Find list page: {$url}");
-            $link['url_type'] = 'list_page';
             $status = $this->queue_lpush($link);
         }
 
         if ($this->is_content_page($url))
         {
-            log::debug("Find content page: {$url}");
-            $link['url_type'] = 'content_page';
             $status = $this->queue_lpush($link);
         }
 
@@ -1476,6 +1489,7 @@ class phpspider
         // 两个 / 或以上的替换成一个 /
         $url = preg_replace('@/{1,}@i', '/', $url);
         $url = $scheme.'://'.$url;
+        //echo $url;exit("\n");
 
         $parse_url = @parse_url($url);
         $domain = empty($parse_url['host']) ? $domain : $parse_url['host'];
@@ -2215,6 +2229,21 @@ class phpspider
                 $status = true;
             }
         }
+        if ($status) 
+        {
+            if ($link['url_type'] == 'scan_page') 
+            {
+                log::debug("Find scan page: {$url}");
+            }
+            elseif ($link['url_type'] == 'list_page') 
+            {
+                log::debug("Find list page: {$url}");
+            }
+            elseif ($link['url_type'] == 'content_page') 
+            {
+                log::debug("Find content page: {$url}");
+            }
+        }
         return $status;
     }
 
@@ -2268,6 +2297,21 @@ class phpspider
                 self::$collect_urls[$key] = time();
                 array_unshift(self::$collect_queue, $link);
                 $status = true;
+            }
+        }
+        if ($status) 
+        {
+            if ($link['url_type'] == 'scan_page') 
+            {
+                log::debug("Find scan page: {$url}");
+            }
+            elseif ($link['url_type'] == 'list_page') 
+            {
+                log::debug("Find list page: {$url}");
+            }
+            elseif ($link['url_type'] == 'content_page') 
+            {
+                log::debug("Find content page: {$url}");
             }
         }
         return $status;
