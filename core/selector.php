@@ -47,6 +47,31 @@ class selector
         }
     }
 
+    public static function remove($html, $selector, $selector_type = 'xpath')
+    {
+        if (empty($html) || empty($selector)) 
+        {
+            return false;
+        }
+
+        $remove_html = "";
+        $selector_type = strtolower($selector_type);
+        if ($selector_type == 'xpath') 
+        {
+            $remove_html = self::_xpath_select($html, $selector, true);
+        }
+        elseif ($selector_type == 'regex') 
+        {
+            $remove_html = self::_regex_select($html, $selector, true);
+        }
+        elseif ($selector_type == 'css') 
+        {
+            $remove_html =  self::_css_select($html, $selector, true);
+        }
+        $html = str_replace($remove_html, "", $html);
+        return $html;
+    }
+
     /**
      * xpath选择器
      * 
@@ -56,7 +81,7 @@ class selector
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-26 12:53
      */
-    private static function _xpath_select($html, $selector)
+    private static function _xpath_select($html, $selector, $remove = false)
     {
         if (!is_object(self::$dom))
         {
@@ -92,27 +117,35 @@ class selector
         {
             foreach ($elements as $element) 
             {
-                $nodeName = $element->nodeName;
-                $nodeType = $element->nodeType;     // 1.Element 2.Attribute 3.Text
-                //$nodeAttr = $element->getAttribute('src');
-                //$nodes = util::node_to_array(self::$dom, $element);
-                //echo $nodes['@src']."\n";
-                // 如果是img标签，直接取src值
-                if ($nodeType == 1 && in_array($nodeName, array('img'))) 
+                // 如果是删除操作，取一整块代码
+                if ($remove) 
                 {
-                    $content = $element->getAttribute('src');
-                }
-                // 如果是标签属性，直接取节点值
-                elseif ($nodeType == 2 || $nodeType == 3 || $nodeType == 4) 
-                {
-                    $content = $element->nodeValue;
+                    $content = self::$dom->saveXml($element);
                 }
                 else 
                 {
-                    // 保留nodeValue里的html符号，给children二次提取
-                    $content = self::$dom->saveXml($element);
-                    //$content = trim(self::$dom->saveHtml($element));
-                    $content = preg_replace(array("#^<{$nodeName}.*>#isU","#</{$nodeName}>$#isU"), array('', ''), $content);
+                    $nodeName = $element->nodeName;
+                    $nodeType = $element->nodeType;     // 1.Element 2.Attribute 3.Text
+                    //$nodeAttr = $element->getAttribute('src');
+                    //$nodes = util::node_to_array(self::$dom, $element);
+                    //echo $nodes['@src']."\n";
+                    // 如果是img标签，直接取src值
+                    if ($nodeType == 1 && in_array($nodeName, array('img'))) 
+                    {
+                        $content = $element->getAttribute('src');
+                    }
+                    // 如果是标签属性，直接取节点值
+                    elseif ($nodeType == 2 || $nodeType == 3 || $nodeType == 4) 
+                    {
+                        $content = $element->nodeValue;
+                    }
+                    else 
+                    {
+                        // 保留nodeValue里的html符号，给children二次提取
+                        $content = self::$dom->saveXml($element);
+                        //$content = trim(self::$dom->saveHtml($element));
+                        $content = preg_replace(array("#^<{$nodeName}.*>#isU","#</{$nodeName}>$#isU"), array('', ''), $content);
+                    }
                 }
                 $result[] = $content;
             }
