@@ -414,6 +414,22 @@ class phpspider
             $status = $this->queue_lpush($link, $allowed_repeat);
         }
 
+        if ($status) 
+        {
+            if ($link['url_type'] == 'scan_page') 
+            {
+                log::debug("Find scan page: {$url}");
+            }
+            elseif ($link['url_type'] == 'list_page') 
+            {
+                log::debug("Find list page: {$url}");
+            }
+            elseif ($link['url_type'] == 'content_page') 
+            {
+                log::debug("Find content page: {$url}");
+            }
+        }
+
         return $status;
     }
 
@@ -439,12 +455,30 @@ class phpspider
 
         if ($this->is_list_page($url))
         {
+            $link['url_type'] = 'list_page';
             $status = $this->queue_lpush($link);
         }
 
         if ($this->is_content_page($url))
         {
+            $link['url_type'] = 'content_page';
             $status = $this->queue_lpush($link);
+        }
+
+        if ($status) 
+        {
+            if ($link['url_type'] == 'scan_page') 
+            {
+                log::debug("Find scan page: {$url}");
+            }
+            elseif ($link['url_type'] == 'list_page') 
+            {
+                log::debug("Find list page: {$url}");
+            }
+            elseif ($link['url_type'] == 'content_page') 
+            {
+                log::debug("Find content page: {$url}");
+            }
         }
 
         return $status;
@@ -582,10 +616,13 @@ class phpspider
         switch ($signal) {
             // Stop.
         case SIGINT:
-            log::debug("Program stopping...");
+            log::warn("Program stopping...");
             self::$terminate = true;
             // 显示 Wait for the process exits...
-            $this->display_ui();
+            if (!log::$log_show && !self::$daemonize) 
+            {
+                $this->display_ui();
+            }
             break;
             // Show status.
         case SIGUSR2:
@@ -2229,21 +2266,6 @@ class phpspider
                 $status = true;
             }
         }
-        if ($status) 
-        {
-            if ($link['url_type'] == 'scan_page') 
-            {
-                log::debug("Find scan page: {$url}");
-            }
-            elseif ($link['url_type'] == 'list_page') 
-            {
-                log::debug("Find list page: {$url}");
-            }
-            elseif ($link['url_type'] == 'content_page') 
-            {
-                log::debug("Find content page: {$url}");
-            }
-        }
         return $status;
     }
 
@@ -2297,21 +2319,6 @@ class phpspider
                 self::$collect_urls[$key] = time();
                 array_unshift(self::$collect_queue, $link);
                 $status = true;
-            }
-        }
-        if ($status) 
-        {
-            if ($link['url_type'] == 'scan_page') 
-            {
-                log::debug("Find scan page: {$url}");
-            }
-            elseif ($link['url_type'] == 'list_page') 
-            {
-                log::debug("Find list page: {$url}");
-            }
-            elseif ($link['url_type'] == 'content_page') 
-            {
-                log::debug("Find content page: {$url}");
             }
         }
         return $status;
