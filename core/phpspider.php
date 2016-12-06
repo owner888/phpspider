@@ -19,7 +19,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '3.0.2';
+    const VERSION = '3.0.4';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时, 单位: 毫秒
