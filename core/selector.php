@@ -167,7 +167,7 @@ class selector
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-26 12:53
      */
-    private static function _regex_select($html, $selector)
+    private static function _regex_select($html, $selector, $remove = false)
     {
         if(@preg_match_all($selector, $html, $out) === false)
         {
@@ -184,7 +184,15 @@ class selector
         // 只匹配一个，就是只有一个 ()
         elseif ($count == 2) 
         {
-            $result = $out[1];
+            // 删除的话取匹配到的所有内容
+            if ($remove) 
+            {
+                $result = $out[0];
+            }
+            else 
+            {
+                $result = $out[1];
+            }
         }
         else 
         {
@@ -198,6 +206,7 @@ class selector
         {
             return false;
         }
+        
         return count($result) > 1 ? $result : $result[0];
     }
 
@@ -210,7 +219,7 @@ class selector
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-26 12:53
      */
-    private static function _css_select($html, $selector)
+    private static function _css_select($html, $selector, $remove = false)
     {
         // 如果加载的不是之前的HTML内容，替换一下验证标识
         if (self::$dom_auth != md5($html)) 
@@ -218,7 +227,14 @@ class selector
             self::$dom_auth = md5($html);
             phpQuery::loadDocumentHTML($html); 
         }
-        return pq($selector)->html(); 
+        if ($remove) 
+        {
+            return pq($selector)->remove(); 
+        }
+        else 
+        {
+            return pq($selector)->html(); 
+        }
     }
 
     public static function find_all($html, $selector)
