@@ -229,9 +229,9 @@ class requests
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-11-16 11:06
      */
-    public static function set_client_ips($ip)
+    public static function set_client_ips($ips)
     {
-        self::$client_ips = $client_ips;
+        self::$client_ips = $ips;
     }
 
     /**
