@@ -14,9 +14,35 @@ $html =<<<STR
     </div>
 STR;
 
+//----------------------------------
+// xpath selector
+//----------------------------------
+
 // 获取id为demo的div内容
 $html = selector::select($html, "//div[contains(@id,'demo')]");
 // 在上面获取内容基础上，删除class为tt的span标签
 $data = selector::remove($html, "//span[contains(@class,'tt')]");
 print_r($data);
+
+
+//----------------------------------
+// css selector
+//----------------------------------
+
+//// 获取id为demo的div内容
+//$html = selector::select($html, "div#demo", "css");
+//// 在上面获取内容基础上，删除class为tt的span标签
+//$data = selector::remove($html, "span.tt", "css");
+//print_r($data);
+
+
+//----------------------------------
+// regex selector
+//----------------------------------
+
+//// 获取id为demo的div内容
+//$html = selector::select($html, '@<div id="demo">(.*?)</div>@s', "regex");
+//// 在上面获取内容基础上，删除class为tt的span标签
+//$data = selector::remove($html, '@<span class="tt">(.*?)</span>@', "regex");
+//print_r($data);
 
