@@ -285,7 +285,7 @@ class requests
             {
                 // 在某些情况下,无法再 response header 中获取 html 的编码格式
                 // 则需要根据 html 的文本格式获取
-                $encoding = util::get_encoding($body);
+                $encoding = self::get_encoding($body);
                 $encoding = strtolower($encoding);
                 if($encoding == false || $encoding == "ascii")
                 {
@@ -359,6 +359,17 @@ class requests
                 $headers[$key] = $val;
             }
         }
+    }
+
+    /**
+     * 获取文件编码
+     * @param $string
+     * @return string
+     */
+    public static function get_encoding($string)
+    {
+        $encoding = mb_detect_encoding($string, array('UTF-8', 'GBK', 'GB2312', 'LATIN1', 'ASCII', 'BIG5'));
+        return strtolower($encoding);
     }
 
     /**
