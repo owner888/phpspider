@@ -115,19 +115,21 @@ class requests
 
         foreach ($cookies_arr as $cookie) 
         {
-            $cookie_arr = explode("=", $cookie);
-            $key = $value = "";
-            foreach ($cookie_arr as $k=>$v) 
-            {
-                if ($k == 0) 
-                {
-                    $key = trim($v);
-                }
-                else 
-                {
-                    $value .= trim(str_replace('"', '', $v));
-                }
-            }
+#            $cookie_arr = explode("=", $cookie);
+#            $key = $value = "";
+#            foreach ($cookie_arr as $k=>$v) 
+#            {
+#                if ($k == 0) 
+#                {
+#                    $key = trim($v);
+#                }
+#                else 
+#                {
+#                    $value .= trim(str_replace('"', '', $v));
+#                }
+#            }
+            $key = strstr($cookie,'=',true);
+            $value = substr(strstr($cookie,'='),1);
 
             if (!empty($domain)) 
             {
