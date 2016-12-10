@@ -128,6 +128,8 @@ class requests
                     $value .= trim(str_replace('"', '', $v));
                 }
             }
+            $key = strstr($cookie, '=', true);
+            $value = substr(strstr($cookie, '='), 1);
 
             if (!empty($domain)) 
             {
