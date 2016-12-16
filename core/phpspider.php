@@ -1061,6 +1061,7 @@ class phpspider
         // 爬取页面开始时间
         $page_time_start = microtime(true);
 
+        requests::$input_encoding = null;
         $html = $this->request_url($url, $link);
 
         if (!$html) 
@@ -1938,7 +1939,7 @@ class phpspider
 
     public function check_cache()
     {
-        if (!self::$use_redis)
+        if (!self::$use_redis || self::$save_running_state)
         {
             return false;
         }
