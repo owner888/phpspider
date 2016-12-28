@@ -90,7 +90,7 @@ class requests
      */
     public static function set_cookie($key, $value, $domain = '')
     {
-        if (empty($key) || empty($value)) 
+        if (empty($key)) 
         {
             return false;
         }
