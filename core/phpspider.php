@@ -618,11 +618,6 @@ class phpspider
         case SIGINT:
             log::warn("Program stopping...");
             self::$terminate = true;
-            // 显示 Wait for the process exits...
-            if (!log::$log_show && !self::$daemonize) 
-            {
-                $this->display_ui();
-            }
             break;
             // Show status.
         case SIGUSR2:
