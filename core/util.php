@@ -898,6 +898,35 @@ class util
     {
         return strtoupper(substr(PHP_OS,0,3))==="WIN";
     }
+
+    /**
+     * 和 http_build_query 相反，分解出参数
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-05-16 17:29
+     */
+    public static function http_split_query($query, $is_query = false)
+    {
+        if (!$is_query) 
+        {
+            $parse_arr = parse_url($query);
+            if (empty($parse_arr['query'])) 
+            {
+                return array();
+            }
+            $query = $parse_arr['query'];
+        }
+
+        $query_arr = explode("&", $query);
+        $params = array();
+        foreach ($query_arr as $val) 
+        {
+            $arr = explode("=", $val);
+            $params[$arr[0]] = $arr[1];
+        }
+        return $params;
+    }
 }
 
 

@@ -1778,10 +1778,10 @@ class phpspider
                 {
                     $child_values = array();
                     // 父项抽取到的html作为子项的提取内容
-                    foreach ($values as $html) 
+                    foreach ($values as $child_html) 
                     {
                         // 递归调用本方法, 所以多少子项目都支持
-                        $child_value = $this->get_fields($conf['children'], $html, $url, $page);
+                        $child_value = $this->get_fields($conf['children'], $child_html, $url, $page);
                         if (!empty($child_value)) 
                         {
                             $child_values[] = $child_value;
