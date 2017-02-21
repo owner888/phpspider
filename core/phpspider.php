@@ -1479,9 +1479,10 @@ class phpspider
                         $path_step++;
                     }
                     // 遇到 ., 不知道为什么不直接写$u == '.', 貌似一样的
+                    // 为啥要注释掉呢，这样遇到. 就错了
                     else if( $i < count($urls)-1 )
                     {
-                        //$dstr .= $urls[$i].'/';
+                        $dstr .= $urls[$i].'/';
                     }
                     else
                     {
