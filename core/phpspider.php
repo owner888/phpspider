@@ -1481,7 +1481,7 @@ class phpspider
                     // 遇到 ., 不知道为什么不直接写$u == '.', 貌似一样的
                     else if( $i < count($urls)-1 )
                     {
-                        //$dstr .= $urls[$i].'/';
+                        $dstr .= $urls[$i].'/';
                     }
                     else
                     {
