@@ -43,7 +43,6 @@ class cls_redis
         }
 
         // 获取配置
-        self::$configs = $GLOBALS['config'];
         $config = self::$link_name == 'default' ? self::_get_default_config() : self::$configs[self::$link_name];
 
         // 如果当前链接标识符为空，或者ping不同，就close之后重新打开

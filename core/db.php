@@ -28,13 +28,12 @@ class db
     public static function _init_mysql()
     {
         // 获取配置
-        self::$configs = $GLOBALS['config'];
-        $db_config = self::$link_name == 'default' ? self::_get_default_config() : self::$configs[self::$link_name];
+        $config = self::$link_name == 'default' ? self::_get_default_config() : self::$configs[self::$link_name];
 
         // 创建连接
         if (empty(self::$links[self::$link_name]))
         {
-            self::$links[self::$link_name]['conn'] = @mysqli_connect($db_config['host'], $db_config['user'], $db_config['pass'], $db_config['name'], $db_config['port']);
+            self::$links[self::$link_name]['conn'] = @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
             if(mysqli_connect_errno())
             {
                 self::$links[self::$link_name]['conn_fail']++;
