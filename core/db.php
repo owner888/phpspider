@@ -15,65 +15,62 @@
 
 class db
 {
-    private static $config = array();
-    private static $conn;
+    private static $configs = array();
     private static $rsid;
-    private static $query_count = 0;
-    private static $conn_fail = 0;
-    private static $worker_pid = 0;
+    private static $links = array();
+    private static $link_name = 'default';
 
-    public static function _init_mysql($config = array())
+    //private static $conn;
+    //private static $query_count = 0;
+    //private static $conn_fail = 0;
+    //private static $worker_pid = 0;
+
+    public static function _init_mysql()
     {
-        if (empty($config)) 
-        {
-            // 记住不要把原来有的配置信息给强制换成$GLOBALS['config']['db']，否则换数据库会有问题
-            self::$config = empty(self::$config) ? $GLOBALS['config']['db'] : self::$config;
-        }
-        else 
-        {
-            self::$config = $config;
-        }
+        // 获取配置
+        self::$configs = $GLOBALS['config'];
+        $db_config = self::$link_name == 'default' ? self::_get_default_config() : self::$configs[self::$link_name];
 
-        if ( !self::$conn ) 
+        // 创建连接
+        if (empty(self::$links[self::$link_name]))
         {
-            self::$conn = @mysqli_connect(self::$config['host'], self::$config['user'], self::$config['pass'], self::$config['name'], self::$config['port']);
+            self::$links[self::$link_name]['conn'] = @mysqli_connect($db_config['host'], $db_config['user'], $db_config['pass'], $db_config['name'], $db_config['port']);
             if(mysqli_connect_errno())
             {
-                self::$conn_fail++;
-                $errmsg = 'Mysql Connect failed['.self::$conn_fail.']: ' . mysqli_connect_error();
+                self::$links[self::$link_name]['conn_fail']++;
+                $errmsg = 'Mysql Connect failed['.self::$links[self::$link_name]['conn_fail'].']: ' . mysqli_connect_error();
                 echo util::colorize(date("H:i:s") . " {$errmsg}\n\n", 'fail');
                 log::add($errmsg, "Error");
                 // 连接失败5次，中断进程
-                if (self::$conn_fail >= 5) 
+                if (self::$links[self::$link_name]['conn_fail'] >= 5) 
                 {
                     exit(250);
                 }
-                self::_init_mysql($config);
+                self::_init_mysql();
             }
             else
             {
                 // 连接成功清零
-                self::$conn_fail = 0;
-                self::$worker_pid = function_exists('posix_getpid') ? posix_getpid() : 0; 
-                mysqli_query(self::$conn, " SET character_set_connection=utf8, character_set_results=utf8, character_set_client=binary, sql_mode='' ");
+                self::$links[self::$link_name]['conn_fail'] = 0;
+                self::$links[self::$link_name]['worker_pid'] = function_exists('posix_getpid') ? posix_getpid() : 0; 
+                mysqli_query(self::$links[self::$link_name]['conn'], " SET character_set_connection=utf8, character_set_results=utf8, character_set_client=binary, sql_mode='' ");
             }
         }
         else 
         {
             $curr_pid = function_exists('posix_getpid') ? posix_getpid() : 0;
             // 如果父进程已经生成资源就释放重新生成，因为多进程不能共享连接资源
-            if (self::$worker_pid != $curr_pid) 
+            if (self::$links[self::$link_name]['worker_pid'] != $curr_pid) 
             {
-                self::reset_connect();
+                self::clear_link();
             }
         }
-
     }
 
     /**
      * 重新设置连接
      * 传空的话就等于关闭数据库再连接
-     * 在多进程环境下如果主进程已经调用过了，子进程一定要调用一次 reset_connect，否则会报错：
+     * 在多进程环境下如果主进程已经调用过了，子进程一定要调用一次 clear_link，否则会报错：
      * Error while reading greeting packet. PID=19615，这是两个进程互抢一个连接句柄引起的
      * 
      * @param array $config
@@ -81,11 +78,71 @@ class db
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-03-29 00:51
      */
-    public static function reset_connect($config = array())
+    public static function clear_link()
     {
-        @mysqli_close(self::$conn);
-        self::$conn = null;
-        self::_init_mysql($config);
+        if(self::$links) 
+        {
+            foreach(self::$links as $k=>$v)
+            {
+                $conn = $v['conn'];
+                @mysqli_close($conn);
+                unset(self::$links[$k]);
+            }
+        }
+        // 注意，只会连接最后一个，不过貌似也够用了啊
+        self::_init_mysql();
+    }
+
+    /**
+     * 改变链接为指定配置的链接(如果不同时使用多个数据库，不会涉及这个操作)
+     * @parem  $link_name 链接标识名
+     * @parem  $config 多次使用时， 这个数组只需传递一次
+     *         config 格式与 $GLOBALS['config']['db'] 一致
+     * @return void
+     */
+    public static function set_connect($link_name, $config = array())
+    {
+        self::$link_name = $link_name;
+        if (!empty($config))
+        {
+            self::$configs[self::$link_name] = $config;
+        }
+        else
+        {
+            if (empty(self::$configs[self::$link_name]))
+            {
+                throw new Exception("You not set a config array for connect!");
+            }
+        }
+    }
+    
+    
+    /**
+     * 还原为默认连接(如果不同时使用多个数据库，不会涉及这个操作)
+     * @parem $config 指定配置（默认使用inc_config.php的配置）
+     * @return void
+     */
+    public static function set_connect_default()
+    {
+        $config = self::_get_default_config();
+        self::set_connect('default', $config);
+    }
+    
+    
+    /**
+     * 获取默认配置
+     */
+    protected static function _get_default_config()
+    {
+        if (empty(self::$configs['default']))
+        {
+            if (!is_array($GLOBALS['config']['db']))
+            {
+                exit('db.php _get_default_config()' . '没有mysql配置');
+            }
+            self::$configs['default'] = $GLOBALS['config']['db'];
+        }
+        return self::$configs['default'];
     }
 
     /**
@@ -99,28 +156,28 @@ class db
 
     public static function autocommit($mode = false)
     {
-        self::$conn = self::_init_mysql();
+        self::$links[self::$link_name]['conn'] = self::_init_mysql();
         // $int = $mode ? 1 : 0;
-        // return @mysqli_query(self::$conn, "SET autocommit={$int}");
-        return mysqli_autocommit(self::$conn, $mode);
+        // return @mysqli_query(self::$links[self::$link_name]['conn'], "SET autocommit={$int}");
+        return mysqli_autocommit(self::$links[self::$link_name]['conn'], $mode);
     }
 
     public static function begin_tran()
     {
-        // self::$conn = self::_init_mysql( true );
-        // return @mysqli_query(self::$conn, 'BEGIN');
+        // self::$links[self::$link_name]['conn'] = self::_init_mysql( true );
+        // return @mysqli_query(self::$links[self::$link_name]['conn'], 'BEGIN');
         return self::autocommit(false);
     }
 
     public static function commit()
     {
-        return mysqli_commit(self::$conn);
+        return mysqli_commit(self::$links[self::$link_name]['conn']);
     }
 
 
     public static function rollback()
     {
-        return mysqli_rollback(self::$conn);
+        return mysqli_rollback(self::$links[self::$link_name]['conn']);
     }
 
     public static function query($sql)
@@ -129,25 +186,25 @@ class db
 
         // 初始化数据库
         self::_init_mysql();
-        self::$rsid = @mysqli_query(self::$conn, $sql);
+        self::$rsid = @mysqli_query(self::$links[self::$link_name]['conn'], $sql);
 
         if (self::$rsid === false)
         {
             // 不要每次都ping，浪费流量浪费性能，执行出错了才重新连接
-            $errno = mysqli_errno(self::$conn);
+            $errno = mysqli_errno(self::$links[self::$link_name]['conn']);
             if ($errno == 2013 || $errno == 2006) 
             {
-                $errmsg = mysqli_error(self::$conn);
+                $errmsg = mysqli_error(self::$links[self::$link_name]['conn']);
                 log::add($errmsg, "Error");
 
-                @mysqli_close(self::$conn);
-                self::$conn = null;
+                @mysqli_close(self::$links[self::$link_name]['conn']);
+                self::$links[self::$link_name]['conn'] = null;
                 return self::query($sql);
             }
 
             $errmsg = "Query SQL: ".$sql;
             log::add($errmsg, "Warning");
-            $errmsg = "Error SQL: ".mysqli_error(self::$conn);
+            $errmsg = "Error SQL: ".mysqli_error(self::$links[self::$link_name]['conn']);
             log::add($errmsg, "Warning");
 
             $backtrace = debug_backtrace();
@@ -174,7 +231,6 @@ class db
         }
         else
         {
-            self::$query_count++;
             return self::$rsid;
         }
     }
@@ -232,12 +288,12 @@ class db
 
     public static function insert_id()
     {
-        return mysqli_insert_id(self::$conn);
+        return mysqli_insert_id(self::$links[self::$link_name]['conn']);
     }
 
     public static function affected_rows()
     {
-        return mysqli_affected_rows(self::$conn);
+        return mysqli_affected_rows(self::$links[self::$link_name]['conn']);
     }
 
     public static function insert($table = '', $data = null, $return_sql = false)
@@ -259,7 +315,7 @@ class db
         {
             if (self::query($sql))
             {
-                return mysqli_insert_id(self::$conn);
+                return mysqli_insert_id(self::$links[self::$link_name]['conn']);
             }
             else 
             {
@@ -408,7 +464,7 @@ class db
         {
             if (self::query($sql))
             {
-                return mysqli_affected_rows(self::$conn);
+                return mysqli_affected_rows(self::$links[self::$link_name]['conn']);
             }
             else 
             {
@@ -434,7 +490,7 @@ class db
         {
             if (self::query($sql))
             {
-                return mysqli_affected_rows(self::$conn);
+                return mysqli_affected_rows(self::$links[self::$link_name]['conn']);
             }
             else 
             {
@@ -445,10 +501,10 @@ class db
 
     public static function ping()
     {
-        if (!mysqli_ping(self::$conn))
+        if (!mysqli_ping(self::$links[self::$link_name]['conn']))
         {
-            @mysqli_close(self::$conn);
-            self::$conn = null;
+            @mysqli_close(self::$links[self::$link_name]['conn']);
+            self::$links[self::$link_name]['conn'] = null;
             self::_init_mysql();
         }
     }
