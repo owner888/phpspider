@@ -20,28 +20,30 @@ class db
     private static $links = array();
     private static $link_name = 'default';
 
-    //private static $conn;
-    //private static $query_count = 0;
-    //private static $conn_fail = 0;
-    //private static $worker_pid = 0;
-
     public static function _init_mysql()
     {
         // 获取配置
         $config = self::$link_name == 'default' ? self::_get_default_config() : self::$configs[self::$link_name];
 
         // 创建连接
-        if (empty(self::$links[self::$link_name]))
+        if (empty(self::$links[self::$link_name]) || empty(self::$links[self::$link_name]['conn']))
         {
+            // 第一次连接，初始化fail和pid
+            if (empty(self::$links[self::$link_name])) 
+            {
+                self::$links[self::$link_name]['fail'] = 0;
+                self::$links[self::$link_name]['pid'] = function_exists('posix_getpid') ? posix_getpid() : 0; 
+                //echo "progress[".self::$links[self::$link_name]['pid']."] create db connect[".self::$link_name."]\n";
+            }
             self::$links[self::$link_name]['conn'] = @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
             if(mysqli_connect_errno())
             {
-                self::$links[self::$link_name]['conn_fail']++;
-                $errmsg = 'Mysql Connect failed['.self::$links[self::$link_name]['conn_fail'].']: ' . mysqli_connect_error();
+                self::$links[self::$link_name]['fail']++;
+                $errmsg = 'Mysql Connect failed['.self::$links[self::$link_name]['fail'].']: ' . mysqli_connect_error();
                 echo util::colorize(date("H:i:s") . " {$errmsg}\n\n", 'fail');
                 log::add($errmsg, "Error");
                 // 连接失败5次，中断进程
-                if (self::$links[self::$link_name]['conn_fail'] >= 5) 
+                if (self::$links[self::$link_name]['fail'] >= 5) 
                 {
                     exit(250);
                 }
@@ -49,9 +51,6 @@ class db
             }
             else
             {
-                // 连接成功清零
-                self::$links[self::$link_name]['conn_fail'] = 0;
-                self::$links[self::$link_name]['worker_pid'] = function_exists('posix_getpid') ? posix_getpid() : 0; 
                 mysqli_query(self::$links[self::$link_name]['conn'], " SET character_set_connection=utf8, character_set_results=utf8, character_set_client=binary, sql_mode='' ");
             }
         }
@@ -59,7 +58,7 @@ class db
         {
             $curr_pid = function_exists('posix_getpid') ? posix_getpid() : 0;
             // 如果父进程已经生成资源就释放重新生成，因为多进程不能共享连接资源
-            if (self::$links[self::$link_name]['worker_pid'] != $curr_pid) 
+            if (self::$links[self::$link_name]['pid'] != $curr_pid) 
             {
                 self::clear_link();
             }
@@ -83,8 +82,7 @@ class db
         {
             foreach(self::$links as $k=>$v)
             {
-                $conn = $v['conn'];
-                @mysqli_close($conn);
+                @mysqli_close($v['conn']);
                 unset(self::$links[$k]);
             }
         }
