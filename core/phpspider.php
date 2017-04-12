@@ -1338,6 +1338,12 @@ class phpspider
             return false;
         }
 
+        // 如果页面上只有一个url，要把他转为数组，否则下面会报警告
+        if (!is_array($urls)) 
+        {
+            $urls = array($urls);
+        }
+
         foreach ($urls as $key=>$url) 
         {
             $urls[$key] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
