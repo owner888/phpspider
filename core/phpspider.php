@@ -1327,10 +1327,10 @@ class phpspider
         //$urls = array();
         //if (!empty($matchs[1])) 
         //{
-        //foreach ($matchs[1] as $url) 
-        //{
-        //$urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
-        //}
+            //foreach ($matchs[1] as $url) 
+            //{
+                //$urls[] = str_replace(array("\"", "'",'&amp;'), array("",'','&'), $url);
+            //}
         //}
 
         if (empty($urls)) 

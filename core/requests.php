@@ -115,21 +115,9 @@ class requests
 
         foreach ($cookies_arr as $cookie) 
         {
-            $cookie_arr = explode("=", $cookie);
-            $key = $value = "";
-            foreach ($cookie_arr as $k=>$v) 
-            {
-                if ($k == 0) 
-                {
-                    $key = trim($v);
-                }
-                else 
-                {
-                    $value .= trim(str_replace('"', '', $v));
-                }
-            }
-            $key = strstr($cookie, '=', true);
-            $value = substr(strstr($cookie, '='), 1);
+            $cookie_arr = explode("=", $cookie, 2);
+            $key = $cookie_arr[0];
+            $value = empty($cookie_arr[1]) ? '' : $cookie_arr[1];
 
             if (!empty($domain)) 
             {
@@ -323,7 +311,7 @@ class requests
             $cookies = explode(";", $cookies);
             foreach ($cookies as $cookie) 
             {
-                $cookie_arr = explode("=", $cookie);
+                $cookie_arr = explode("=", $cookie, 2);
                 // 过滤 httponly、secure
                 if (count($cookie_arr) < 2) 
                 {
@@ -344,14 +332,14 @@ class requests
         }
     }
 
-    public static function get_response_headers($html)
+    public static function get_response_headers($header)
     {
-        $header_lines = explode("\n", $html);
+        $header_lines = explode("\n", $header);
         if (!empty($header_lines)) 
         {
             foreach ($header_lines as $line) 
             {
-                $header_arr = explode(":", $line);
+                $header_arr = explode(":", $line, 2);
                 $key = empty($header_arr[0]) ? '' : trim($header_arr[0]);
                 $val = empty($header_arr[1]) ? '' : trim($header_arr[1]);
                 if (empty($key) || empty($val)) 
@@ -599,9 +587,12 @@ class requests
 
         // header + body，header 里面有 cookie
         curl_setopt( self::$ch, CURLOPT_HEADER, true );
+        // 返回最后的Location
+        curl_setopt( self::$ch, CURLOPT_FOLLOWLOCATION, true);
 
         self::$raw = curl_exec ( self::$ch );
-        //var_dump($data);
+        // 真实url
+        //$location = curl_getinfo( self::$ch, CURLINFO_EFFECTIVE_URL);
         self::$info = curl_getinfo( self::$ch );
         self::$status_code = self::$info['http_code'];
         if (self::$raw === false)

@@ -71,6 +71,7 @@ class cls_redis
             $prefix = empty($config['prefix']) ? self::$prefix : $config['prefix'];
             self::$links[self::$link_name]->setOption(Redis::OPT_PREFIX, $prefix . ":");
             self::$links[self::$link_name]->setOption(Redis::OPT_READ_TIMEOUT, -1);
+            self::$links[self::$link_name]->select($config['db']);
         }
 
         return self::$links[self::$link_name];
