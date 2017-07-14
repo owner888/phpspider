@@ -1782,6 +1782,8 @@ class phpspider
                 // field不为空而且存在子配置
                 if (!empty($values) && !empty($conf['children'])) 
                 {
+                    if (!is_array($values))
+                        $values=array($values);
                     $child_values = array();
                     // 父项抽取到的html作为子项的提取内容
                     foreach ($values as $child_html) 

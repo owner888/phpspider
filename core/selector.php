@@ -21,7 +21,7 @@ class selector
      */
     const VERSION = '1.0.0';
     public static $dom = null;
-    public static $dom_auth = /*null*/['xpath'=>null,'css'=>nul];
+    public static $dom_auth = /*null*/array('xpath'=>null,'css'=>nul);
     public static $xpath = null;
     public static $error = null;
 
