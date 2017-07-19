@@ -89,9 +89,9 @@ class selector
         }
 
         // 如果加载的不是之前的HTML内容，替换一下验证标识
-        if (self::$dom_auth != md5($html)) 
+        if (self::$dom_auth['xpath'] != md5($html)) 
         {
-            self::$dom_auth = md5($html);
+            self::$dom_auth['xpath'] = md5($html);
             @self::$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
             self::$xpath = new DOMXpath(self::$dom);
         }
@@ -222,9 +222,9 @@ class selector
     private static function _css_select($html, $selector, $remove = false)
     {
         // 如果加载的不是之前的HTML内容，替换一下验证标识
-        if (self::$dom_auth != md5($html)) 
+        if (self::$dom_auth['css'] != md5($html)) 
         {
-            self::$dom_auth = md5($html);
+            self::$dom_auth['css'] = md5($html);
             phpQuery::loadDocumentHTML($html); 
         }
         if ($remove) 
