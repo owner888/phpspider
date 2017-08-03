@@ -19,7 +19,7 @@ class requests
      * 版本号
      * @var string
      */
-    const VERSION = '1.2.0';
+    const VERSION = '1.3.0';
 
     protected static $ch = null;
     protected static $timeout = 10;
@@ -409,21 +409,23 @@ class requests
     }
 
     /**
-     * get
-     *
-     *
+     * get 请求
      */
-    public static function get($url, $fields = array())
+    public static function get($url, $fields = array(), $cert = NULL)
     {
         self::init ();
-        return self::request($url, 'get', $fields);
+        return self::request($url, 'get', $fields, NULL, $cert);
     }
 
     /**
+     * post 请求
      * $fields 有三种类型:1、数组；2、http query；3、json
-     * 1、array('name'=>'yangzetao') 2、http_build_query(array('name'=>'yangzetao')) 3、json_encode(array('name'=>'yangzetao'))
+     * 1、array('name'=>'yangzetao') 
+     * 2、http_build_query(array('name'=>'yangzetao')) 
+     * 3、json_encode(array('name'=>'yangzetao'))
      * 前两种是普通的post，可以用$_POST方式获取
-     * 第三种是post stream( json rpc，其实就是webservice )，虽然是post方式，但是只能用流方式 http://input 后者 $HTTP_RAW_POST_DATA 获取 
+     * 第三种是post stream( json rpc，其实就是webservice )
+     * 虽然是post方式，但是只能用流方式 http://input 后者 $HTTP_RAW_POST_DATA 获取 
      * 
      * @param mixed $url 
      * @param array $fields 
@@ -432,10 +434,10 @@ class requests
      * @access public
      * @return void
      */
-    public static function post($url, $fields = array())
+    public static function post($url, $fields = array(), $files = array())
     {
         self::init ();
-        return self::request($url, 'POST', $fields);
+        return self::request($url, 'POST', $fields, $files);
     }
 
     public static function put($url, $fields = array())
@@ -468,7 +470,19 @@ class requests
         return self::request($url, 'PATCH', $fields);
     }
 
-    public static function request($url, $method = 'GET', $fields)
+    /**
+     * request
+     * 
+     * @param mixed $url        请求URL
+     * @param string $method    请求方法
+     * @param array $fields     表单字段
+     * @param array $files      上传文件
+     * @param mixed $cert       CA证书
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2017-08-03 18:06
+     */
+    public static function request($url, $method = 'GET', $fields = array(), $files = array(), $cert = NULL)
     {
         $method = strtoupper($method);
         if(!self::_is_url($url))
@@ -513,6 +527,34 @@ class requests
             if ($method == 'POST')
             {
                 curl_setopt( self::$ch, CURLOPT_POST, true );
+                $file_fields = array();
+                if (!empty($files)) 
+                {
+                    foreach ($files as $postname => $filename) 
+                    {
+                        // 如果文件不存在
+                        if (!file_exists(realpath($filename))) 
+                        {
+                            continue;
+                        }
+                        // 获取 mimetype
+                        $fp  = finfo_open(FILEINFO_MIME);
+                        $mime = finfo_file($fp, realpath($filename));
+                        finfo_close($fp);
+                        $mime_arr = explode(";", $mime);
+                        $type = $mime_arr[0];
+                        // php >= 5.5
+                        if (class_exists('CURLFile')) 
+                        {
+                            $file_fields[$postname] = curl_file_create(realpath($filename), $type);
+                        } 
+                        else 
+                        {
+                            $file_fields[$postname] = '@'.realpath($filename).";type=".$type;
+                            //$cfile = '@'.realpath($filename).";type=".$type.";filename=".$filename;
+                        }
+                    }
+                }
             }
             else
             {
@@ -521,13 +563,17 @@ class requests
             }
             if (!empty($fields)) 
             {
-                if (is_array($fields)) 
+                // 不是上传文件的，用http_build_query, 能实现更好的兼容性，更小的请求数据包
+                if (is_array($fields) && empty($file_fields)) 
                 {
                     $fields = http_build_query($fields);
                 }
+                else 
+                {
+                    $fields = array_merge($fields, $file_fields);
+                }
                 // 不能直接传数组，不知道是什么Bug，会非常慢
                 curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
-                //curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
             }
         }
 
@@ -579,10 +625,13 @@ class requests
 
         if (self::$proxies)
         {
-            if (!empty(self::$proxies[$scheme])) 
-            {
-                curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxies[$scheme] );
-            }
+            $key = rand(0, count(self::$proxies) - 1);
+            $proxy = self::$proxies[$key];
+            curl_setopt( self::$ch, CURLOPT_PROXY, $proxy );
+            //if (!empty(self::$proxies[$scheme])) 
+            //{
+                //curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxies[$scheme] );
+            //}
         }
 
         // header + body，header 里面有 cookie
@@ -597,7 +646,8 @@ class requests
         self::$status_code = self::$info['http_code'];
         if (self::$raw === false)
         {
-            self::$error = ' Curl error: ' . curl_error( self::$ch );
+            self::$error = 'Curl error: ' . curl_error( self::$ch );
+            trigger_error(self::$error, E_USER_WARNING);
         }
 
         // 关闭句柄
