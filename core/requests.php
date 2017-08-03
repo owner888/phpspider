@@ -22,7 +22,7 @@ class requests
     const VERSION = '1.3.0';
 
     protected static $ch = null;
-    protected static $timeout = 10;
+    protected static $timeout = 5;
     //public static $request = array(
         //'headers' => array()
     //);
@@ -398,10 +398,19 @@ class requests
         {
             self::$ch = curl_init ();
             curl_setopt( self::$ch, CURLOPT_RETURNTRANSFER, true );
-            curl_setopt( self::$ch, CURLOPT_CONNECTTIMEOUT, self::$timeout );
             curl_setopt( self::$ch, CURLOPT_HEADER, false );
             curl_setopt( self::$ch, CURLOPT_USERAGENT, "phpspider-requests/".self::VERSION );
-            curl_setopt( self::$ch, CURLOPT_TIMEOUT, self::$timeout + 5);
+            // 如果设置了两个时间，就分开设置
+            if (is_array(self::$timeout)) 
+            {
+                curl_setopt( self::$ch, CURLOPT_CONNECTTIMEOUT, self::$timeout[0] );
+                curl_setopt( self::$ch, CURLOPT_TIMEOUT, self::$timeout[1]);
+            }
+            else 
+            {
+                curl_setopt( self::$ch, CURLOPT_CONNECTTIMEOUT, self::$timeout );
+                curl_setopt( self::$ch, CURLOPT_TIMEOUT, self::$timeout);
+            }
             // 在多线程处理场景下使用超时选项时，会忽略signals对应的处理函数，但是无耐的是还有小概率的crash情况发生
             curl_setopt( self::$ch, CURLOPT_NOSIGNAL, true);
         }
