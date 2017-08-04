@@ -13,6 +13,16 @@
 // PHPSpider请求类文件
 //----------------------------------
 
+if (!function_exists('curl_file_create')) 
+{
+    function curl_file_create($filename, $mimetype = '', $postname = '') 
+    {
+        return "@$filename;filename="
+            . ($postname ?: basename($filename))
+            . ($mimetype ? ";type=$mimetype" : '');
+    }
+}
+
 class requests
 {
     /**
@@ -539,29 +549,20 @@ class requests
                 $file_fields = array();
                 if (!empty($files)) 
                 {
-                    foreach ($files as $postname => $filename) 
+                    foreach ($files as $postname => $file) 
                     {
+                        $filepath = realpath($file);
                         // 如果文件不存在
-                        if (!file_exists(realpath($filename))) 
+                        if (!file_exists($filepath)) 
                         {
                             continue;
                         }
-                        // 获取 mimetype
-                        $fp  = finfo_open(FILEINFO_MIME);
-                        $mime = finfo_file($fp, realpath($filename));
-                        finfo_close($fp);
-                        $mime_arr = explode(";", $mime);
-                        $type = $mime_arr[0];
-                        // php >= 5.5
-                        if (class_exists('CURLFile')) 
-                        {
-                            $file_fields[$postname] = curl_file_create(realpath($filename), $type);
-                        } 
-                        else 
-                        {
-                            $file_fields[$postname] = '@'.realpath($filename).";type=".$type;
-                            //$cfile = '@'.realpath($filename).";type=".$type.";filename=".$filename;
-                        }
+
+                        $filename = basename($filepath);
+                        $type = self::get_mimetype($filepath);
+                        $file_fields[$postname] = curl_file_create($filepath, $type, $filename);
+                        // curl -F "name=seatle&file=@/absolute/path/to/image.png" htt://localhost/uploadfile.php
+                        //$cfile = '@'.realpath($filename).";type=".$type.";filename=".$filename;
                     }
                 }
             }
@@ -670,6 +671,56 @@ class requests
         return self::$content;
     }
 
+    // 获取 mimetype
+    public static function get_mimetype($filepath)
+    {
+        $fp  = finfo_open(FILEINFO_MIME);
+        $mime = finfo_file($fp, $filepath);
+        finfo_close($fp);
+        $arr = explode(";", $mime);
+        $type = empty($arr[0]) ? '' : $arr[0];
+        return $type;
+    }
+
+    public static function get_postfile_form($post_fields, $file_fields)
+    {
+        // 构造post数据
+        $data = '';
+        $delimiter = '-------------' . uniqid();
+        // 表单数据
+        foreach ($post_fields as $name => $content) 
+        {
+            $data .= "--" . $delimiter . "\r\n";
+            $data .= 'Content-Disposition: form-data; name = "' . $name . '"';
+            $data .= "\r\n\r\n";
+            $data .= $content;
+            $data .= "\r\n";
+        }
+
+        foreach ($file_fields as $input_name => $file) 
+        {
+            $data .= "--" . $delimiter . "\r\n";
+            $data .= 'Content-Disposition: form-data; name = "' . $input_name . '";' . 
+                ' filename="' . $file['filename'] . '"' . "\r\n";
+            $data .= "Content-Type: {$file['type']}\r\n";
+            $data .= "\r\n";
+            $data .= $file['content'];
+            $data .= "\r\n";
+        }
+
+        // 结束符
+        $data .= "--" . $delimiter . "--\r\n";
+
+        //return array(
+            //CURLOPT_HTTPHEADER => array(
+                //'Content-Type:multipart/form-data;boundary=' . $delimiter,
+                //'Content-Length:' . strlen($data)
+            //),
+            //CURLOPT_POST => true,
+            //CURLOPT_POSTFIELDS => $data,
+        //);
+        return array($delimiter, $data);
+    }
 }
 
 
