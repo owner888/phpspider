@@ -36,6 +36,7 @@ class requests
     public static $request = array(
         'headers' => array()
     );
+    public static $encoding = null;
     public static $input_encoding = null;
     public static $output_encoding = null;
     public static $cookies = array();
@@ -347,6 +348,8 @@ class requests
                     $encoding = 'gbk';
                 }
             }
+            // 没有转码前
+            self::$encoding = $encoding;
             self::$input_encoding = $encoding;
         }
 
@@ -359,6 +362,9 @@ class requests
             $body = preg_replace("/<meta([^>]*)charset=([^>]*)>/is", '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>', $body);
             // 直接干掉头部，国外很多信息是在头部的
             //$body = self::_remove_head($body);
+
+            // 转码后
+            self::$encoding = self::$output_encoding;
         }
         // 转码后的body
         self::$text = $body;
