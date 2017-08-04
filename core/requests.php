@@ -49,7 +49,7 @@ class requests
     public static $url = null;
     //public static $domain = null;
     public static $raw = null;
-    public static $header = null;
+    public static $head = null;
     public static $content = null;      // 转码前的body
     public static $text = null;         // 转码后的body
     public static $info = array();
@@ -299,9 +299,11 @@ class requests
      */
     public static function split_header_body()
     {
-        $header = $body = '';
-        $header = substr(self::$raw, 0, self::$info['header_size']);
+        $head = $body = '';
+        $head = substr(self::$raw, 0, self::$info['header_size']);
         $body = substr(self::$raw, self::$info['header_size']);
+        // http header
+        self::$head = $head;
         // 转码前的body
         self::$content = $body;
 
@@ -368,7 +370,7 @@ class requests
         }
         // 转码后的body
         self::$text = $body;
-        return array($header, $body);
+        return array($head, $body);
     }
 
     /**
