@@ -638,10 +638,6 @@ class requests
             $key = rand(0, count(self::$proxies) - 1);
             $proxy = self::$proxies[$key];
             curl_setopt( self::$ch, CURLOPT_PROXY, $proxy );
-            //if (!empty(self::$proxies[$scheme])) 
-            //{
-                //curl_setopt( self::$ch, CURLOPT_PROXY, self::$proxies[$scheme] );
-            //}
         }
 
         // header + body，header 里面有 cookie
@@ -653,6 +649,8 @@ class requests
         // 真实url
         //$location = curl_getinfo( self::$ch, CURLINFO_EFFECTIVE_URL);
         self::$info = curl_getinfo( self::$ch );
+        print_r(self::$info);
+        exit;
         self::$status_code = self::$info['http_code'];
         if (self::$raw === false)
         {
