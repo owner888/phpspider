@@ -1,8 +1,7 @@
 <?php
 ini_set("memory_limit", "10240M");
-use phpspider\core\phpspider;
-use phpspider\core\util;
 require_once __DIR__ . '/../autoloader.php';
+use phpspider\core\phpspider;
 
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
@@ -26,6 +25,9 @@ $configs = array(
         "http://www.qiushibaike.com/article/\d+",
     ),
     'max_try' => 5,
+    'proxies' => array(
+        'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010'
+    ),
     //'export' => array(
         //'type' => 'csv',
         //'file' => '../data/qiushibaike.csv',
@@ -35,28 +37,25 @@ $configs = array(
         //'file'  => '../data/qiushibaike.sql',
         //'table' => 'content',
     //),
-    'export' => array(
-        'type' => 'db', 
-        'table' => 'content',
-    ),
-    'db_config' => array(
-        'host'  => '127.0.0.1',
-        'port'  => 3306,
-        'user'  => 'root',
-        'pass'  => 'root',
-        'name'  => 'qiushibaike',
-    ),
-    'proxies' => array(
-        'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010'
-    ),
-    'queue_config' => array(
-        'host'      => '127.0.0.1',
-        'port'      => 6379,
-        'pass'      => '',
-        'db'        => 5,
-        'prefix'    => 'phpspider',
-        'timeout'   => 30,
-    ),
+    //'export' => array(
+        //'type' => 'db', 
+        //'table' => 'content',
+    //),
+    //'db_config' => array(
+        //'host'  => '127.0.0.1',
+        //'port'  => 3306,
+        //'user'  => 'root',
+        //'pass'  => 'root',
+        //'name'  => 'qiushibaike',
+    //),
+    //'queue_config' => array(
+        //'host'      => '127.0.0.1',
+        //'port'      => 6379,
+        //'pass'      => '',
+        //'db'        => 5,
+        //'prefix'    => 'phpspider',
+        //'timeout'   => 30,
+    //),
     'fields' => array(
         array(
             'name' => "article_title",
@@ -125,14 +124,6 @@ $spider->on_handle_img = function($fieldname, $img)
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
-    $encoding = util::get_encoding($page['raw']);
-    if ($encoding == 'iso-8859-1') 
-    {
-        //$data = mb_convert_encoding($data, "LATIN1", "UTF-8");
-        //用 UTF-8 编码的数据解码为 ISO-8859-1 编码
-        $data = utf8_decode($data);
-    }
-
     if ($fieldname == 'article_title') 
     {
         if (strlen($data) > 10) 
