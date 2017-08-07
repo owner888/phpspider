@@ -337,7 +337,7 @@ class requests
         if(self::$input_encoding == null)
         {
             // 从头部获取
-            preg_match("/charset=([^\s]*)/i", $header, $out);
+            preg_match("/charset=([^\s]*)/i", $head, $out);
             $encoding = empty($out[1]) ? '' : str_replace(array('"', '\''), '', strtolower(trim($out[1])));
             //$encoding = null;
             if (empty($encoding)) 
