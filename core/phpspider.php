@@ -412,9 +412,9 @@ class phpspider
         }
 
         // 不同项目的采集以采集名称作为前缀区分
-        if (isset($GLOBALS['config']['redis']['prefix'])) 
+        if (isset(self::$queue_config['prefix'])) 
         {
-            $GLOBALS['config']['redis']['prefix'] = $GLOBALS['config']['redis']['prefix'].'-'.md5($configs['name']);
+            self::$queue_config['prefix'] = self::$queue_config['prefix'].'-'.md5($configs['name']);
         }
 
         self::$configs = $configs;
@@ -981,6 +981,8 @@ class phpspider
             self::$collect_succ = 0;
             self::$collect_fail = 0;
 
+            queue::set_connect('default', self::$queue_config);
+            queue::init(); 
             $this->do_collect_page();
 
             // 这里用0表示正常退出
@@ -995,8 +997,6 @@ class phpspider
 
     public function do_collect_page() 
     {
-        queue::set_connect('default', self::$queue_config);
-        queue::init(); 
         while( $queue_lsize = $this->queue_lsize() )
         { 
             // 如果是主任务
@@ -1091,6 +1091,9 @@ class phpspider
         $page_time_start = microtime(true);
 
         requests::$input_encoding = null;
+        //$mem = round(memory_get_usage(true)/(1024*1024),2);
+        //echo "\n\n\n".$mem."\n\n\n";
+        printf("memory usage: %.2f M\n\n", memory_get_usage() / 1024 / 1024 ); 
         $html = $this->request_url($url, $link);
 
         if (!$html) 
