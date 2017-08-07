@@ -14,7 +14,6 @@
 //----------------------------------
 
 //namespace phpspider\core;
-use Exception;
 
 // Display errors.
 ini_set('display_errors', 'on');
@@ -53,10 +52,4 @@ define('PATH_LIBRARY', CORE."/../library");
     //require PATH_ROOT."/config/inc_config.php"; 
 //}
 
-// Compatible with php7
-if(!class_exists('Error'))
-{
-    class Error extends Exception
-    {
-    }
-}
+
