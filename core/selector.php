@@ -13,6 +13,11 @@
 // PHPSpider选择器类文件
 //----------------------------------
 
+namespace phpspider\core;
+
+use DOMDocument;
+use DOMXpath;
+
 class selector
 {
     /**

@@ -1,13 +1,15 @@
 <?php
-ini_set("memory_limit", "1024M");
-require dirname(__FILE__).'/../core/init.php';
+ini_set("memory_limit", "10240M");
+use phpspider\core\phpspider;
+use phpspider\core\util;
+require_once __DIR__ . '/../autoloader.php';
 
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
 $configs = array(
     'name' => '糗事百科',
-    //'log_show' => true,
+    'log_show' => true,
     'tasknum' => 1,
     //'save_running_state' => true,
     'domains' => array(
@@ -26,16 +28,34 @@ $configs = array(
     'max_try' => 5,
     //'export' => array(
         //'type' => 'csv',
-        //'file' => PATH_DATA.'/qiushibaike.csv',
+        //'file' => '../data/qiushibaike.csv',
     //),
     //'export' => array(
         //'type'  => 'sql',
-        //'file'  => PATH_DATA.'/qiushibaike.sql',
+        //'file'  => '../data/qiushibaike.sql',
         //'table' => 'content',
     //),
     'export' => array(
         'type' => 'db', 
         'table' => 'content',
+    ),
+    'db_config' => array(
+        'host'  => '127.0.0.1',
+        'port'  => 3306,
+        'user'  => 'root',
+        'pass'  => 'root',
+        'name'  => 'qiushibaike',
+    ),
+    'proxies' => array(
+        'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010'
+    ),
+    'queue_config' => array(
+        'host'      => '127.0.0.1',
+        'port'      => 6379,
+        'pass'      => '',
+        'db'        => 5,
+        'prefix'    => 'phpspider',
+        'timeout'   => 30,
     ),
     'fields' => array(
         array(

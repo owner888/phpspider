@@ -13,6 +13,8 @@
 // PHPSpider实用函数集合类文件
 //----------------------------------
 
+namespace phpspider\core;
+
 class util
 {
     /**

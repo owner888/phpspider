@@ -13,6 +13,8 @@
 // PHPSpider日志类文件
 //----------------------------------
 
+namespace phpspider\core;
+
 class log
 {
     public static $log_show = false;

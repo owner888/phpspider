@@ -1,5 +1,4 @@
 <?php
-namespace PHPSpider\Core;
 // +----------------------------------------------------------------------
 // | PHPSpider [ A PHP Framework For Crawler ]
 // +----------------------------------------------------------------------
@@ -14,6 +13,8 @@ namespace PHPSpider\Core;
 // PHPSpider请求类文件
 //----------------------------------
 
+namespace phpspider\core;
+
 if (!function_exists('curl_file_create')) 
 {
     function curl_file_create($filename, $mimetype = '', $postname = '') 
@@ -26,37 +27,35 @@ if (!function_exists('curl_file_create'))
 
 class requests
 {
-    /**
-     * 版本号
-     * @var string
-     */
-    const VERSION = '1.3.0';
+    const VERSION = '2.0.0';
 
     protected static $ch = null;
-    protected static $timeout = 5;
-    public static $request = array(
-        'headers' => array()
-    );
+
+    /**** Public variables ****/
+
+    /* user definable vars */
+
+    public static $timeout = 5;
     public static $encoding = null;
     public static $input_encoding = null;
     public static $output_encoding = null;
-    public static $cookies = array();
-    public static $domain_cookies = array();
-    public static $hosts = array();
-    public static $headers = array();
-    public static $useragents = array();
-    public static $client_ips = array();
-    public static $proxies = array();
-    public static $url = null;
-    //public static $domain = null;
-    public static $raw = null;
-    public static $head = null;
-    public static $content = null;      // 转码前的body
-    public static $text = null;         // 转码后的body
-    public static $info = array();
-    public static $history = 302;       // 跳转前状态码30x
-    public static $status_code = 0;
-    public static $error = null;
+    public static $cookies = array();                           // array of cookies to pass
+    // $cookies['username'] = "seatle";
+    public static $rawheaders = array();                        // array of raw headers to send
+    public static $domain_cookies = array();                    // array of cookies for domain to pass
+    public static $hosts = array();                             // random host binding for make request faster
+    public static $headers = array();                           // headers returned from server sent here
+    public static $useragents = array("requests/2.0.0");        // random agent we masquerade as
+    public static $client_ips = array();                        // random ip we masquerade as
+    public static $proxies = array();                           // random proxy ip
+    public static $raw = "";                                    // head + body content returned from server sent here
+    public static $head = "";                                   // head content
+    public static $content = "";                                // The body before encoding
+    public static $text = "";                                   // The body after encoding
+    public static $info = array();                              // curl info
+    public static $history = 302;                               // http request status before redirect. ex:30x
+    public static $status_code = 0;                             // http request status
+    public static $error = "";                                  // error messages sent here
 
     /**
      * set timeout
@@ -76,8 +75,8 @@ class requests
      * 
      * @param mixed $proxies
      * array (
-     *    'socks5://user:pass@host:port',
-     *    'socks5://user:pass@host:port'
+     *    'socks5://user1:pass2@host:port',
+     *    'socks5://user2:pass2@host:port'
      *)
      * @return void
      * @author seatle <seatle@foxmail.com> 
@@ -90,15 +89,15 @@ class requests
 
     /**
      * 自定义请求头部
-     * 请求头内容可以用 requests::$request['headers'] 来获取
-     * 比如获取Content-Type：requests::$request['headers']['Content-Type']
+     * 请求头内容可以用 requests::$rawheaders 来获取
+     * 比如获取Content-Type：requests::$rawheaders['Content-Type']
      *
      * @param string $headers
      * @return void
      */
     public static function set_header($key, $value)
     {
-        self::$request['headers'][$key] = $value;
+        self::$rawheaders[$key] = $value;
     }
 
     /**
@@ -226,20 +225,9 @@ class requests
      * @param string $useragent
      * @return void
      */
-    public static function set_useragents($useragents)
-    {
-        self::$useragents = $useragents;
-    }
-
-    /**
-     * 设置 user_agent
-     *
-     * @param string $useragent
-     * @return void
-     */
     public static function set_useragent($useragent)
     {
-        self::$request['headers']['User-Agent'] = $useragent;
+        self::$useragents = is_array($useragent) ? $useragent : array($useragent);
     }
 
     /**
@@ -248,32 +236,18 @@ class requests
      */
     public static function set_referer($referer)
     {
-        self::$request['headers']['Referer'] = $referer;
+        self::$rawheaders['Referer'] = $referer;
     }
 
     /**
      * 设置伪造IP
-     *
+     * 传入数组则为随机IP
      * @param string $ip
      * @return void
      */
     public static function set_client_ip($ip)
     {
-        self::$request['headers']["CLIENT-IP"] = $ip;
-        self::$request['headers']["X-FORWARDED-FOR"] = $ip;
-    }
-
-    /**
-     * 设置随机伪造IP
-     * 
-     * @param mixed $ip
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-11-16 11:06
-     */
-    public static function set_client_ips($ips)
-    {
-        self::$client_ips = $ips;
+        self::$client_ips = is_array($ip) ? $ip : array($ip);
     }
 
     /**
@@ -305,7 +279,7 @@ class requests
         $body = substr(self::$raw, self::$info['header_size']);
         // http header
         self::$head = $head;
-        // 转码前的body
+        // The body before encoding
         self::$content = $body;
 
         //$http_headers = array();
@@ -351,6 +325,7 @@ class requests
                     $encoding = 'gbk';
                 }
             }
+
             // 没有转码前
             self::$encoding = $encoding;
             self::$input_encoding = $encoding;
@@ -369,7 +344,8 @@ class requests
             // 转码后
             self::$encoding = self::$output_encoding;
         }
-        // 转码后的body
+
+        // The body after encoding
         self::$text = $body;
         return array($head, $body);
     }
@@ -624,7 +600,7 @@ class requests
                 $key = rand(0, count($hosts)-1);
                 $ip = $hosts[$key];
                 $url = str_replace($domain, $ip, $url);
-                self::$request['headers']['Host'] = $domain;
+                self::$rawheaders['Host'] = $domain;
             }
         }
 
@@ -658,7 +634,7 @@ class requests
             }
             else
             {
-                self::$request['headers']['X-HTTP-Method-Override'] = $method;
+                self::$rawheaders['X-HTTP-Method-Override'] = $method;
                 curl_setopt( self::$ch, CURLOPT_CUSTOMREQUEST, $method ); 
             }
             if (!empty($fields)) 
@@ -695,20 +671,20 @@ class requests
         if (!empty(self::$useragents)) 
         {
             $key = rand(0, count(self::$useragents) - 1);
-            self::$request['headers']['User-Agent'] = self::$useragents[$key];
+            self::$rawheaders['User-Agent'] = self::$useragents[$key];
         }
 
         if (!empty(self::$client_ips)) 
         {
             $key = rand(0, count(self::$client_ips) - 1);
-            self::$request['headers']["CLIENT-IP"] = self::$client_ips[$key];
-            self::$request['headers']["X-FORWARDED-FOR"] = self::$client_ips[$key];
+            self::$rawheaders["CLIENT-IP"] = self::$client_ips[$key];
+            self::$rawheaders["X-FORWARDED-FOR"] = self::$client_ips[$key];
         }
 
-        if (self::$request['headers'])
+        if (self::$rawheaders)
         {
             $headers = array();
-            foreach (self::$request['headers'] as $k=>$v) 
+            foreach (self::$rawheaders as $k=>$v) 
             {
                 $headers[] = $k.": ".$v;
             }
@@ -755,7 +731,6 @@ class requests
         curl_close( self::$ch );
 
         // 请求成功之后才把URL存起来
-        self::$url = $url;
         list($header, $text) = self::split_header_body();
         self::$history = self::get_history($header);
         self::$headers = self::get_response_headers($header);

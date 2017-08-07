@@ -13,6 +13,34 @@
 // PHPSpider核心类文件
 //----------------------------------
 
+namespace phpspider\core;
+
+require_once __DIR__ . '/constants.php';
+
+use phpspider\core\requests;
+use phpspider\core\selector;
+use phpspider\core\queue;
+use phpspider\core\db;
+use phpspider\core\util;
+use phpspider\core\log;
+use Exception;
+
+//require CORE.'/log.php';
+//require CORE.'/requests.php';
+//require CORE.'/selector.php';
+//require CORE.'/util.php';
+//require CORE.'/db.php';
+//require CORE.'/cache.php';
+//require CORE."/worker.php"; 
+//require CORE."/phpspider.php"; 
+
+// 启动的时候生成data目录
+util::path_exists(PATH_DATA);
+util::path_exists(PATH_DATA."/lock");
+util::path_exists(PATH_DATA."/log");
+util::path_exists(PATH_DATA."/cache");
+util::path_exists(PATH_DATA."/status");
+
 class phpspider
 {
     /**
@@ -137,7 +165,7 @@ class phpspider
          'headers'     => array(), // 此url的Headers, 可以为空
          'params'      => array(), // 发送请求时需添加的参数, 可以为空
          'context_data'=> '',      // 此url附加的数据, 可以为空
-         'proxy'       => false,   // 是否使用代理
+         'proxies'     => false,   // 是否使用代理
          'try_num'     => 0        // 抓取次数
          'max_try'     => 0        // 允许抓取失败次数
      ) 
@@ -195,7 +223,11 @@ class phpspider
     public static $export_file = '';
     public static $export_conf = '';
     public static $export_table = '';
-    public static $export_db_config = '';
+
+    // 数据库配置
+    public static $db_config = array();
+    // 队列配置
+    public static $queue_config = array();
 
     // 运行面板参数长度
     public static $server_length = 10;
@@ -338,11 +370,9 @@ class phpspider
         }
 
         $configs['name']        = isset($configs['name'])        ? $configs['name']        : 'phpspider';
-        $configs['proxy']       = isset($configs['proxy'])       ? $configs['proxy']       : '';
+        $configs['proxies']     = isset($configs['proxies'])     ? $configs['proxies']     : array();
         $configs['user_agent']  = isset($configs['user_agent'])  ? $configs['user_agent']  : self::AGENT_PC;
-        $configs['user_agents'] = isset($configs['user_agents']) ? $configs['user_agents'] : null;
-        $configs['client_ip']   = isset($configs['client_ip'])   ? $configs['client_ip']   : null;
-        $configs['client_ips']  = isset($configs['client_ips'])  ? $configs['client_ips']  : null;
+        $configs['client_ip']   = isset($configs['client_ip'])   ? $configs['client_ip']   : array();
         $configs['interval']    = isset($configs['interval'])    ? $configs['interval']    : self::INTERVAL;
         $configs['timeout']     = isset($configs['timeout'])     ? $configs['timeout']     : self::TIMEOUT;
         $configs['max_try']     = isset($configs['max_try'])     ? $configs['max_try']     : self::MAX_TRY;
@@ -354,7 +384,8 @@ class phpspider
         self::$export_type  = isset($configs['export']['type'])  ? $configs['export']['type']  : '';
         self::$export_file  = isset($configs['export']['file'])  ? $configs['export']['file']  : '';
         self::$export_table = isset($configs['export']['table']) ? $configs['export']['table'] : '';
-        self::$export_db_config = isset($configs['export']['config']) ? $configs['export']['config'] : $GLOBALS['config']['db'];
+        self::$db_config    = isset($configs['db_config'])       ? $configs['db_config']       : array();
+        self::$queue_config = isset($configs['queue_config'])    ? $configs['queue_config']    : array();
 
         // 是否设置了并发任务数, 并且大于1, 而且不是windows环境
         if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !util::is_win()) 
@@ -657,7 +688,7 @@ class phpspider
         }
 
         // fork前一定要关闭redis
-        cls_redis::clear_link();
+        queue::clear_link();
 
         umask(0);
         $pid = pcntl_fork();
@@ -792,23 +823,24 @@ class phpspider
         {
             self::$use_redis = true;
 
-            if (!cls_redis::init()) 
+            queue::set_connect('default', self::$queue_config);
+            if (!queue::init()) 
             {
                 if (self::$multiserver) 
                 {
-                    log::error("Multiserver needs Redis support, Error: ".cls_redis::$error);
+                    log::error("Multiserver needs Redis support, ".queue::$error);
                     exit;
                 }
 
                 if (self::$tasknum > 1) 
                 {
-                    log::error("Multitasking needs Redis support, Error: ".cls_redis::$error);
+                    log::error("Multitasking needs Redis support, ".queue::$error);
                     exit;
                 }
 
                 if (self::$save_running_state) 
                 {
-                    log::error("Spider kept running state needs Redis support, Error: ".cls_redis::$error);
+                    log::error("Spider kept running state needs Redis support, ".queue::$error);
                     exit;
                 }
             }
@@ -963,6 +995,8 @@ class phpspider
 
     public function do_collect_page() 
     {
+        queue::set_connect('default', self::$queue_config);
+        queue::init(); 
         while( $queue_lsize = $this->queue_lsize() )
         { 
             // 如果是主任务
@@ -977,7 +1011,7 @@ class phpspider
                         self::$fork_task_complete = true;
 
                         // fork 子进程前一定要先干掉redis连接fd, 不然会存在进程互抢redis fd 问题
-                        cls_redis::clear_link();
+                        queue::clear_link();
                         // task进程从2开始, 1被master进程所使用
                         for ($i = 2; $i <= self::$tasknum; $i++) 
                         {
@@ -1194,25 +1228,15 @@ class phpspider
         requests::$output_encoding = 'utf-8';
         requests::set_timeout(self::$configs['timeout']);
         requests::set_useragent(self::$configs['user_agent']);
-        if (self::$configs['user_agents']) 
-        {
-            requests::set_useragents(self::$configs['user_agents']);
-        }
         if (self::$configs['client_ip']) 
         {
             requests::set_client_ip(self::$configs['client_ip']);
         }
-        if (self::$configs['client_ips']) 
-        {
-            requests::set_client_ips(self::$configs['client_ips']);
-        }
 
         // 是否设置了代理
-        if (!empty($link['proxy'])) 
+        if (!empty($link['proxies'])) 
         {
-            requests::set_proxies(array('http'=>$link['proxy'], 'https'=>$link['proxy']));
-            // 自动切换IP
-            requests::set_header('Proxy-Switch-Ip', 'yes');
+            requests::set_proxies($link['proxies']);
         }
 
         // 如何设置了 HTTP Headers
@@ -1579,9 +1603,9 @@ class phpspider
             unset($link['context_data']);
         }
 
-        if (empty($link['proxy'])) 
+        if (empty($link['proxies'])) 
         {
-            unset($link['proxy']);
+            unset($link['proxies']);
         }
 
         if (empty($link['try_num'])) 
@@ -1620,7 +1644,7 @@ class phpspider
             'headers'      => isset($link['headers'])      ? $link['headers']      : array(),    
             'params'       => isset($link['params'])       ? $link['params']       : array(),           
             'context_data' => isset($link['context_data']) ? $link['context_data'] : '',                
-            'proxy'        => isset($link['proxy'])        ? $link['proxy']        : self::$configs['proxy'],             
+            'proxies'      => isset($link['proxies'])      ? $link['proxies']      : self::$configs['proxies'],             
             'try_num'      => isset($link['try_num'])      ? $link['try_num']      : 0,                 
             'max_try'      => isset($link['max_try'])      ? $link['max_try']      : self::$configs['max_try'],
             'depth'        => isset($link['depth'])        ? $link['depth']        : 0,             
@@ -1913,21 +1937,22 @@ class phpspider
                     exit;
                 }
 
-                if (empty(self::$export_db_config)) 
+                if (empty(self::$db_config)) 
                 {
-                    log::error("Export data to a database need Mysql support, Error: You not set a config array for connect.\nPlease check the configuration file config/inc_config.php");
+                    log::error("Export data to a database need Mysql support, Error: You not set a config array for connect.");
                     exit;
                 }
 
-                $config = self::$export_db_config;
+                $config = self::$db_config;
                 @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
                 if(mysqli_connect_errno())
                 {
-                    log::error("Export data to a database need Mysql support, Error: ".mysqli_connect_error()." \nPlease check the configuration file config/inc_config.php");
+                    log::error("Export data to a database need Mysql support, Error: ".mysqli_connect_error());
                     exit;
                 }
 
-                db::_init_mysql(self::$export_db_config);
+                db::set_connect('default', $config);
+                db::init_mysql();
 
                 if (!db::table_exists(self::$export_table))
                 {
@@ -1945,8 +1970,8 @@ class phpspider
             return false;
         }
 
-        //if (cls_redis::exists("collect_queue")) 
-        $keys = cls_redis::keys("*"); 
+        //if (queue::exists("collect_queue")) 
+        $keys = queue::keys("*"); 
         $count = count($keys);
         if ($count != 0) 
         {
@@ -1963,7 +1988,7 @@ class phpspider
                 foreach ($keys as $key) 
                 {
                     $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
-                    cls_redis::del($key);
+                    queue::del($key);
                 }
             }
         }
@@ -2013,7 +2038,7 @@ class phpspider
         if (self::$use_redis)
         {
             $key = "server-".self::$serverid."-task_status-".self::$taskid;
-            cls_redis::set($key, $task_status); 
+            queue::set($key, $task_status); 
         }
         else 
         {
@@ -2035,7 +2060,7 @@ class phpspider
             return false;
         }
         $key = "server-{$serverid}-task_status-{$taskid}";
-        cls_redis::del($key); 
+        queue::del($key); 
     }
 
     /**
@@ -2053,7 +2078,7 @@ class phpspider
         }
 
         $key = "server-{$serverid}-task_status-{$taskid}";
-        $task_status = cls_redis::get($key);
+        $task_status = queue::get($key);
         return $task_status;
     }
 
@@ -2072,7 +2097,7 @@ class phpspider
             for ($i = 1; $i <= $tasknum; $i++) 
             {
                 $key = "server-{$serverid}-task_status-".$i;
-                $task_status[] = cls_redis::get($key);
+                $task_status[] = queue::get($key);
             }
         }
         else 
@@ -2097,7 +2122,7 @@ class phpspider
         }
 
         // 更新服务器列表
-        $server_list_json = cls_redis::get("server_list");
+        $server_list_json = queue::get("server_list");
         $server_list = array();
         if (!$server_list_json) 
         {
@@ -2117,7 +2142,7 @@ class phpspider
             );
             ksort($server_list);
         }
-        cls_redis::set("server_list", json_encode($server_list));
+        queue::set("server_list", json_encode($server_list));
     }
 
     /**
@@ -2134,7 +2159,7 @@ class phpspider
             return false;
         }
 
-        $server_list_json = cls_redis::get("server_list");
+        $server_list_json = queue::get("server_list");
         $server_list = array();
         if ($server_list_json) 
         {
@@ -2148,7 +2173,7 @@ class phpspider
             if (!empty($server_list)) 
             {
                 ksort($server_list);
-                cls_redis::set("server_list", json_encode($server_list));
+                queue::set("server_list", json_encode($server_list));
             }
         }
     }
@@ -2165,7 +2190,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $count = cls_redis::get("collect_urls_num"); 
+            $count = queue::get("collect_urls_num"); 
         }
         else 
         {
@@ -2186,7 +2211,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $count = cls_redis::get("collected_urls_num"); 
+            $count = queue::get("collected_urls_num"); 
         }
         else 
         {
@@ -2207,7 +2232,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            cls_redis::incr("collected_urls_num"); 
+            queue::incr("collected_urls_num"); 
         }
         else 
         {
@@ -2238,23 +2263,23 @@ class phpspider
             $key = "collect_urls-".md5($url);
             $lock = "lock-".$key;
             // 加锁: 一个进程一个进程轮流处理
-            if (cls_redis::lock($lock))
+            if (queue::lock($lock))
             {
-                $exists = cls_redis::exists($key); 
+                $exists = queue::exists($key); 
                 // 不存在或者当然URL可重复入
                 if (!$exists || $allowed_repeat) 
                 {
                     // 待爬取网页记录数加一
-                    cls_redis::incr("collect_urls_num"); 
+                    queue::incr("collect_urls_num"); 
                     // 先标记为待爬取网页
-                    cls_redis::set($key, time()); 
+                    queue::set($key, time()); 
                     // 入队列
                     $link = json_encode($link);
-                    cls_redis::lpush("collect_queue", $link); 
+                    queue::lpush("collect_queue", $link); 
                     $status = true;
                 }
                 // 解锁
-                cls_redis::unlock($lock);
+                queue::unlock($lock);
             }
         }
         else 
@@ -2293,23 +2318,23 @@ class phpspider
             $key = "collect_urls-".md5($url);
             $lock = "lock-".$key;
             // 加锁: 一个进程一个进程轮流处理
-            if (cls_redis::lock($lock))
+            if (queue::lock($lock))
             {
-                $exists = cls_redis::exists($key); 
+                $exists = queue::exists($key); 
                 // 不存在或者当然URL可重复入
                 if (!$exists || $allowed_repeat) 
                 {
                     // 待爬取网页记录数加一
-                    cls_redis::incr("collect_urls_num"); 
+                    queue::incr("collect_urls_num"); 
                     // 先标记为待爬取网页
-                    cls_redis::set($key, time()); 
+                    queue::set($key, time()); 
                     // 入队列
                     $link = json_encode($link);
-                    cls_redis::rpush("collect_queue", $link); 
+                    queue::rpush("collect_queue", $link); 
                     $status = true;
                 }
                 // 解锁
-                cls_redis::unlock($lock);
+                queue::unlock($lock);
             }
         }
         else 
@@ -2340,7 +2365,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $link = cls_redis::lpop("collect_queue"); 
+            $link = queue::lpop("collect_queue"); 
             $link = json_decode($link, true);
         }
         else 
@@ -2361,7 +2386,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $link = cls_redis::rpop("collect_queue"); 
+            $link = queue::rpop("collect_queue"); 
             $link = json_decode($link, true);
         }
         else 
@@ -2382,7 +2407,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $lsize = cls_redis::lsize("collect_queue"); 
+            $lsize = queue::lsize("collect_queue"); 
         }
         else 
         {
@@ -2404,14 +2429,14 @@ class phpspider
         {
             $lock = "lock-depth_num";
             // 锁2秒
-            if (cls_redis::lock($lock, time(), 2))
+            if (queue::lock($lock, time(), 2))
             {
-                if (cls_redis::get("depth_num") < $depth) 
+                if (queue::get("depth_num") < $depth) 
                 {
-                    cls_redis::set("depth_num", $depth); 
+                    queue::set("depth_num", $depth); 
                 }
 
-                cls_redis::unlock($lock);
+                queue::unlock($lock);
             }
         }
         else 
@@ -2434,7 +2459,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $depth_num = cls_redis::get("depth_num"); 
+            $depth_num = queue::get("depth_num"); 
             return $depth_num ? $depth_num : 0;
         }
         else 
@@ -2454,7 +2479,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $fields_num = cls_redis::incr("fields_num"); 
+            $fields_num = queue::incr("fields_num"); 
         }
         else 
         {
@@ -2475,7 +2500,7 @@ class phpspider
     {
         if (self::$use_redis)
         {
-            $fields_num = cls_redis::get("fields_num"); 
+            $fields_num = queue::get("fields_num"); 
         }
         else 
         {
@@ -2709,7 +2734,7 @@ class phpspider
             "\033[47;30mspeed\033[0m". str_pad('', self::$speed_length+2-strlen('speed')). 
             "\n";
 
-        $server_list_json = cls_redis::get("server_list");
+        $server_list_json = queue::get("server_list");
         $server_list = json_decode($server_list_json, true);
         foreach ($server_list as $server) 
         {
