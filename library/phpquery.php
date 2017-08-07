@@ -12,6 +12,8 @@
  * @package phpQuery
  */
 
+//namespace phpspider\library;
+
 // class names for instanceof
 // TODO move them as class constants into phpQuery
 define('DOMDOCUMENT', 'DOMDocument');

@@ -15,6 +15,7 @@
 
 namespace phpspider\core;
 
+//use phpspider\library\phpquery;
 use DOMDocument;
 use DOMXpath;
 
@@ -234,11 +235,11 @@ class selector
         }
         if ($remove) 
         {
-            return pq($selector)->remove(); 
+            return phpQuery::pq($selector)->remove(); 
         }
         else 
         {
-            return pq($selector)->html(); 
+            return phpQuery::pq($selector)->html(); 
         }
     }
 
