@@ -14,6 +14,9 @@ $html =<<<STR
     </div>
 STR;
 
+requests::$output_encoding = "utf-8";
+$html = requests::get("http://www.baidu.com");
+echo requests::$input_encoding;
 //----------------------------------
 // xpath selector
 //----------------------------------

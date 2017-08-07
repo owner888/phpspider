@@ -5,6 +5,12 @@ require dirname(__FILE__).'/../core/init.php';
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
+$url = "https://istore.oppomobile.com/storeapp/home?size=10&start=0";
+$data = requests::get($url);
+$info = requests::$info;
+print_r($info);
+
+exit;
 $configs = array(
     'name' => '13384美女图',
     'tasknum' => 1,

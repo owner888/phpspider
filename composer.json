@@ -1,0 +1,38 @@
+{
+    "name": "owner888/phpspider",
+    "type": "library",
+    "keywords": [
+        "framework", 
+        "phpspider"
+    ],
+    "homepage": "http://www.phpspider.org",
+    "license": "MIT",
+    "description": "The PHPSpider Framework.",
+    "authors": [
+        {
+            "name": "Seatle Yang",
+            "email": "seatle@foxmail.com",
+            "homepage": "http://www.phpspider.org",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "seatle@foxmail.com",
+        "issues": "https://github.com/owner888/phpspider/issues",
+        "forum": "http://wenda.phpspider.org/",
+        "wiki": "http://doc.phpspider.org/",
+        "source": "https://github.com/owner888/phpspider"
+    },
+    "require": {
+        "php": ">=5.5.0"
+    },
+    "suggest": {
+        "ext-pcntl、ext-redis": "For better performance. "
+    },
+    "autoload": {
+        "psr-4": {
+            "phpspider\\": "./"
+        }
+    },
+    "minimum-stability": "dev"
+}
