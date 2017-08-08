@@ -119,8 +119,11 @@ $spider = new phpspider($configs);
 
 $spider->on_start = function($phpspider) 
 {
+    $db_config = $phpspider->get_config("db_config");
+    //print_r($db_config);
+    //exit;
     // 数据库连接
-    db::set_connect('default', $phpspider::$configs['db_config']);
+    db::set_connect('default', $db_config);
     db::init_mysql();
 };
 
