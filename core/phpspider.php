@@ -1091,9 +1091,6 @@ class phpspider
         $page_time_start = microtime(true);
 
         requests::$input_encoding = null;
-        //$mem = round(memory_get_usage(true)/(1024*1024),2);
-        //echo "\n\n\n".$mem."\n\n\n";
-        printf("memory usage: %.2f M\n\n", memory_get_usage() / 1024 / 1024 ); 
         $html = $this->request_url($url, $link);
 
         if (!$html) 
@@ -1116,6 +1113,7 @@ class phpspider
                 'taskid'       => self::$taskid,
             ),
         );
+        printf("memory usage: %.2f M\n", memory_get_usage() / 1024 / 1024 ); 
         unset($html);
 
         //--------------------------------------------------------------------------------
@@ -1281,11 +1279,16 @@ class phpspider
             if ($http_code == 301 || $http_code == 302) 
             {
                 $info = requests::$info;
-                if (isset($info['redirect_url'])) 
+                //if (isset($info['redirect_url'])) 
+                if (!empty($info['redirect_url'])) 
                 {
                     $url = $info['redirect_url'];
                     requests::$input_encoding = null;
-                    $html = $this->request_url($url, $link);
+                    $method = empty($link['method']) ? 'get' : strtolower($link['method']);
+                    $params = empty($link['params']) ? array() : $link['params'];
+                    $html = requests::$method($url, $params);
+                    // 有跳转的就直接获取就好，不要调用自己，容易进入死循环
+                    //$html = $this->request_url($url, $link);
                     if ($html && !empty($link['context_data'])) 
                     {
                         $html .= $link['context_data'];
@@ -1772,10 +1775,13 @@ class phpspider
                     if (!empty($fields[$conf['attached_url']])) 
                     {
                         $collect_url = $this->fill_url($fields[$conf['attached_url']], $url);
-                        //log::debug("Find attached content page: {$collect_url}");
+                        log::debug("Find attached content page: {$collect_url}");
                         $link['url'] = $collect_url;
                         $link = $this->link_uncompress($link);
                         requests::$input_encoding = null;
+                        //$method = empty($link['method']) ? 'get' : strtolower($link['method']);
+                        //$params = empty($link['params']) ? array() : $link['params'];
+                        //$html = requests::$method($collect_url, $params);
                         $html = $this->request_url($collect_url, $link);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
                         if ($this->on_download_attached_page) 
