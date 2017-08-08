@@ -1,6 +1,6 @@
 <?php
-ini_set("memory_limit", "1024M");
-require dirname(__FILE__).'/../core/init.php';
+require_once __DIR__ . '/../autoloader.php';
+use phpspider\core\phpspider;
 
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
