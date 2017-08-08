@@ -18,6 +18,7 @@ namespace phpspider\core;
 //use phpspider\library\phpquery;
 use DOMDocument;
 use DOMXpath;
+use Exception;
 
 class selector
 {
