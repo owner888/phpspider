@@ -16,6 +16,7 @@
 namespace phpspider\core;
 
 use Redis;
+use Exception;
 
 class queue
 {
