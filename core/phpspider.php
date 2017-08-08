@@ -47,7 +47,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '3.0.4';
+    const VERSION = '2.0.5';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时, 单位: 毫秒
@@ -1948,13 +1948,13 @@ class phpspider
             {
                 if (!function_exists('mysqli_connect'))
                 {
-                    log::error("Export data to a database need Mysql support, Error: Unable to load mysqli extension.");
+                    log::error("Export data to a database need Mysql support, unable to load mysqli extension.");
                     exit;
                 }
 
                 if (empty(self::$db_config)) 
                 {
-                    log::error("Export data to a database need Mysql support, Error: You not set a config array for connect.");
+                    log::error("Export data to a database need Mysql support, you have not set a config array for connect.");
                     exit;
                 }
 
@@ -1962,7 +1962,7 @@ class phpspider
                 @mysqli_connect($config['host'], $config['user'], $config['pass'], $config['name'], $config['port']);
                 if(mysqli_connect_errno())
                 {
-                    log::error("Export data to a database need Mysql support, Error: ".mysqli_connect_error());
+                    log::error("Export data to a database need Mysql support, ".mysqli_connect_error());
                     exit;
                 }
 
