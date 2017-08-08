@@ -1,16 +1,18 @@
 <?php
-ini_set("memory_limit", "1024M");
-require dirname(__FILE__).'/../core/init.php';
+require_once __DIR__ . '/../autoloader.php';
+use phpspider\core\phpspider;
+use phpspider\core\requests;
+use phpspider\core\db;
 
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
-$url = "https://istore.oppomobile.com/storeapp/home?size=10&start=0";
-$data = requests::get($url);
-$info = requests::$info;
-print_r($info);
+//$url = "https://istore.oppomobile.com/storeapp/home?size=10&start=0";
+//$data = requests::get($url);
+//$info = requests::$info;
+//print_r($info);
+//exit;
 
-exit;
 $configs = array(
     'name' => '13384美女图',
     'tasknum' => 1,
@@ -48,6 +50,13 @@ $configs = array(
         //'type' => 'db', 
         //'table' => 'meinv_content',
     //),
+    'db_config' => array(
+        'host'  => '127.0.0.1',
+        'port'  => 3306,
+        'user'  => 'root',
+        'pass'  => 'root',
+        'name'  => 'qiushibaike',
+    ),
     'fields' => array(
         // 标题
         array(
@@ -106,6 +115,14 @@ $configs = array(
 );
 
 $spider = new phpspider($configs);
+
+
+$spider->on_start = function($phpspider) 
+{
+    // 数据库连接
+    db::set_connect('default', $phpspider::$configs['db_config']);
+    db::init_mysql();
+};
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
