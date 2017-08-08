@@ -420,6 +420,11 @@ class phpspider
         self::$configs = $configs;
     }
 
+    public function get_config($name)
+    {
+        return empty(self::$configs[$name]) ? array() : self::$configs[$name];
+    }
+
     public function add_scan_url($url, $options = array(), $allowed_repeat = true)
     {
         // 投递状态
