@@ -1,6 +1,7 @@
 <?php
-ini_set("memory_limit", "1024M");
-require dirname(__FILE__).'/../core/init.php';
+require_once __DIR__ . '/../autoloader.php';
+use phpspider\core\phpspider;
+use phpspider\core\util;
 
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
@@ -15,9 +16,6 @@ $configs = array(
     //'save_running_state' => true,
     //'input_encoding' => 'utf-8',
     //'max_depth' => 3,
-    //'proxy' => 'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010',
-    //'proxy' => 'http://H569I1428O9U0Z5P:67545392FA7A66E1@proxy.abuyun.com:9010',
-    //'proxy' => 'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010',
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
@@ -32,17 +30,37 @@ $configs = array(
         "http://www.qiushibaike.com/article/\d+",
     ),
     'max_try' => 5,
+    'proxies' => array(
+        'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010'
+    ),
+    //'export' => array(
+        //'type' => 'csv',
+        //'file' => '../data/qiushibaike.csv',
+    //),
+    //'export' => array(
+        //'type'  => 'sql',
+        //'file'  => '../data/qiushibaike.sql',
+        //'table' => 'content',
+    //),
     //'export' => array(
         //'type' => 'db', 
         //'table' => 'content',
-        //'config' => array(
-            //'host'  => '127.0.0.1',
-            //'port'  => 3306,
-            //'user'  => 'root',
-            //'pass'  => 'root',
-            //'name'  => 'demo',
-        //),
     //),
+    //'db_config' => array(
+        //'host'  => '127.0.0.1',
+        //'port'  => 3306,
+        //'user'  => 'root',
+        //'pass'  => 'root',
+        //'name'  => 'qiushibaike',
+    //),
+    'queue_config' => array(
+        'host'      => '127.0.0.1',
+        'port'      => 6379,
+        'pass'      => '',
+        'db'        => 5,
+        'prefix'    => 'phpspider',
+        'timeout'   => 30,
+    ),
     'fields' => array(
         array(
             'name' => "article_title",
