@@ -667,9 +667,11 @@ class phpspider
         if (function_exists('pcntl_signal')) 
         {
             // stop
-            pcntl_signal(SIGINT, array(__CLASS__, 'signal_handler'), false);
+            // static调用方式
+            //pcntl_signal(SIGINT, array(__CLASS__, 'signal_handler'), false);
+            pcntl_signal(SIGINT, array(&$this, 'signal_handler'), false);
             // status
-            pcntl_signal(SIGUSR2, array(__CLASS__, 'signal_handler'), false);
+            pcntl_signal(SIGUSR2, array(&$this, 'signal_handler'), false);
             // ignore
             pcntl_signal(SIGPIPE, SIG_IGN, false);
         }
@@ -1113,7 +1115,7 @@ class phpspider
                 'taskid'       => self::$taskid,
             ),
         );
-        printf("memory usage: %.2f M\n", memory_get_usage() / 1024 / 1024 ); 
+        //printf("memory usage: %.2f M\n", memory_get_usage() / 1024 / 1024 ); 
         unset($html);
 
         //--------------------------------------------------------------------------------
