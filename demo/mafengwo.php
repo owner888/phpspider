@@ -1,6 +1,7 @@
 <?php
-ini_set("memory_limit", "1024M");
-require dirname(__FILE__).'/../core/init.php';
+require_once __DIR__ . '/../autoloader.php';
+use phpspider\core\phpspider;
+use phpspider\core\requests;
 
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
@@ -23,10 +24,10 @@ $configs = array(
     'content_url_regexes' => array(
         "http://www.mafengwo.cn/i/\d+.html",
     ),
-    'export' => array(
-        'type' => 'db', 
-        'table' => 'mafengwo_content',
-    ),
+    //'export' => array(
+        //'type' => 'db', 
+        //'table' => 'mafengwo_content',
+    //),
     'fields' => array(
         // 标题
         array(
