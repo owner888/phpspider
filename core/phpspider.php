@@ -25,15 +25,6 @@ use phpspider\core\util;
 use phpspider\core\log;
 use Exception;
 
-//require CORE.'/log.php';
-//require CORE.'/requests.php';
-//require CORE.'/selector.php';
-//require CORE.'/util.php';
-//require CORE.'/db.php';
-//require CORE.'/cache.php';
-//require CORE."/worker.php"; 
-//require CORE."/phpspider.php"; 
-
 // 启动的时候生成data目录
 util::path_exists(PATH_DATA);
 util::path_exists(PATH_DATA."/lock");
@@ -1686,6 +1677,11 @@ class phpspider
                 if (!isset($return))
                 {
                     log::warn("on_extract_page return value can't be empty");
+                }
+                // 返回false，跳过当前页面，内容不入库
+                elseif ($return === false)
+                {
+                    return false;
                 }
                 elseif (!is_array($return))
                 {
