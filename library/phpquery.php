@@ -12,7 +12,10 @@
  * @package phpQuery
  */
 
-//namespace phpspider\library;
+namespace phpspider\library;
+use DOMDocument;
+use DOMXpath;
+use Exception;
 
 // class names for instanceof
 // TODO move them as class constants into phpQuery
@@ -1130,7 +1133,7 @@ class CallbackParam {}
  * @property Int $length
  */
 class phpQueryObject
-	implements Iterator, Countable, ArrayAccess {
+	implements \Iterator, \Countable, \ArrayAccess {
 	public $documentID = null;
 	/**
 	 * DOMDocument class.
@@ -1691,8 +1694,9 @@ class phpQueryObject
 		}
 		return $new;
 	}
+
 	/**
-	 * Enter description here...
+     * 匹配class
 	 *
 	 * In the future, when PHP will support XLS 2.0, then we would do that this way:
 	 * contains(tokenize(@class, '\s'), "something")
@@ -1728,6 +1732,7 @@ class phpQueryObject
 			);
 		}
 	}
+
 	/**
 	 * @access private
 	 */
@@ -1798,9 +1803,10 @@ class phpQueryObject
 		}
 		$this->elements = $stack;
 	}
+
 	/**
 	 * Enter description here...
-	 *
+	 * css to xpath
 	 * @return phpQueryObject|QueryTemplatesSource|QueryTemplatesParse|QueryTemplatesSourceQuery
 	 */
 	public function find($selectors, $context = null, $noHistory = false) {

@@ -1850,7 +1850,8 @@ class phpspider
                 // 如果值为空而且值设置为必须项, 跳出foreach循环
                 if ($required) 
                 {
-                    // 清空整个 fields
+                    log::warn("Selector {$conf['name']}[{$conf['selector']}] not found, It's a must");
+                    // 清空整个 fields，当前页面就等于略过了
                     $fields = array();
                     break;
                 }

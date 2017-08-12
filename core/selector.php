@@ -15,7 +15,7 @@
 
 namespace phpspider\core;
 
-//use phpspider\library\phpquery;
+use phpspider\library\phpquery;
 use DOMDocument;
 use DOMXpath;
 use Exception;
@@ -28,7 +28,7 @@ class selector
      */
     const VERSION = '1.0.0';
     public static $dom = null;
-    public static $dom_auth = null;
+    public static $dom_auth = array('xpath'=>'', 'css'=>'');
     public static $xpath = null;
     public static $error = null;
 

@@ -8,7 +8,22 @@ use phpspider\core\selector;
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
-$html = requests::get('https://zhuanlan.zhihu.com/p/26369491');
+//$html =<<<STR
+    //<div id="demo">
+        //aaa
+        //<span class="tt">bbb</span>
+        //<span>ccc</span>
+        //<p>ddd</p>
+    //</div>
+//STR;
+
+//// 获取id为demo的div内容
+////$data = selector::select($html, "//div[contains(@id,'demo')]");
+//$data = selector::select($html, "#demo", "css");
+//print_r($data);
+
+$html = requests::get('http://www.qiushibaike.com/article/118914171');
 //echo $html;
-$data = selector::select($html, "//title");
+//exit;
+$data = selector::select($html, "div.author", "css");
 echo $data;

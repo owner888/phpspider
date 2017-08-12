@@ -7,13 +7,15 @@ use phpspider\core\phpspider;
 
 $configs = array(
     'name' => '糗事百科CSS选择器示例',
-    'tasknum' => 8,
+    //'tasknum' => 8,
     'interval' => 350,
+    'log_show' => true,
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
     ),
     'scan_urls' => array(
+        'http://www.qiushibaike.com/article/117568316',
         'http://www.qiushibaike.com/'
     ),
     'list_url_regexes' => array(
@@ -22,11 +24,14 @@ $configs = array(
     'content_url_regexes' => array(
         "http://www.qiushibaike.com/article/\d+",
     ),
-    'max_try' => 5,
-    'export' => array(
-        'type' => 'db', 
-        'table' => 'content',
+    'proxies' => array(
+        'http://H784U84R444YABQD:57A8B0B743F9B4D2@proxy.abuyun.com:9010'
     ),
+    'max_try' => 5,
+    //'export' => array(
+        //'type' => 'db', 
+        //'table' => 'content',
+    //),
     'fields' => array(
         array(
             'name' => "article_title",
@@ -40,36 +45,36 @@ $configs = array(
             'selector_type' => 'css',
             'required' => true,
         ),
-        array(
-            'name' => "article_headimg",
-            'selector' => "//div.author > a:eq(0)",
-            'selector_type' => 'css',
-            'required' => true,
-        ),
-        array(
-            'name' => "article_content",
-            'selector' => "#single-next-link > div.content",
-            'selector_type' => 'css',
-            'required' => true,
-        ),
-        array(
-            'name' => "article_publish_time",
-            'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
-            'selector_type' => 'css',
-            'required' => true,
-        ),
-        array(
-            'name' => "url",
-            'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
-            'selector_type' => 'css',
-            'required' => true,
-        ),
-        array(
-            'name' => "depth",
-            'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
-            'selector_type' => 'css',
-            'required' => true,
-        ),
+        //array(
+            //'name' => "article_headimg",
+            //'selector' => "//div.author > a:eq(0)",
+            //'selector_type' => 'css',
+            //'required' => true,
+        //),
+        //array(
+            //'name' => "article_content",
+            //'selector' => "#single-next-link > div.content",
+            //'selector_type' => 'css',
+            //'required' => true,
+        //),
+        //array(
+            //'name' => "article_publish_time",
+            //'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
+            //'selector_type' => 'css',
+            //'required' => true,
+        //),
+        //array(
+            //'name' => "url",
+            //'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
+            //'selector_type' => 'css',
+            //'required' => true,
+        //),
+        //array(
+            //'name' => "depth",
+            //'selector' => "div.author > a > h2",  // 这里随便设置，on_extract_field回调里面会替换
+            //'selector_type' => 'css',
+            //'required' => true,
+        //),
     ),
 );
 
