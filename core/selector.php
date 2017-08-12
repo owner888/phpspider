@@ -26,7 +26,7 @@ class selector
      * 版本号
      * @var string
      */
-    const VERSION = '1.0.0';
+    const VERSION = '1.0.2';
     public static $dom = null;
     public static $dom_auth = array('xpath'=>'', 'css'=>'');
     public static $xpath = null;
