@@ -360,16 +360,16 @@ class phpspider
             exit;
         }
 
-        $configs['name']        = isset($configs['name'])        ? $configs['name']        : 'phpspider';
-        $configs['proxies']     = isset($configs['proxies'])     ? $configs['proxies']     : array();
-        $configs['user_agent']  = isset($configs['user_agent'])  ? $configs['user_agent']  : self::AGENT_PC;
-        $configs['client_ip']   = isset($configs['client_ip'])   ? $configs['client_ip']   : array();
-        $configs['interval']    = isset($configs['interval'])    ? $configs['interval']    : self::INTERVAL;
-        $configs['timeout']     = isset($configs['timeout'])     ? $configs['timeout']     : self::TIMEOUT;
-        $configs['max_try']     = isset($configs['max_try'])     ? $configs['max_try']     : self::MAX_TRY;
-        $configs['max_depth']   = isset($configs['max_depth'])   ? $configs['max_depth']   : 0;
-        $configs['max_fields']  = isset($configs['max_fields'])  ? $configs['max_fields']  : 0;
-        $configs['export']      = isset($configs['export'])      ? $configs['export']      : array();
+        $configs['name']       = isset($configs['name'])       ? $configs['name']       : 'phpspider';
+        $configs['proxies']    = isset($configs['proxies'])    ? $configs['proxies']    : array();
+        $configs['user_agent'] = isset($configs['user_agent']) ? $configs['user_agent'] : self::AGENT_PC;
+        $configs['client_ip']  = isset($configs['client_ip'])  ? $configs['client_ip']  : array();
+        $configs['interval']   = isset($configs['interval'])   ? $configs['interval']   : self::INTERVAL;
+        $configs['timeout']    = isset($configs['timeout'])    ? $configs['timeout']    : self::TIMEOUT;
+        $configs['max_try']    = isset($configs['max_try'])    ? $configs['max_try']    : self::MAX_TRY;
+        $configs['max_depth']  = isset($configs['max_depth'])  ? $configs['max_depth']  : 0;
+        $configs['max_fields'] = isset($configs['max_fields']) ? $configs['max_fields'] : 0;
+        $configs['export']     = isset($configs['export'])     ? $configs['export']     : array();
 
         // csv、sql、db
         self::$export_type  = isset($configs['export']['type'])  ? $configs['export']['type']  : '';
