@@ -75,6 +75,8 @@ class queue
 
             $prefix = empty($config['prefix']) ? self::$prefix : $config['prefix'];
             self::$links[self::$link_name]->setOption(Redis::OPT_PREFIX, $prefix . ":");
+            // 永不超时
+            // ini_set('default_socket_timeout', -1); 无效，要用下面的做法
             self::$links[self::$link_name]->setOption(Redis::OPT_READ_TIMEOUT, -1);
             self::$links[self::$link_name]->select($config['db']);
         }
