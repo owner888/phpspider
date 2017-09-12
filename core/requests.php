@@ -646,8 +646,16 @@ class requests
                 }
                 else 
                 {
-                    // 某些server可能会有问题
-                    $fields = array_merge($fields, $file_fields);
+                    // 如果是json
+                    if (!is_null($stance = json_decode($fields, true))) 
+                    {
+                        $fields = json_encode(array_merge($stance, $file_fields));
+                    } 
+                    else 
+                    {
+                        // 某些server可能会有问题
+                        $fields = array_merge($fields, $file_fields);
+                    }
                 }
                 // 不能直接传数组，不知道是什么Bug，会非常慢
                 curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
