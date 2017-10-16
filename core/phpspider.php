@@ -873,14 +873,14 @@ class phpspider
             self::$configs['name'] = iconv("UTF-8", "GB2312//IGNORE", self::$configs['name']);
             log::$log_show = true;
         }
+        // 守护进程下也显示日志
+        elseif (self::$daemonize) 
+        {
+            log::$log_show = true;
+        }
         else 
         {
             log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
-        }
-
-        if (self::$daemonize) 
-        {
-            log::$log_show = true;
         }
 
         if (log::$log_show)
@@ -900,10 +900,10 @@ class phpspider
         }
 
         // 如果是守护进程，恢复日志状态
-        if (self::$daemonize) 
-        {
-            log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
-        }
+        //if (self::$daemonize) 
+        //{
+            //log::$log_show = isset(self::$configs['log_show']) ? self::$configs['log_show'] : false;
+        //}
 
         // 多任务和分布式都要清掉, 当然分布式只清自己的
         $this->init_redis();
