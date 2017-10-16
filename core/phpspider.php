@@ -1767,7 +1767,7 @@ class phpspider
                 exit;
             }
 
-            $values = array();
+            $values = NULL;
             // 如果定义抽取规则
             if (!empty($conf['selector'])) 
             {
@@ -1816,7 +1816,7 @@ class phpspider
                 }
 
                 // field不为空而且存在子配置
-                if (!empty($values) && !empty($conf['children'])) 
+                if (isset($values) && !empty($conf['children'])) 
                 {
                     if (!$values) 
                     {
@@ -1841,7 +1841,7 @@ class phpspider
                 }
             }
 
-            if (empty($values)) 
+            if (!isset($values)) 
             {
                 // 如果值为空而且值设置为必须项, 跳出foreach循环
                 if ($required) 
