@@ -1550,6 +1550,9 @@ class phpspider
             }
             else
             {
+                $arr = explode("/", $base_url_path);
+                array_pop($arr);
+                $base_url_path = implode("/", $arr);
                 $url = $base_url_path.'/'.$url;
             }
         }
