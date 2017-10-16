@@ -28,7 +28,7 @@ class selector
      */
     const VERSION = '1.0.2';
     public static $dom = null;
-    public static $dom_auth = array('xpath'=>'', 'css'=>'');
+    public static $dom_auth = '';
     public static $xpath = null;
     public static $error = null;
 
@@ -96,9 +96,9 @@ class selector
         }
 
         // 如果加载的不是之前的HTML内容，替换一下验证标识
-        if (self::$dom_auth['xpath'] != md5($html)) 
+        if (self::$dom_auth != md5($html)) 
         {
-            self::$dom_auth['xpath'] = md5($html);
+            self::$dom_auth = md5($html);
             @self::$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
             self::$xpath = new DOMXpath(self::$dom);
         }
@@ -166,6 +166,35 @@ class selector
     }
 
     /**
+     * css选择器
+     * 
+     * @param mixed $html
+     * @param mixed $selector
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2016-10-26 12:53
+     */
+    private static function _css_select($html, $selector, $remove = false)
+    {
+        $selector = self::css_to_xpath($selector);
+        return self::_xpath_select($html, $selector, $remove);
+        // 如果加载的不是之前的HTML内容，替换一下验证标识
+        //if (self::$dom_auth['css'] != md5($html)) 
+        //{
+            //self::$dom_auth['css'] = md5($html);
+            //phpQuery::loadDocumentHTML($html); 
+        //}
+        //if ($remove) 
+        //{
+            //return phpQuery::pq($selector)->remove(); 
+        //}
+        //else 
+        //{
+            //return phpQuery::pq($selector)->html(); 
+        //}
+    }
+
+    /**
      * 正则选择器
      * 
      * @param mixed $html
@@ -217,34 +246,337 @@ class selector
         return count($result) > 1 ? $result : $result[0];
     }
 
-    /**
-     * css选择器
-     * 
-     * @param mixed $html
-     * @param mixed $selector
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-10-26 12:53
-     */
-    private static function _css_select($html, $selector, $remove = false)
-    {
-        // 如果加载的不是之前的HTML内容，替换一下验证标识
-        if (self::$dom_auth['css'] != md5($html)) 
-        {
-            self::$dom_auth['css'] = md5($html);
-            phpQuery::loadDocumentHTML($html); 
-        }
-        if ($remove) 
-        {
-            return phpQuery::pq($selector)->remove(); 
-        }
-        else 
-        {
-            return phpQuery::pq($selector)->html(); 
-        }
-    }
-
     public static function find_all($html, $selector)
     {
     }
+
+    
+    public static function css_to_xpath($selectors) 
+    {
+		$queries = self::parse_selector($selectors);
+        $delimiter_before = false;
+        $xquery = '';
+        foreach($queries as $s) 
+        {
+            // TAG
+            $is_tag = preg_match('@^[\w|\||-]+$@', $s) || $s == '*';
+            if ($is_tag) 
+            {
+                $xquery .= $s;
+            } 
+            // ID
+            else if ($s[0] == '#') 
+            {
+                if ($delimiter_before)
+                {
+                    $xquery .= '*';
+                }
+                $xquery .= "[@id='".substr($s, 1)."']";
+            }
+            // CLASSES
+            else if ($s[0] == '.') 
+            {
+                if ($delimiter_before)
+                {
+                    $xquery .= '*';
+                }
+                $xquery .= '[@class]';
+            }
+            // ATTRIBUTES
+            else if ($s[0] == '[') 
+            {
+                if ($delimiter_before)
+                {
+                    $xquery .= '*';
+                }
+                // strip side brackets
+                $attr = trim($s, '][');
+                // attr with specifed value
+                if (mb_strpos($s, '=')) 
+                {
+                    $value = null;
+                    list($attr, $value) = explode('=', $attr);
+                    $value = trim($value, "'\"");
+                    if (self::is_regexp($attr)) 
+                    {
+                        // cut regexp character
+                        $attr = substr($attr, 0, -1);
+                        $xquery .= "[@{$attr}]";
+                    } 
+                    else 
+                    {
+                        $xquery .= "[@{$attr}='{$value}']";
+                    }
+                } 
+                // attr without specified value
+                else 
+                {
+                    $xquery .= "[@{$attr}]";
+                }
+            } 
+            // ~ General Sibling Selector
+            else if ($s[0] == '~')
+            {
+            }
+            // + Adjacent sibling selectors
+            else if ($s[0] == '+') 
+            {
+            } 
+            // PSEUDO CLASSES
+            else if ($s[0] == ':') 
+            {
+            }
+            // DIRECT DESCENDANDS
+            else if ($s == '>') 
+            {
+                $xquery .= '/';
+                $delimiter_before = 2;
+            } 
+            // ALL DESCENDANDS
+            else if ($s == ' ') 
+            {
+                $xquery .= '//';
+                $delimiter_before = 2;
+            } 
+            // ERRORS
+            else 
+            {
+                exit("Unrecognized token '$s'");
+            }
+            $delimiter_before = $delimiter_before === 2;
+        }
+        return $xquery;
+    }
+
+	/**
+	 * @access private
+	 */
+    public static function parse_selector($query) 
+    {
+        $query = trim( preg_replace( '@\s+@', ' ', preg_replace('@\s*(>|\\+|~)\s*@', '\\1', $query) ) );
+        $queries = array();
+        if ( !$query )
+        {
+            return $queries;
+        }
+
+        $special_chars = array('>',' ');
+        $special_chars_mapping = array();
+        $strlen = mb_strlen($query);
+        $class_chars = array('.', '-');
+        $pseudo_chars = array('-');
+        $tag_chars = array('*', '|', '-');
+        // split multibyte string
+        // http://code.google.com/p/phpquery/issues/detail?id=76
+        $_query = array();
+        for ( $i=0; $i<$strlen; $i++ )
+        {
+            $_query[] = mb_substr($query, $i, 1);
+        }
+        $query = $_query;
+        // it works, but i dont like it...
+        $i = 0;
+        while( $i < $strlen ) 
+        {
+            $c = $query[$i];
+            $tmp = '';
+            // TAG
+            if ( self::is_char($c) || in_array($c, $tag_chars) ) 
+            {
+                while(isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $tag_chars))) 
+                {
+                    $tmp .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tmp;
+            } 
+            // IDs
+            else if ( $c == '#' ) 
+            {
+                $i++;
+                while( isset($query[$i]) && (self::is_char($query[$i]) || $query[$i] == '-') ) 
+                {
+                    $tmp .= $query[$i];
+                    $i++;
+                }
+                $queries[] = '#'.$tmp;
+            } 
+            // SPECIAL CHARS
+            else if ( in_array($c, $special_chars) ) 
+            {
+                $queries[] = $c;
+                $i++;
+                // MAPPED SPECIAL MULTICHARS
+                //			} else if ( $c.$query[$i+1] == '//') {
+                //				$return[] = ' ';
+                //				$i = $i+2;
+            } 
+            // MAPPED SPECIAL CHARS
+            else if ( isset($special_chars_mapping[$c])) 
+            {
+                $queries[] = $special_chars_mapping[$c];
+                $i++;
+            } 
+            // COMMA
+            else if ( $c == ',' ) 
+            {
+                $i++;
+                while( isset($query[$i]) && $query[$i] == ' ')
+                {
+                    $i++;
+                }
+            } 
+            // CLASSES
+            else if ($c == '.') 
+            {
+                while( isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $class_chars))) 
+                {
+                    $tmp .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tmp;
+            } 
+            // ~ General Sibling Selector
+            else if ($c == '~')
+            {
+                $space_allowed = true;
+                $tmp .= $query[$i++];
+                while( isset($query[$i])
+                    && (self::is_char($query[$i])
+                    || in_array($query[$i], $class_chars)
+                    || $query[$i] == '*'
+                    || ($query[$i] == ' ' && $space_allowed)
+                )) 
+                {
+                    if ($query[$i] != ' ')
+                    {
+                        $space_allowed = false;
+                    }
+                    $tmp .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tmp;
+            }
+            // + Adjacent sibling selectors
+            else if ($c == '+') 
+            {
+                $space_allowed = true;
+                $tmp .= $query[$i++];
+                while( isset($query[$i])
+                    && (self::is_char($query[$i])
+                    || in_array($query[$i], $class_chars)
+                    || $query[$i] == '*'
+                    || ($space_allowed && $query[$i] == ' ')
+                )) 
+                {
+                    if ($query[$i] != ' ')
+                        $space_allowed = false;
+                    $tmp .= $query[$i];
+                    $i++;
+                }
+                $queries[] = $tmp;
+            } 
+            // ATTRS
+            else if ($c == '[') 
+            {
+                $stack = 1;
+                $tmp .= $c;
+                while( isset($query[++$i])) 
+                {
+                    $tmp .= $query[$i];
+                    if ( $query[$i] == '[') 
+                    {
+                        $stack++;
+                    } 
+                    else if ( $query[$i] == ']')
+                    {
+                        $stack--;
+                        if (! $stack )
+                        {
+                            break;
+                        }
+                    }
+                }
+                $queries[] = $tmp;
+                $i++;
+            } 
+            // PSEUDO CLASSES
+            else if ($c == ':') 
+            {
+                $stack = 1;
+                $tmp .= $query[$i++];
+                while( isset($query[$i]) && (self::is_char($query[$i]) || in_array($query[$i], $pseudo_chars))) 
+                {
+                    $tmp .= $query[$i];
+                    $i++;
+                }
+                // with arguments ?
+                if ( isset($query[$i]) && $query[$i] == '(') 
+                {
+                    $tmp .= $query[$i];
+                    $stack = 1;
+                    while( isset($query[++$i])) 
+                    {
+                        $tmp .= $query[$i];
+                        if ( $query[$i] == '(') 
+                        {
+                            $stack++;
+                        } 
+                        else if ( $query[$i] == ')')
+                        {
+                            $stack--;
+                            if (! $stack )
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    $queries[] = $tmp;
+                    $i++;
+                } 
+                else 
+                {
+                    $queries[] = $tmp;
+                }
+            }
+            else
+            {
+                $i++;
+            }
+        }
+
+        if (isset($queries[0])) 
+        {
+            if (isset($queries[0][0]) && $queries[0][0] == ':')
+            {
+                array_unshift($queries, '*');
+            }
+            if ($queries[0] != '>')
+            {
+                array_unshift($queries, ' ');
+            }
+        }
+
+        return $queries;
+    }
+
+    public static function is_char($char)
+    {
+        return preg_match('@\w@', $char);
+    }
+
+    /**
+     * 模糊匹配
+     * ^ 前缀字符串
+     * * 包含字符串
+     * $ 后缀字符串
+	 * @access private
+	 */
+    protected static function is_regexp($pattern) 
+    {
+		return in_array(
+			$pattern[ mb_strlen($pattern)-1 ],
+			array('^','*','$')
+		);
+	}
 }
