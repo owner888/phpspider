@@ -1818,7 +1818,8 @@ class phpspider
                 // field不为空而且存在子配置
                 if (isset($values) && !empty($conf['children'])) 
                 {
-                    if (!$values) 
+                    // 如果提取到的结果是字符串，就转为数组，方便下面统一foreach
+                    if (!is_array($values)) 
                     {
                         $values = array($values);
                     }
