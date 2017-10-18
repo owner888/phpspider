@@ -38,7 +38,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '2.1.0';
+    const VERSION = '2.1.1';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时, 单位: 毫秒
@@ -156,7 +156,7 @@ class phpspider
          'headers'     => array(), // 此url的Headers, 可以为空
          'params'      => array(), // 发送请求时需添加的参数, 可以为空
          'context_data'=> '',      // 此url附加的数据, 可以为空
-         'proxies'     => false,   // 是否使用代理
+         'proxy'       => false,   // 是否使用代理
          'try_num'     => 0        // 抓取次数
          'max_try'     => 0        // 允许抓取失败次数
      ) 
@@ -361,7 +361,7 @@ class phpspider
         }
 
         $configs['name']       = isset($configs['name'])       ? $configs['name']       : 'phpspider';
-        $configs['proxies']    = isset($configs['proxies'])    ? $configs['proxies']    : array();
+        $configs['proxy']      = isset($configs['proxy'])      ? $configs['proxy']      : false;
         $configs['user_agent'] = isset($configs['user_agent']) ? $configs['user_agent'] : self::AGENT_PC;
         $configs['client_ip']  = isset($configs['client_ip'])  ? $configs['client_ip']  : array();
         $configs['interval']   = isset($configs['interval'])   ? $configs['interval']   : self::INTERVAL;
@@ -1233,9 +1233,9 @@ class phpspider
         }
 
         // 是否设置了代理
-        if (!empty($link['proxies'])) 
+        if ($link['proxy']) 
         {
-            requests::set_proxies($link['proxies']);
+            requests::set_proxy($link['proxy']);
         }
 
         // 如何设置了 HTTP Headers
@@ -1610,9 +1610,9 @@ class phpspider
             unset($link['context_data']);
         }
 
-        if (empty($link['proxies'])) 
+        if (empty($link['proxy'])) 
         {
-            unset($link['proxies']);
+            unset($link['proxy']);
         }
 
         if (empty($link['try_num'])) 
@@ -1651,7 +1651,7 @@ class phpspider
             'headers'      => isset($link['headers'])      ? $link['headers']      : array(),    
             'params'       => isset($link['params'])       ? $link['params']       : array(),           
             'context_data' => isset($link['context_data']) ? $link['context_data'] : '',                
-            'proxies'      => isset($link['proxies'])      ? $link['proxies']      : self::$configs['proxies'],             
+            'proxy'        => isset($link['proxy'])        ? $link['proxy']        : self::$configs['proxy'],             
             'try_num'      => isset($link['try_num'])      ? $link['try_num']      : 0,                 
             'max_try'      => isset($link['max_try'])      ? $link['max_try']      : self::$configs['max_try'],
             'depth'        => isset($link['depth'])        ? $link['depth']        : 0,             

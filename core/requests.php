@@ -82,9 +82,9 @@ class requests
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-18 10:17
      */
-    public static function set_proxies($proxies)
+    public static function set_proxy($proxy)
     {
-        self::$proxies = $proxies;
+        self::$proxies = is_array($proxy) ? $proxy : array($proxy);
     }
 
     /**

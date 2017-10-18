@@ -177,6 +177,8 @@ class selector
     private static function _css_select($html, $selector, $remove = false)
     {
         $selector = self::css_to_xpath($selector);
+        //echo $selector."\n";
+        //exit("\n");
         return self::_xpath_select($html, $selector, $remove);
         // 如果加载的不是之前的HTML内容，替换一下验证标识
         //if (self::$dom_auth['css'] != md5($html)) 
@@ -271,6 +273,7 @@ class selector
                 {
                     $xquery .= '*';
                 }
+                // ID用精确查询
                 $xquery .= "[@id='".substr($s, 1)."']";
             }
             // CLASSES
@@ -280,7 +283,8 @@ class selector
                 {
                     $xquery .= '*';
                 }
-                $xquery .= '[@class]';
+                // CLASS用模糊查询
+                $xquery .= "[contains(@class,'".substr($s, 1)."')]";
             }
             // ATTRIBUTES
             else if ($s[0] == '[') 
