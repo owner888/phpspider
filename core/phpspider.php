@@ -38,7 +38,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '2.1.2';
+    const VERSION = '2.1.3';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时, 单位: 毫秒
@@ -2008,7 +2008,7 @@ class phpspider
             {
                 foreach ($keys as $key) 
                 {
-                    $key = str_replace($GLOBALS['config']['redis']['prefix'].":", "", $key);
+                    $key = str_replace(self::$queue_config['prefix'].":", "", $key);
                     queue::del($key);
                 }
             }
