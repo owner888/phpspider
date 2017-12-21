@@ -155,7 +155,8 @@ class db
 
     public static function autocommit($mode = false)
     {
-        self::$links[self::$link_name]['conn'] = self::init_mysql();
+	//self::$links[self::$link_name]['conn'] = self::init_mysql();
+	self::init_mysql(); //上行这个写法是错的, 因为int_mysql没有返回, 所以会一直是Null.
         // $int = $mode ? 1 : 0;
         // return @mysqli_query(self::$links[self::$link_name]['conn'], "SET autocommit={$int}");
         return mysqli_autocommit(self::$links[self::$link_name]['conn'], $mode);
