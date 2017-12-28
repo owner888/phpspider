@@ -155,9 +155,10 @@ class db
 
     public static function autocommit($mode = false)
     {
-        self::$links[self::$link_name]['conn'] = self::init_mysql();
+        //self::$links[self::$link_name]['conn'] = self::init_mysql();
         // $int = $mode ? 1 : 0;
         // return @mysqli_query(self::$links[self::$link_name]['conn'], "SET autocommit={$int}");
+        self::init_mysql();
         return mysqli_autocommit(self::$links[self::$link_name]['conn'], $mode);
     }
 
@@ -170,12 +171,14 @@ class db
 
     public static function commit()
     {
+        self::init_mysql();
         return mysqli_commit(self::$links[self::$link_name]['conn']);
     }
 
 
     public static function rollback()
     {
+        self::init_mysql();
         return mysqli_rollback(self::$links[self::$link_name]['conn']);
     }
 
