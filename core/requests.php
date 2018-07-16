@@ -27,7 +27,7 @@ if (!function_exists('curl_file_create'))
 
 class requests
 {
-    const VERSION = '2.0.0';
+    const VERSION = '2.0.1';
 
     protected static $ch = null;
 
@@ -85,6 +85,19 @@ class requests
     public static function set_proxy($proxy)
     {
         self::$proxies = is_array($proxy) ? $proxy : array($proxy);
+    }
+
+    /**
+     * 删除代理
+     * 因为每个链接信息里面都有代理信息，有的链接需要，有的不需要，所以必须提供一个删除功能
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2018-07-16 17:59
+     */
+    public static function del_proxy()
+    {
+        self::$proxies = array();
     }
 
     /**
@@ -288,6 +301,29 @@ class requests
     public static function set_client_ip($ip)
     {
         self::$client_ips = is_array($ip) ? $ip : array($ip);
+    }
+
+    /**
+     * 删除伪造IP
+     * 
+     * @return void
+     * @author seatle <seatle@foxmail.com> 
+     * @created time :2018-07-16 17:59
+     */
+    public static function del_client_ip()
+    {
+        self::$client_ips = array();
+    }
+
+    /**
+     * 设置中文请求
+     * 
+     * @param string $lang
+     * @return void
+     */
+    public static function set_accept_language($lang = 'zh-CN')
+    {
+        self::$rawheaders['Accept-Language'] = $lang;
     }
 
     /**

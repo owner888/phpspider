@@ -22,6 +22,10 @@ use phpspider\core\selector;
 //$data = selector::select($html, "#demo", "css");
 //print_r($data);
 
+requests::set_proxy(array('223.153.69.150:42354'));
+$html = requests::get('https://www.quivernote.com/test.php');
+var_dump($html);    
+exit;
 $html = requests::get('http://www.qiushibaike.com/article/118914171');
 //echo $html;
 //exit;

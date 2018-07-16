@@ -38,7 +38,7 @@ class phpspider
      * 版本号
      * @var string
      */
-    const VERSION = '2.1.3';
+    const VERSION = '2.1.4';
 
     /**
      * 爬虫爬取每个网页的时间间隔,0表示不延时, 单位: 毫秒
@@ -236,6 +236,15 @@ class phpspider
      * @access public
      */
     public $on_start = null;
+
+    /**
+     * URL采集前调用 
+     * 比如有时需要根据某个特定的URL，来决定这次的请求是否使用代理 / 或使用哪个代理
+     * 
+     * @var mixed
+     * @access public
+     */
+    public $on_before_download_page = null;
 
     /**
      * 网页状态码回调 
@@ -1088,6 +1097,14 @@ class phpspider
         // 爬取页面开始时间
         $page_time_start = microtime(true);
 
+        // 下载页面前执行
+        // 比如有时需要根据某个特定的URL，来决定这次的请求是否使用代理 / 或使用哪个代理
+        if ($this->on_before_download_page) 
+        {
+            $return = call_user_func($this->on_before_download_page, $url, $link, $this);
+            if (isset($return)) $link = $return;
+        }
+
         requests::$input_encoding = null;
         $html = $this->request_url($url, $link);
 
@@ -1227,11 +1244,17 @@ class phpspider
         requests::$output_encoding = 'utf-8';
         requests::set_timeout(self::$configs['timeout']);
         requests::set_useragent(self::$configs['user_agent']);
+
+        // 先删除伪造IP
+        requests::del_client_ip();
+        // 是否设置了伪造IP
         if (self::$configs['client_ip']) 
         {
             requests::set_client_ip(self::$configs['client_ip']);
         }
 
+        // 先删除代理，免得前一个URL的代理被带过来了
+        requests::del_proxy();
         // 是否设置了代理
         if ($link['proxy']) 
         {
