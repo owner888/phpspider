@@ -1571,10 +1571,12 @@ class phpspider
                 $url = preg_replace('#^https://#i','',$url);
                 $scheme = "https";
             }
+            // 相对路径，像 1111.html 这种
             else
             {
                 $arr = explode("/", $base_url_path);
-                array_pop($arr);
+                // 去掉空值
+                array_filter($arr);
                 $base_url_path = implode("/", $arr);
                 $url = $base_url_path.'/'.$url;
             }
@@ -1582,7 +1584,6 @@ class phpspider
         // 两个 / 或以上的替换成一个 /
         $url = preg_replace('@/{1,}@i', '/', $url);
         $url = $scheme.'://'.$url;
-        //echo $url;exit("\n");
 
         $parse_url = @parse_url($url);
         $domain = empty($parse_url['host']) ? $domain : $parse_url['host'];
@@ -1596,6 +1597,7 @@ class phpspider
             }
         }
 
+        echo $url;exit;
         return $url;
     }
 

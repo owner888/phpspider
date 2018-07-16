@@ -8,6 +8,13 @@ use phpspider\core\selector;
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
+
+$html = requests::get('http://lishi.zhuixue.net/xiachao/576024.html');
+//echo $html;
+$data = selector::select($html, "//div[@class='list']");
+print_r($data);
+exit;
+
 //$html =<<<STR
     //<div id="demo">
         //aaa

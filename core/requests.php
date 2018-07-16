@@ -38,7 +38,7 @@ class requests
     public static $timeout = 5;
     public static $encoding = null;
     public static $input_encoding = null;
-    public static $output_encoding = null;
+    public static $output_encoding = 'utf-8';                   // 默认输出utf-8，否则xpath提取不了
     public static $cookies = array();                           // array of cookies to pass
     // $cookies['username'] = "seatle";
     public static $rawheaders = array();                        // array of raw headers to send
