@@ -1576,7 +1576,7 @@ class phpspider
             {
                 $arr = explode("/", $base_url_path);
                 // 去掉空值
-                array_filter($arr);
+                $arr = array_filter($arr);
                 $base_url_path = implode("/", $arr);
                 $url = $base_url_path.'/'.$url;
             }
