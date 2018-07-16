@@ -116,7 +116,9 @@ class selector
         if ($elements === false)
         {
             self::$error = "the selector in the xpath(\"{$selector}\") syntax errors";
-            return false;
+            // 不应该返回false，因为isset(false)为true，更不能通过 !$values 去判断，因为!0为true，所以这里只能返回null
+            //return false;
+            return null;
         }
 
         $result = array();
@@ -159,7 +161,7 @@ class selector
         }
         if (empty($result)) 
         {
-            return false;
+            return null;
         }
         // 如果只有一个元素就直接返回string，否则返回数组
         return count($result) > 1 ? $result : $result[0];
@@ -210,14 +212,14 @@ class selector
         if(@preg_match_all($selector, $html, $out) === false)
         {
             self::$error = "the selector in the regex(\"{$selector}\") syntax errors";
-            return false;
+            return null;
         }
         $count = count($out);
         $result = array();
         // 一个都没有匹配到
         if ($count == 0) 
         {
-            return false;
+            return null;
         }
         // 只匹配一个，就是只有一个 ()
         elseif ($count == 2) 
@@ -242,7 +244,7 @@ class selector
         }
         if (empty($result)) 
         {
-            return false;
+            return null;
         }
         
         return count($result) > 1 ? $result : $result[0];

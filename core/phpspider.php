@@ -1831,6 +1831,7 @@ class phpspider
                 // 没有设置抽取规则的类型 或者 设置为 xpath
                 if (!isset($conf['selector_type']) || $conf['selector_type']=='xpath') 
                 {
+                    // 如果找不到，返回的是false
                     $values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
                 }
                 elseif ($conf['selector_type']=='css') 
