@@ -98,13 +98,6 @@ $configs = array(
 
 $spider = new phpspider($configs);
 
-$spider->on_before_download_page = function($url, $link) 
-{
-    // 比如有时需要根据某个特定的URL，来决定这次的请求是否使用代理 / 或使用哪个代理
-    //$link['proxy'] = '223.153.69.150:42354';
-    //return $link;
-};
-
 $spider->on_handle_img = function($fieldname, $img) 
 {
     $regex = '/src="(https?:\/\/.*?)"/i';
@@ -137,7 +130,6 @@ $spider->on_handle_img = function($fieldname, $img)
 
 $spider->on_extract_field = function($fieldname, $data, $page) 
 {
-    var_dump($fieldname);
     if ($fieldname == 'article_title') 
     {
         if (strlen($data) > 10) 
@@ -158,7 +150,6 @@ $spider->on_extract_field = function($fieldname, $data, $page)
     {
         $data = $page['url'];
     }
-    exit;
     return $data;
 };
 

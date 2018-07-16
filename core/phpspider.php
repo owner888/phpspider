@@ -1597,7 +1597,6 @@ class phpspider
             }
         }
 
-        echo $url;exit;
         return $url;
     }
 
