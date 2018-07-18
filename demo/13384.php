@@ -124,7 +124,7 @@ $spider->on_start = function($phpspider)
     //exit;
     // 数据库连接
     db::set_connect('default', $db_config);
-    db::init_mysql();
+    db::_init();
 };
 
 $spider->on_extract_field = function($fieldname, $data, $page) 

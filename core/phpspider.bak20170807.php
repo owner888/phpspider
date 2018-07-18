@@ -1964,7 +1964,7 @@ class phpspider
                 }
 
                 db::set_connect('default', $config);
-                db::init_mysql();
+                db::_init();
 
                 if (!db::table_exists(self::$export_table))
                 {
