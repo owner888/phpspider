@@ -16,7 +16,7 @@ $configs = array(
     'name' => '糗事百科',
     'log_show' => true,
     'tasknum' => 1,
-    //'save_running_state' => true,
+    'save_running_state' => true,
     'domains' => array(
         'qiushibaike.com',
         'www.qiushibaike.com'
@@ -54,14 +54,14 @@ $configs = array(
         //'pass'  => 'root',
         //'name'  => 'qiushibaike',
     //),
-    //'queue_config' => array(
-        //'host'      => '127.0.0.1',
-        //'port'      => 6379,
-        //'pass'      => '',
-        //'db'        => 5,
-        //'prefix'    => 'phpspider',
-        //'timeout'   => 30,
-    //),
+    'queue_config' => array(
+        'host'      => '127.0.0.1',
+        'port'      => 6379,
+        'pass'      => 'foobared',
+        'db'        => 5,
+        'prefix'    => 'phpspider',
+        'timeout'   => 30,
+    ),
     'fields' => array(
         array(
             'name' => "article_title",
