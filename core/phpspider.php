@@ -2308,7 +2308,7 @@ class phpspider
 
     public function check_cache()
     {
-        if ( !self::$use_redis)
+        if ( !self::$use_redis || self::$save_running_state)
         {
             return false;
         }
