@@ -9,6 +9,37 @@
 // | Author: Seatle Yang <seatle@foxmail.com>
 // +----------------------------------------------------------------------
 
+// +----------------------------------------------------------------------
+// | GET请求
+// | requests::get('http://www.test.com');
+// | SERVER
+// | $_GET
+// +----------------------------------------------------------------------
+// | POST请求
+// | $data = array('name'=>'request');
+// | requests::post('http://www.test.com', $data);
+// | SERVER
+// | $_POST
+// +----------------------------------------------------------------------
+// | POST RESTful请求
+// | $data = array('name'=>'request');
+// | $data_string = json_encode($data);
+// | requests::set_header("Content-Type", "application/json");
+// | requests::post('http://www.test.com', $data_string);
+// | SERVER
+// | file_get_contents('php://input')
+// +----------------------------------------------------------------------
+// | POST 文件上传
+// | $data = array('file1'=>''./data/phpspider.log'');
+// | requests::post('http://www.test.com', null, $data);
+// | SERVER
+// | $_FILES
+// +----------------------------------------------------------------------
+// | 代理
+// | requests::set_proxy(array('223.153.69.150:42354'));
+// | $html = requests::get('https://www.test.com');
+// +----------------------------------------------------------------------
+
 //----------------------------------
 // PHPSpider请求类文件
 //----------------------------------
@@ -655,7 +686,21 @@ class requests
             // 如果是 post 方式
             if ($method == 'POST')
             {
-                curl_setopt( self::$ch, CURLOPT_POST, true );
+                //curl_setopt( self::$ch, CURLOPT_POST, true );
+                $tmpheaders = array_change_key_case(self::$rawheaders, CASE_LOWER);
+                // 有些RESTful服务只接受JSON形态的数据
+                // CURLOPT_POST会把上傳的文件类型设为 multipart/form-data
+                // 把CURLOPT_POSTFIELDS的内容按multipart/form-data 的形式编码
+                // CURLOPT_CUSTOMREQUEST可以按指定内容上传
+                if ( isset($tmpheaders['content-type']) && $tmpheaders['content-type'] == 'application/json' ) 
+                {
+                    curl_setopt( self::$ch, CURLOPT_CUSTOMREQUEST, $method ); 
+                }
+                else 
+                {
+                    curl_setopt( self::$ch, CURLOPT_POST, true );
+                }
+
                 $file_fields = array();
                 if (!empty($files)) 
                 {
@@ -681,7 +726,8 @@ class requests
                 self::$rawheaders['X-HTTP-Method-Override'] = $method;
                 curl_setopt( self::$ch, CURLOPT_CUSTOMREQUEST, $method ); 
             }
-            if (!empty($fields)) 
+
+            if ( $method == 'POST' ) 
             {
                 // 不是上传文件的，用http_build_query, 能实现更好的兼容性，更小的请求数据包
                 if ( empty($file_fields) ) 
@@ -705,6 +751,7 @@ class requests
                         $fields = $file_fields;
                     }
                 }
+
                 // 不能直接传数组，不知道是什么Bug，会非常慢
                 curl_setopt( self::$ch, CURLOPT_POSTFIELDS, $fields );
             }
@@ -739,12 +786,12 @@ class requests
 
         if (self::$rawheaders)
         {
-            $headers = array();
+            $http_headers = array();
             foreach (self::$rawheaders as $k=>$v) 
             {
-                $headers[] = $k.': '.$v;
+                $http_headers[] = $k.': '.$v;
             }
-            curl_setopt( self::$ch, CURLOPT_HTTPHEADER, $headers );
+            curl_setopt( self::$ch, CURLOPT_HTTPHEADER, $http_headers );
         }
 
         curl_setopt( self::$ch, CURLOPT_ENCODING, 'gzip' );
