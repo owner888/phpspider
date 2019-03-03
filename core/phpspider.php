@@ -432,6 +432,9 @@ class phpspider
         $configs['max_sub_num']       = isset($configs['max_sub_num']) ? $configs['max_sub_num'] : self::$max_sub_num;
         $configs['max_stand_by_time'] = isset($configs['max_stand_by_time']) ? $configs['max_stand_by_time'] : self::$max_stand_by_time;
         $configs['max_task_per_host'] = isset($configs['max_task_per_host']) ? $configs['max_task_per_host'] : self::$max_task_per_host;
+        //配置发现内容页的匹配规则 BY woodylan <woodylan@126.com>
+        $configs['find_content_url_regex']['selector_type'] = 'xpath';
+        $configs['find_content_url_regex']['selector']      = '//a/@href';
         //启用 host并发上限时，队列参数强制为随机
         if ($configs['max_task_per_host'] > 0)
         {
@@ -1644,7 +1647,7 @@ class phpspider
         //--------------------------------------------------------------------------------
         // 正则匹配出页面中的URL
         //--------------------------------------------------------------------------------
-        $urls = selector::select($html, '//a/@href');             
+        $urls = selector::select($html, self::$configs['find_content_url_regex']['selector'], self::$configs['find_content_url_regex']['selector_type']);
         //preg_match_all("/<a.*href=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isU", $html, $matchs); 
         //$urls = array();
         //if (!empty($matchs[1])) 
