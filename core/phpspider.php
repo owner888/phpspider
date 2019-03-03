@@ -433,8 +433,8 @@ class phpspider
         $configs['max_stand_by_time'] = isset($configs['max_stand_by_time']) ? $configs['max_stand_by_time'] : self::$max_stand_by_time;
         $configs['max_task_per_host'] = isset($configs['max_task_per_host']) ? $configs['max_task_per_host'] : self::$max_task_per_host;
         //配置发现内容页的匹配规则 BY woodylan <woodylan@126.com>
-        $configs['find_content_url_regex']['selector_type'] = 'xpath';
-        $configs['find_content_url_regex']['selector']      = '//a/@href';
+        $configs['find_content_url_regex']['selector_type'] = isset($configs['find_content_url_regex']['selector_type']) ? $configs['find_content_url_regex']['selector_type'] : 'xpath';
+        $configs['find_content_url_regex']['selector']      = isset($configs['find_content_url_regex']['selector']) ? $configs['find_content_url_regex']['selector'] : '//a/@href';
         //启用 host并发上限时，队列参数强制为随机
         if ($configs['max_task_per_host'] > 0)
         {
