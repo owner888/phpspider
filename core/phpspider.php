@@ -455,6 +455,12 @@ class phpspider
             self::$tasknum = $configs['tasknum'];
         }
 
+        if (isset($configs['tasknum']) && $configs['tasknum'] > 1 && !isset($configs['queue_config'])){
+            $msg = "Please configure parameters to enable multi-process 'queue_config'";
+            log::error($msg);
+            exit;
+        }
+
         // 是否设置了保留运行状态
         if (isset($configs['save_running_state'])) 
         {
