@@ -74,4 +74,4 @@ class autoloader
     }
 }
 
-spl_autoload_register('\phpspider\autoloader::load_by_namespace');
+spl_autoload_register('\phpspider\autoloader::load_by_namespace', true, true);

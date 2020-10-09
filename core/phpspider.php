@@ -318,7 +318,7 @@ class phpspider
     public $on_download_page = null;
 
     /**
-     * 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理 
+     * 在一个attached_url对应的网页下载完成之后调用. 主要用来对分页网页进行处理 
      * 
      * @var mixed
      * @access public
@@ -1532,7 +1532,7 @@ class phpspider
                 requests::set_header($k, $v);
             }
         }
-        //限制 http 请求模式为 get 或 post
+        // 限制 http 请求模式为 get 或 post
         $method = trim(strtolower($link['method']));
         $method = ($method == 'post') ? 'post' : 'get';
         $params = empty($link['params']) ? array() : $link['params'];
@@ -1545,7 +1545,7 @@ class phpspider
 
         $http_code = requests::$status_code;
 
-        //请求完成 host 的并发计数减 1 2018-5 BY KEN <a-site@foxmail.com>
+        // 请求完成 host 的并发计数减 1 2018-5 BY KEN <a-site@foxmail.com>
         if (self::$configs['max_task_per_host'] > 0)
         {
             $this->incr_task_per_host($url, 'decr');
@@ -1593,14 +1593,8 @@ class phpspider
             }
             else 
             {
-                if ( ! empty(self::$configs['max_try']) and $http_code == 407)
-                {
-                    // 扔到队列头部去, 继续采集
-                    $this->queue_rpush($link);
-                    log::error("Failed to download page {$url}");
-                    self::$collect_fail++;
-                }
-                elseif ( ! empty(self::$configs['max_try']) and in_array($http_code, array('0', '502', '503', '429')))
+                // 407 为代理服务器出错，其他是服务器出错
+                if ( ! empty(self::$configs['max_try']) and in_array($http_code, ['407', '0', '502', '503', '429']) )
                 {
                     // 采集次数加一
                     $link['try_num']++;
@@ -2109,7 +2103,10 @@ class phpspider
                         $link['url'] = $collect_url;
                         $link = $this->link_uncompress($link);
                         requests::$input_encoding = null;
-                        $html                     = $this->request_url($collect_url, $link);
+                        $method = empty($link['method']) ? 'get' : strtolower($link['method']);
+                        $params = empty($link['params']) ? array() : $link['params'];
+                        $html = requests::$method($url, $params);
+                        //$html = $this->request_url($collect_url, $link);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
                         if ($this->on_download_attached_page) 
                         {
@@ -2713,38 +2710,6 @@ class phpspider
             }
         }
         return $status;
-    }
-
-    /**
-     * 从队列左边取出
-     * 后进先出
-     * 可以避免采集内容页有分页的时候采集失败数据拼凑不全
-     * 还可以按顺序采集列表页
-     * 
-     * @return void
-     * @author seatle <seatle@foxmail.com> 
-     * @created time :2016-09-23 17:13
-     */
-    public function queue_lpop()
-    {
-        if (self::$use_redis)
-        {
-            //根据采集设置为顺序采集还是随机采集，使用列表或集合对象
-            if (self::$configs['queue_order'] == 'rand')
-            {
-                $link = queue::spop('collect_queue');
-            }
-            else
-            {
-                $link = queue::lpop('collect_queue');
-            }
-            $link = json_decode($link, true);
-        }
-        else 
-        {
-            $link = array_pop(self::$collect_queue); 
-        }
-        return $link;
     }
 
     /**

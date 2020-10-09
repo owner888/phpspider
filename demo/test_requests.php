@@ -8,7 +8,33 @@ use phpspider\core\selector;
 /* Do NOT delete this comment */
 /* 不要删除这段注释 */
 
+$bot_token = "10100386:Z0dT3Oalvu5IGC71OrvGs3hT";
 
+$url = "https://api.potato.im:8443/{$bot_token}/sendTextMessage";
+
+$data = array(
+    'chat_type' => 2,
+    'chat_id'   => 10160267,
+    'text'      => 'Hello',
+);
+$data = json_encode($data);
+requests::set_header("Content-Type", "application/json");
+$html = requests::post($url, $data);
+var_dump($html);
+exit;
+
+
+//$url = "https://api.telegram.org/bot631221524:AAHmiCfIDNfJdae1WXXNNQvhC7t2qSSjqPE/setWebhook";
+$url = "https://api.potato.im:8443/{$bot_token}/setWebhook";
+
+$data = array('url'=>'https://www.quivernote.com/bot.php');
+$data = json_encode($data);
+requests::set_header("Content-Type", "application/json");
+$html = requests::post($url, $data);
+var_dump($html);    
+
+
+exit;
 $html = requests::get('http://lishi.zhuixue.net/xiachao/576024.html');
 //echo $html;
 $data = selector::select($html, "//div[@class='list']");
