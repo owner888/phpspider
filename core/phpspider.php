@@ -1607,8 +1607,8 @@ class phpspider
                     // 抓取次数 小于 允许抓取失败次数
                     if ( $link['try_num'] <= $link['max_try'] ) 
                     {
-                        // 扔到队列头部去, 继续采集
-                        $this->queue_rpush($link);
+                        // 扔到队列头部去, 继续采集，第二个参数为true，否则会被判断为已经存在队列无法重复采集
+                        $this->queue_rpush($link, true);
                     }
                     log::error("Failed to download page {$url}, retry({$link['try_num']})");
                 }
@@ -2617,7 +2617,7 @@ class phpspider
             if (queue::lock($lock))
             {
                 $exists = queue::exists($key); 
-                // 不存在或者当然URL可重复入
+                // 不存在或者当前URL可重复入
                 if (!$exists || $allowed_repeat) 
                 {
                     // 待爬取网页记录数加一
@@ -2644,7 +2644,9 @@ class phpspider
         else 
         {
             $key = md5($url);
-            if (!array_key_exists($key, self::$collect_urls))
+            $exists = array_key_exists($key, self::$collect_urls);
+            // 不存在或者当然URL可重复入
+            if ( ! $exists || $allowed_repeat)
             {
                 self::$collect_urls_num++;
                 self::$collect_urls[$key] = time();
@@ -2707,7 +2709,9 @@ class phpspider
         else 
         {
             $key = md5($url);
-            if (!array_key_exists($key, self::$collect_urls))
+            $exists = array_key_exists($key, self::$collect_urls);
+            // 不存在或者当然URL可重复入
+            if ( ! $exists || $allowed_repeat)
             {
                 self::$collect_urls_num++;
                 self::$collect_urls[$key] = time();
