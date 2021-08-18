@@ -2170,7 +2170,7 @@ class phpspider
                 }
             }
 
-            if (!isset($values)) 
+            if (!$values) 
             {
                 // 如果值为空而且值设置为必须项, 跳出foreach循环
                 if ($required) 
