@@ -2440,7 +2440,7 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-10-30 23:56
      */
-    public function get_task_status_list($serverid = 1, $tasknum)
+    public function get_task_status_list($serverid = 1, $tasknum = 1)
     {
         $task_status = array();
         if (self::$use_redis)
