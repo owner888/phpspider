@@ -341,11 +341,11 @@ class util
      */
     public static function letter_first($s0)
     {
-        $firstchar_ord = ord(strtoupper($s0[0]));
-        if (($firstchar_ord >= 65 and $firstchar_ord <= 91) or ($firstchar_ord >= 48 and $firstchar_ord <= 57)) return $s0[0];
+        $firstchar_ord = ord(strtoupper(substr($s0, 0, 1)));
+        if (($firstchar_ord >= 65 and $firstchar_ord <= 91) or ($firstchar_ord >= 48 and $firstchar_ord <= 57)) return substr($s0, 0, 1);
         // $s = iconv("utf-8", "gbk//ignore", $s0);
         $s = mb_convert_encoding($s0, "gbk", "utf-8");
-        $asc = ord($s[0]) * 256 + ord($s[1]) - 65536;
+        $asc = ord(substr($s, 0, 1)) * 256 + ord(substr($s, 1, 1)) - 65536;
         if ($asc >= -20319 and $asc <= -20284) return "A";
         if ($asc >= -20283 and $asc <= -19776) return "B";
         if ($asc >= -19775 and $asc <= -19219) return "C";
