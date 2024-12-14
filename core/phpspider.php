@@ -2111,7 +2111,9 @@ class phpspider
                         requests::$input_encoding = null;
                         $method = empty($link['method']) ? 'get' : strtolower($link['method']);
                         $params = empty($link['params']) ? array() : $link['params'];
-                        $html = requests::$method($url, $params);
+                        $html = requests::$method($collect_url, $params);
+			$page['url'] = $collect_url;
+			$page['raw'] =  $html;
                         //$html = $this->request_url($collect_url, $link);
                         // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
                         if ($this->on_download_attached_page) 
