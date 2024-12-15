@@ -153,13 +153,10 @@ $spider->on_extract_field = function($fieldname, $data, $page)
 
     if ($fieldname == 'article_title') 
     {
-        //echo $data."\n";exit;
         $data = trim($data);
         if (strlen($data) > 10) 
         {
-            // 下面方法截取中文会有乱码
-            //$data = substr($data, 0, 10)."...";
-            $data = mb_substr($data, 0, 10, 'UTF-8')."...";
+            $data = mb_strcut($data, 0, 10, 'UTF-8')."...";
         }
     }
     elseif ($fieldname == 'article_publish_time') 
