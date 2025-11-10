@@ -2105,9 +2105,20 @@ class phpspider
                 if (isset($conf['source_type']) && $conf['source_type']=='attached_url') 
                 {
                     // 取出上个field的内容作为连接, 内容分页是不进队列直接下载网页的
-                    if (!empty($fields[$conf['attached_url']])) 
-                    {
+                    $attached_tpl = $conf['attached_url'];
+                    if (preg_match_all('/\{(\w+)\}/', $attached_tpl, $matches)) {
+                        foreach ($matches[1] as $varname) {
+                            if (isset($fields[$varname])) {
+                                $collect_url = str_replace('{' . $varname . '}', $fields[$varname], $attached_tpl);
+                                $collect_url = $this->fill_url($collect_url, $url);
+                            }
+                        }
+                    }
+                    if (!empty($fields[$conf['attached_url']])) {
                         $collect_url = $this->fill_url($fields[$conf['attached_url']], $url);
+                    }
+
+                    if ($collect_url) {
                         log::debug("Find attached content page: {$collect_url}");
                         $link['url'] = $collect_url;
                         $link = $this->link_uncompress($link);
