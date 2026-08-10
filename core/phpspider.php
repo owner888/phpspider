@@ -2118,8 +2118,8 @@ class phpspider
             $values = NULL;
             // 如果定义抽取规则
             if (!empty($conf['selector'])) {
-                // 如果这个field是上一个field的附带连接
-                if (isset($conf['source_type']) && $conf['source_type'] == 'attached_url') {
+                // 如果这个field是上一个field的附带连接  //如果是attached_page则不进入重复抽取
+                if (isset($conf['source_type']) && $conf['source_type'] == 'attached_url' && empty($page['_attached_page_urls'])) {
                     // 取出上个field的内容作为连接, 内容分页是不进队列直接下载网页的
                     $attached_tpl = $conf['attached_url'];
                     // 修复attached_url传入参数，使用{字段}作为变量替换方式，兼容增加指定其他url拼接
@@ -2127,7 +2127,6 @@ class phpspider
                         foreach ($matches[1] as $varname) {
                             if (isset($fields[$varname])) {
                                 $collect_url = str_replace('{' . $varname . '}', $fields[$varname], $attached_tpl);
-                                $collect_url = $this->fill_url($collect_url, $url);
                             }
                         }
                     }
@@ -2221,6 +2220,7 @@ class phpspider
 
                 foreach ($task['urls'] as $next_url) {
                     $collect_url = $this->fill_url($next_url, $url);
+
                     if (empty($collect_url)) {
                         continue;
                     }
