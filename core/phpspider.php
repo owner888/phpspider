@@ -2121,21 +2121,14 @@ class phpspider
                 // 如果这个field是上一个field的附带连接  //如果是attached_page则不进入重复抽取
                 if (isset($conf['source_type']) && $conf['source_type'] == 'attached_url' && empty($page['_attached_page_urls'])) {
                     // 取出上个field的内容作为连接, 内容分页是不进队列直接下载网页的
-                    $attached_tpl = $conf['attached_url'];
                     // 修复attached_url传入参数，使用{字段}作为变量替换方式，兼容增加指定其他url拼接
-                    if (preg_match_all('/\{(\w+)\}/', $attached_tpl, $matches)) {
-                        foreach ($matches[1] as $varname) {
-                            if (isset($fields[$varname])) {
-                                $collect_url = str_replace('{' . $varname . '}', $fields[$varname], $attached_tpl);
-                            }
-                        }
-                    }
-                    if (!empty($fields[$conf['attached_url']])) {
-                        $collect_url = $this->fill_url($fields[$conf['attached_url']], $url);
+                    $attached_field = preg_replace('/^\{(\w+)\}$/', '$1', $conf['attached_url']);
+                    if (!empty($fields[$attached_field]) && !preg_match('#^https?://#i', $fields[$attached_field])) {
+                        $collect_url = $this->fill_url($fields[$attached_field], $url);
                     }
                     if (!empty($collect_url)) {
                         $html = $download_page($collect_url);
-                        unset($fields[$conf['attached_url']]);
+                        unset($fields[$attached_field]);
                     }
                 }
 
