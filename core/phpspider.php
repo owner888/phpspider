@@ -1873,7 +1873,8 @@ class phpspider
             {
                 $arr = explode("/", $base_url_path);
                 // 去掉空值
-                $arr = array_filter($arr);
+                //$arr = array_filter($arr);
+		$arr = array_filter($arr, 'strlen');    //修正url出现0被误过滤问题
                 $base_url_path = implode("/", $arr);
                 $url = $base_url_path.'/'.$url;
             }
