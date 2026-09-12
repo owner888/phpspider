@@ -1572,6 +1572,7 @@ class phpspider
             {
                 return false;
             }
+			$http_code = requests::$status_code;  //2026-08-17 github:zbuse on_status_code里面处理后返回了html避免再次进入队列
         }
 
         if ($http_code != 200)
@@ -1896,6 +1897,7 @@ class phpspider
             //排除非域名下的url以提高爬取速度
             if (!in_array($parse_url['host'], self::$configs['domains'])) 
             {
+				log::warn("当前{$url}不在域名白名单内");
                 return false;
             }
         }
@@ -2082,105 +2084,114 @@ class phpspider
      * @author seatle <seatle@foxmail.com> 
      * @created time :2016-09-23 17:13
      */
-    public function get_fields($confs, $html, $url, $page) 
+    public function get_fields($confs, $html, $url, $page)
     {
         $fields = array();
-        foreach ($confs as $conf) 
-        {
+        // 2026-8-10 github:zbuse 改动说明：仿照attached_url方式增加source_type类型attached_page，实现多个自动分页下载数据
+        if (!isset($page['_attached_page_urls'])) {
+            $page['_attached_page_urls'] = array();
+        }
+        $attached_tasks = array();  // 暂存分页任务
+        // 2026-8-12 github:zbuse 简易闭包：传入 $collect_url 下载html (不改变原有函数使用闭包封装，借用page外部传入参数兼容独立调用get_fields)
+        $download_attached_page = function ($collect_url, $page) {
+            log::debug("Find attached content page: {$collect_url}");
+            $link = array_merge(array('url' => $collect_url), array_intersect_key($page, array_flip(array('method', 'params', 'headers'))));
+            $link = $this->link_uncompress($link);
+            // requests::$input_encoding = null;
+            // $method = empty($link['method']) ? 'get' : strtolower($link['method']);
+            // $params = empty($link['params']) ? array() : $link['params'];
+            // $html = requests::$method($collect_url, $params);
+            // 改回request_url方式获取html
+            $html = $this->request_url($collect_url, $link);
+            // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
+            if ($this->on_download_attached_page) {
+                $return = call_user_func($this->on_download_attached_page, $html, $this);
+                if (isset($return)) {
+                    $html = $return;
+                }
+            }
+            return $html;
+        };
+
+        foreach ($confs as $conf) {
             // 当前field抽取到的内容是否是有多项
             $repeated = isset($conf['repeated']) && $conf['repeated'] ? true : false;
             // 当前field抽取到的内容是否必须有值
             $required = isset($conf['required']) && $conf['required'] ? true : false;
 
-            if (empty($conf['name'])) 
-            {
+            if (empty($conf['name'])) {
                 log::error("The field name is null, please check your \"fields\" and add the name of the field\n");
                 exit;
             }
 
             $values = NULL;
             // 如果定义抽取规则
-            if (!empty($conf['selector'])) 
-            {
-                // 如果这个field是上一个field的附带连接
-                if (isset($conf['source_type']) && $conf['source_type']=='attached_url') 
-                {
+            if (!empty($conf['selector'])) {
+                // 如果这个field是上一个field的附带连接  //如果是attached_page则不进入重复抽取
+                if (isset($conf['source_type']) && $conf['source_type'] == 'attached_url' && empty($attached_tasks)) {
                     // 取出上个field的内容作为连接, 内容分页是不进队列直接下载网页的
-                    if (!empty($fields[$conf['attached_url']])) 
-                    {
-                        $collect_url = $this->fill_url($fields[$conf['attached_url']], $url);
-                        log::debug("Find attached content page: {$collect_url}");
-                        $link['url'] = $collect_url;
-                        $link = $this->link_uncompress($link);
-                        requests::$input_encoding = null;
-                        $method = empty($link['method']) ? 'get' : strtolower($link['method']);
-                        $params = empty($link['params']) ? array() : $link['params'];
-                        $html = requests::$method($collect_url, $params);
-			$page['url'] = $collect_url;
-			$page['raw'] =  $html;
-                        //$html = $this->request_url($collect_url, $link);
-                        // 在一个attached_url对应的网页下载完成之后调用. 主要用来对下载的网页进行处理.
-                        if ($this->on_download_attached_page) 
-                        {
-                            $return = call_user_func($this->on_download_attached_page, $html, $this);
-                            if (isset($return)) 
-                            {
-                                $html = $return;
+                    // 修复attached_url传入参数，使用{字段}作为变量替换方式，兼容增加指定其他url拼接
+                    $collect_url = $conf['attached_url'];
+                    $unset_fields = array();
+                    // 提取变量 替换标签
+                    if (preg_match_all('/\{(\w+)\}/', $collect_url, $matches)) {
+                        foreach ($matches[1] as $field) {
+                            if (isset($fields[$field])) {
+                                $collect_url = str_replace('{' . $field . '}', $fields[$field], $collect_url);
+                                $unset_fields[] = $field;
                             }
                         }
-
-                        // 请求获取完分页数据后把连接删除了 
-                        unset($fields[$conf['attached_url']]);
+                    }
+                    // 如果不是完整URL，补全
+                    if (!empty($collect_url) && !preg_match('#^https?://#i', $collect_url)) {
+                        $collect_url = $this->fill_url($collect_url, $url);
+                    }
+                    if (!empty($collect_url)) {
+                        $html = $download_attached_page($collect_url, $page);
+                        // 请求获取完分页数据后把连接删除了
+                        if (!empty($html)) {
+                            foreach ($unset_fields as $field) {
+                                unset($fields[$field]);
+                            }
+                        }
                     }
                 }
 
                 // 没有设置抽取规则的类型 或者 设置为 xpath
-                if (!isset($conf['selector_type']) || $conf['selector_type']=='xpath') 
-                {
+                if (!isset($conf['selector_type']) || $conf['selector_type'] == 'xpath') {
                     // 如果找不到，返回的是false
                     $values = $this->get_fields_xpath($html, $conf['selector'], $conf['name']);
-                }
-                elseif ($conf['selector_type']=='css') 
-                {
+                } elseif ($conf['selector_type'] == 'css') {
                     $values = $this->get_fields_css($html, $conf['selector'], $conf['name']);
-                }
-                elseif ($conf['selector_type']=='regex') 
-                {
+                } elseif ($conf['selector_type'] == 'regex') {
                     $values = $this->get_fields_regex($html, $conf['selector'], $conf['name']);
                 }
 
                 // field不为空而且存在子配置
-                if (isset($values) && !empty($conf['children'])) 
-                {
+                if (isset($values) && !empty($conf['children'])) {
                     // 如果提取到的结果是字符串，就转为数组，方便下面统一foreach
-                    if (!is_array($values)) 
-                    {
+                    if (!is_array($values)) {
                         $values = array($values);
                     }
                     $child_values = array();
                     // 父项抽取到的html作为子项的提取内容
-                    foreach ($values as $child_html) 
-                    {
+                    foreach ($values as $child_html) {
                         // 递归调用本方法, 所以多少子项目都支持
                         $child_value = $this->get_fields($conf['children'], $child_html, $url, $page);
-                        if (!empty($child_value)) 
-                        {
+                        if (!empty($child_value)) {
                             $child_values[] = $child_value;
                         }
                     }
                     // 有子项就存子项的数组, 没有就存HTML代码块
-                    if (!empty($child_values)) 
-                    {
+                    if (!empty($child_values)) {
                         $values = $child_values;
                     }
                 }
             }
 
-            if (!isset($values)) 
-            {
+            if (!isset($values)) {
                 // 如果值为空而且值设置为必须项, 跳出foreach循环
-                if ($required) 
-                {
+                if ($required) {
                     log::warn("Selector {$conf['name']}[{$conf['selector']}] not found, It's a must");
                     // 清空整个 fields，当前页面就等于略过了
                     $fields = array();
@@ -2188,61 +2199,130 @@ class phpspider
                 }
                 // 避免内容分页时attached_url拼接时候string + array了
                 $fields[$conf['name']] = '';
-                //$fields[$conf['name']] = array();
-            }
-            else 
-            {
-                if (is_array($values)) 
-                {
-                    if ($repeated) 
-                    {
+                // $fields[$conf['name']] = array();
+            } else {
+                if (is_array($values)) {
+                    if ($repeated) {
                         $fields[$conf['name']] = $values;
-                    }
-                    else 
-                    {
+                    } else {
                         $fields[$conf['name']] = $values[0];
                     }
-                }
-                else 
-                {
+                } else {
                     $fields[$conf['name']] = $values;
                 }
                 // 不重复抽取则只取第一个元素
-                //$fields[$conf['name']] = $repeated ? $values : $values[0];
+                // $fields[$conf['name']] = $repeated ? $values : $values[0];
+            }
+
+            // github:zbuse 2026-08-12 暂存 attached_page 分页任务 ， 实现attached_page自动获取分页内容
+            // attached_page 批量获取url 建议在规则内排除第一页 （后续考虑加入url顺序排序）
+            if (!empty($fields[$conf['name']]) && isset($conf['source_type']) && $conf['source_type'] == 'attached_page' && !isset($page['_attached_page_urls'][$url])) {
+                $target_field = !empty($conf['attached_url']) ? $conf['attached_url'] : '';
+                // 没有附加目标字段，不创建任务
+                if (!$target_field) {
+                    continue;
+                }
+                $task_confs = array();  // 拷贝附加字段一份字段分页抓取
+                foreach ($confs as $item) {
+                    if (isset($item['name']) && $item['name'] == $target_field) {
+                        $task_confs[] = $item;
+                        break;
+                    }
+                }
+                // 目标字段不存在，不创建任务
+                if (empty($task_confs)) {
+                    continue;
+                }
+                $task_confs[] = $conf;
+                log::debug('Processing attached_page task');
+                $page['_attached_page_urls'][$url] = true;  // 标记当前url已采集
+                $attached_values = $fields[$conf['name']];
+                $attached_values = is_array($attached_values) ? $attached_values : array($attached_values);
+                foreach ($attached_values as $key => $next_url) {
+                    $attached_values[$key] = $this->fill_url($next_url, $url);
+                }
+
+                $attached_tasks[] = array(
+                    'page_field' => $conf['name'],
+                    'target_field' => $target_field,
+                    'urls' => $attached_values,
+                    'confs' => $task_confs,
+                );
             }
         }
 
-        if (!empty($fields)) 
-        {
-            foreach ($fields as $fieldname => $data) 
-            {
-                $pattern = "/<img\s+.*?src=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isu";
-                /*$pattern = "/<img.*?src=[\'|\"](.*?(?:[\.gif|\.jpg|\.jpeg|\.png]))[\'|\"].*?[\/]?>/i"; */
-                // 在抽取到field内容之后调用, 对其中包含的img标签进行回调处理
-                if ($this->on_handle_img && preg_match($pattern, $data)) 
-                {
-                    $return = call_user_func($this->on_handle_img, $fieldname, $data);
-                    if (!isset($return))
-                    {
-                        log::warn("on_handle_img return value can't be empty\n");
+        // github:zbuse 2026-08-13实现追加分页附加爬取内容
+        if (!empty($attached_tasks)) {
+            foreach ($attached_tasks as $task) {
+                $page_field = $task['page_field'];
+                $target_field = $task['target_field'];
+
+                // foreach 改为 while，支持中途动态补充后续分页链接
+                while (!empty($task['urls'])) {
+                    $next_url = array_shift($task['urls']);
+                    if (!empty($next_url) && !preg_match('#^https?://#i', $next_url)) {
+                        $next_url = $this->fill_url($next_url, $url);
                     }
-                    else 
-                    {
+                    // 防死循环 / 全局跨层去重
+                    if (empty($next_url) || $next_url === $url || isset($page['_attached_page_urls'][$next_url])) {
+                        continue;
+                    }
+
+                    $page['url'] = $next_url;
+                    $page['raw'] = $download_attached_page($next_url, $page);
+                    $page['_attached_page_urls'][$next_url] = true;
+
+                    $next_fields = $this->get_fields($task['confs'], $page['raw'], $next_url, $page);
+
+                    // 如果新抓取的页面解析出了新的分页 URL（比如下一页），追加到队列后面跟进抓取
+                    if (!empty($next_fields[$page_field])) {
+                        $more_urls = is_array($next_fields[$page_field]) ? $next_fields[$page_field] : [$next_fields[$page_field]];
+                        foreach ($more_urls as $m_url) {
+                            $m_url = strtok($m_url, '#');
+                            if (!empty($m_url) && !isset($page['_attached_page_urls'][$m_url])) {
+                                $task['urls'][] = $m_url;
+                            }
+                        }
+                    }
+
+                    if (!empty($target_field) && !empty($next_fields[$target_field])) {
+                        $attach_val = $next_fields[$target_field];
+                        if (empty($fields[$target_field])) {
+                            $fields[$target_field] = $attach_val;
+                        } elseif (is_array($fields[$target_field])) {
+                            $fields[$target_field] = array_merge($fields[$target_field], $attach_val);
+                        } else {
+                            $fields[$target_field] .= $attach_val;
+                        }
+                    }
+                }
+                // 清理附加attached_page字段
+                unset($fields[$page_field]);
+                $page['url'] = $url;  // 放回原有入口url
+            }
+            log::debug('Successfully processed attached page task');
+        }
+
+        if (!empty($fields)) {
+            foreach ($fields as $fieldname => $data) {
+                $pattern = "/<img\s+.*?src=[\"']{0,1}(.*)[\"']{0,1}[> \r\n\t]{1,}/isu";
+                /* $pattern = "/<img.*?src=[\'|\"](.*?(?:[\.gif|\.jpg|\.jpeg|\.png]))[\'|\"].*?[\/]?>/i"; */
+                // 在抽取到field内容之后调用, 对其中包含的img标签进行回调处理
+                if ($this->on_handle_img && preg_match($pattern, $data)) {
+                    $return = call_user_func($this->on_handle_img, $fieldname, $data);
+                    if (!isset($return)) {
+                        log::warn("on_handle_img return value can't be empty\n");
+                    } else {
                         // 有数据才会执行 on_handle_img 方法, 所以这里不要被替换没了
                         $data = $return;
                     }
                 }
-
                 // 当一个field的内容被抽取到后进行的回调, 在此回调中可以对网页中抽取的内容作进一步处理
-                if ($this->on_extract_field) 
-                {
+                if ($this->on_extract_field) {
                     $return = call_user_func($this->on_extract_field, $fieldname, $data, $page);
-                    if (!isset($return))
-                    {
+                    if (!isset($return)) {
                         log::warn("on_extract_field return value can't be empty\n");
-                    }
-                    else 
-                    {
+                    } else {
                         // 有数据才会执行 on_extract_field 方法, 所以这里不要被替换没了
                         $fields[$fieldname] = $return;
                     }
